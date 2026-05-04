@@ -5,6 +5,15 @@
 - [x] Replace SQLite-backed repository persistence with file-based Planvas project storage.
 - [x] Add default Planvas root resolution at `<user_home>/.planvas/`, with `WHITEBOARD_PLANVAS_ROOT` override.
 - [x] Store each Project as a working directory containing `.pv_project/metadata.json` and one XML file per Page under `.pv_project/`.
+- [x] Treat `.pv_project/*.md` files as project note files and surface them as `note_paper` notes.
+- [x] Store `note_paper` markdown bodies in `.pv_project/*.md` files while keeping Page XML limited to placement data and a markdown file reference.
+- [x] Add a left-sidebar Notes box that lists all project markdown notes.
+- [x] Let users drag a note from the left Notes box onto any Page row to create a `note_paper` placement on that Page.
+- [x] Make Pages and Notes sidebar boxes expandable/collapsible with internal scrolling capped to half the sidebar height.
+- [x] Refresh the sidebar Notes box after markdown-backed note create, update, rename, and delete operations.
+- [x] Make Page note deletion remove only the board placement while preserving the Project `.md` note file.
+- [x] Allow the same Project note file to be placed multiple times on one Page and across multiple Pages.
+- [x] Propagate note filename changes across all Page placements that reference the same `.md` file.
 - [x] Add `<user_home>/.planvas/project.json` as the common project path index.
 - [x] Add `<user_home>/.planvas/project_store/<project_name>/` as the default location for newly created projects.
 - [x] Add `.pv_project/` data directory creation for initialized Project directories.
@@ -71,6 +80,9 @@
 - [x] Keep `text_box` read mode scrollbar-free and let it show as much text as the current size allows.
 - [x] Make `note_paper` read mode scroll its body when markdown content overflows.
 - [x] Prioritize the first Markdown `#` heading when a `note_paper` is too small to show both title and body comfortably.
+- [x] Back `note_paper` content with `.md` files under `.pv_project/` instead of storing markdown text inside Page XML.
+- [x] Let the right inspector rename the markdown backing file for a selected `note_paper`.
+- [x] Add project-level note listing API and sidebar drag placement for markdown-backed notes.
 
 ## Table And Small-Item Sizing Update Notes
 
@@ -132,6 +144,7 @@
 - [x] Store Project records in `<project_name>/.pv_project/metadata.json`.
 - [x] Store Page records in the Project metadata page list.
 - [x] Store board items inside each Page XML file.
+- [x] Store `note_paper` bodies in sibling markdown files and keep only `data_json.noteFile` references in Page XML.
 - [x] Store connector links inside each Page XML file.
 - [x] Keep page / item / connector ids stable inside metadata and XML files.
 - [x] Replace DB access with a filesystem repository.
@@ -380,4 +393,3 @@
 5. ?拐辣璅∪????撖虫?
 6. Snap?onnector ????
 7. ?祆??函蔡瘚??葫閰?
-

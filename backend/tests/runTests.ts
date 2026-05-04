@@ -17,6 +17,7 @@ import type {
   Page,
   PageBoardData,
   Project,
+  ProjectNote,
 } from '../src/types.js';
 
 type TestCase = {
@@ -386,6 +387,224 @@ const tests: TestCase[] = [
         false,
       );
       assert.deepEqual(replace.data.connector_links, [connector]);
+    },
+  },
+  {
+    name: 'stores note paper content in markdown files',
+    run: async () => {
+      const { baseUrl, settings } = await createTestServer();
+      const project = (
+        await requestJson<Project>(baseUrl, '/projects', {
+          method: 'POST',
+          ...jsonBody({ name: 'Notes' }),
+        })
+      ).data;
+      const page = (
+        await requestJson<Page>(baseUrl, `/projects/${project.id}/pages`, {
+          method: 'POST',
+          ...jsonBody({ name: 'Main' }),
+        })
+      ).data;
+      const otherPage = (
+        await requestJson<Page>(baseUrl, `/projects/${project.id}/pages`, {
+          method: 'POST',
+          ...jsonBody({ name: 'Other' }),
+        })
+      ).data;
+      const projectDataDir = path.join(
+        settings.planvasRoot,
+        'project_store',
+        'Notes',
+        '.pv_project',
+      );
+
+      const note = await createBoardItem(baseUrl, {
+        page_id: page.id,
+        parent_item_id: null,
+        category: 'small_item',
+        type: 'note_paper',
+        title: null,
+        content: '# Created note\n\nBody text',
+        content_format: 'markdown',
+        x: 120,
+        y: 120,
+        width: 264,
+        height: 216,
+        rotation: 0,
+        z_index: 0,
+        is_collapsed: false,
+        style_json: null,
+        data_json: null,
+      });
+
+      const markdownFiles = fs
+        .readdirSync(projectDataDir)
+        .filter((file) => file.endsWith('.md'));
+      assert.deepEqual(markdownFiles, ['Created-note.md']);
+      assert.equal(
+        fs.readFileSync(path.join(projectDataDir, 'Created-note.md'), 'utf8'),
+        '# Created note\n\nBody text',
+      );
+      const pageXml = fs.readFileSync(
+        path.join(projectDataDir, 'Main.xml'),
+        'utf8',
+      );
+      assert.doesNotMatch(pageXml, /# Created note/);
+      assert.match(pageXml, /<content \/>/);
+      assert.match(pageXml, /"noteFile":"Created-note\.md"/);
+
+      const boardData = (
+        await requestJson<PageBoardData>(
+          baseUrl,
+          `/pages/${page.id}/board-data`,
+        )
+      ).data;
+      assert.equal(boardData.board_items.length, 1);
+      assert.equal(
+        boardData.board_items[0]?.content,
+        '# Created note\n\nBody text',
+      );
+      assert.equal(boardData.board_items[0]?.content_format, 'markdown');
+
+      const persistedNote = boardData.board_items[0];
+      if (!persistedNote) throw new Error('Missing markdown-backed note');
+      await createBoardItem(baseUrl, {
+        ...persistedNote,
+        page_id: page.id,
+        x: 420,
+        y: 120,
+        z_index: 1,
+      });
+      await createBoardItem(baseUrl, {
+        ...persistedNote,
+        page_id: otherPage.id,
+        x: 120,
+        y: 120,
+        z_index: 0,
+      });
+      const renamedNoteData = {
+        ...(JSON.parse(persistedNote.data_json ?? '{}') as Record<
+          string,
+          unknown
+        >),
+        noteFile: 'Renamed-note.md',
+      };
+      const renamedNote = (
+        await requestJson<BoardItem>(
+          baseUrl,
+          `/board-items/${persistedNote.id}`,
+          {
+            method: 'PATCH',
+            ...jsonBody({
+              ...persistedNote,
+              data_json: JSON.stringify(renamedNoteData),
+            }),
+          },
+        )
+      ).data;
+      assert.equal(renamedNote.type, 'note_paper');
+      assert.equal(
+        fs.existsSync(path.join(projectDataDir, 'Created-note.md')),
+        false,
+      );
+      assert.equal(
+        fs.readFileSync(path.join(projectDataDir, 'Renamed-note.md'), 'utf8'),
+        '# Created note\n\nBody text',
+      );
+      const mainBoardAfterRename = (
+        await requestJson<PageBoardData>(
+          baseUrl,
+          `/pages/${page.id}/board-data`,
+        )
+      ).data;
+      const otherBoardAfterRename = (
+        await requestJson<PageBoardData>(
+          baseUrl,
+          `/pages/${otherPage.id}/board-data`,
+        )
+      ).data;
+      assert.equal(mainBoardAfterRename.board_items.length, 2);
+      assert.equal(otherBoardAfterRename.board_items.length, 1);
+      assert.ok(
+        [...mainBoardAfterRename.board_items, ...otherBoardAfterRename.board_items].every(
+          (item) => item.data_json?.includes('"noteFile":"Renamed-note.md"'),
+        ),
+      );
+
+      const deletePlacement = await fetch(
+        `${baseUrl}/board-items/${persistedNote.id}`,
+        { method: 'DELETE' },
+      );
+      assert.equal(deletePlacement.status, 204);
+      const mainBoardAfterDelete = (
+        await requestJson<PageBoardData>(
+          baseUrl,
+          `/pages/${page.id}/board-data`,
+        )
+      ).data;
+      assert.equal(mainBoardAfterDelete.board_items.length, 1);
+      assert.equal(
+        fs.readFileSync(path.join(projectDataDir, 'Renamed-note.md'), 'utf8'),
+        '# Created note\n\nBody text',
+      );
+
+      assert.equal(note.type, 'note_paper');
+      const looseProject = (
+        await requestJson<Project>(baseUrl, '/projects', {
+          method: 'POST',
+          ...jsonBody({ name: 'Loose Notes' }),
+        })
+      ).data;
+      const loosePage = (
+        await requestJson<Page>(baseUrl, `/projects/${looseProject.id}/pages`, {
+          method: 'POST',
+          ...jsonBody({ name: 'Inbox' }),
+        })
+      ).data;
+      const looseProjectDataDir = path.join(
+        settings.planvasRoot,
+        'project_store',
+        'Loose-Notes',
+        '.pv_project',
+      );
+      fs.writeFileSync(
+        path.join(looseProjectDataDir, 'Loose.md'),
+        '# Loose note\n\nImported body',
+        'utf8',
+      );
+      const looseNotes = (
+        await requestJson<ProjectNote[]>(
+          baseUrl,
+          `/projects/${looseProject.id}/notes`,
+        )
+      ).data;
+      assert.deepEqual(
+        looseNotes.map((entry) => ({
+          note_file: entry.note_file,
+          title: entry.title,
+          content: entry.content,
+          content_format: entry.content_format,
+        })),
+        [
+          {
+            note_file: 'Loose.md',
+            title: 'Loose note',
+            content: '# Loose note\n\nImported body',
+            content_format: 'markdown',
+          },
+        ],
+      );
+
+      const importedBoardData = (
+        await requestJson<PageBoardData>(
+          baseUrl,
+          `/pages/${loosePage.id}/board-data`,
+        )
+      ).data;
+      const importedNote = importedBoardData.board_items.find(
+        (item) => item.content === '# Loose note\n\nImported body',
+      );
+      assert.equal(importedNote, undefined);
     },
   },
   {

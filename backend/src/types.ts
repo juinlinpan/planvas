@@ -31,6 +31,14 @@ export type Page = {
   updated_at: string;
 };
 
+export type ProjectNote = {
+  note_file: string;
+  title: string;
+  content: string;
+  content_format: 'markdown';
+  updated_at: string;
+};
+
 export type BoardItemBase = {
   page_id: string;
   parent_item_id: string | null;

@@ -73,6 +73,51 @@ function isTextContentItem(item: BoardItem): boolean {
   );
 }
 
+function parseDataJson(value: string | null): Record<string, unknown> {
+  if (value === null || value.trim().length === 0) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+    ) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // Legacy data_json values may be non-JSON strings.
+  }
+
+  return {};
+}
+
+function getNoteFileName(item: BoardItem): string {
+  const noteFile = parseDataJson(item.data_json).noteFile;
+  return typeof noteFile === 'string' ? noteFile : '';
+}
+
+function normalizeMarkdownFileName(value: string): string {
+  const normalized = value
+    .trim()
+    .replace(/[/\\:*?"<>|]+/g, '-')
+    .replace(/^\.+/, '')
+    .replace(/\s+/g, '-');
+  const withoutTrailingDots = normalized.replace(/\.+$/g, '');
+  if (withoutTrailingDots.length === 0) {
+    return '';
+  }
+  return withoutTrailingDots.toLowerCase().endsWith('.md')
+    ? withoutTrailingDots
+    : `${withoutTrailingDots}.md`;
+}
+
+function serializeNoteFileName(item: BoardItem, noteFile: string): string {
+  return JSON.stringify({ ...parseDataJson(item.data_json), noteFile });
+}
+
 function normalizeRotation(value: number): number {
   if (!Number.isFinite(value)) {
     return 0;
@@ -255,13 +300,17 @@ export function Inspector({
       ? selectedTableCells.every(
           (cell) =>
             (cell.backgroundColor ?? resolvedStyle.backgroundColor) ===
-            (selectedTableCells[0]?.backgroundColor ?? resolvedStyle.backgroundColor),
+            (selectedTableCells[0]?.backgroundColor ??
+              resolvedStyle.backgroundColor),
         )
-        ? (selectedTableCells[0]?.backgroundColor ?? resolvedStyle.backgroundColor)
+        ? (selectedTableCells[0]?.backgroundColor ??
+          resolvedStyle.backgroundColor)
         : resolvedStyle.backgroundColor
       : resolvedStyle.backgroundColor;
   const selectedTableCellTextContent =
-    selectedTableCells.length === 1 ? selectedTableCells[0]?.content ?? '' : '';
+    selectedTableCells.length === 1
+      ? (selectedTableCells[0]?.content ?? '')
+      : '';
   const hasCustomStyle =
     selectedItem.style_json !== null &&
     selectedItem.style_json.trim().length > 0;
@@ -295,6 +344,26 @@ export function Inspector({
         selectedItem.type === ITEM_TYPE.note_paper
           ? 'markdown'
           : selectedItem.content_format,
+    });
+  }
+
+  function handleNoteFileNameChange(rawValue: string) {
+    if (selectedItem.type !== ITEM_TYPE.note_paper) {
+      return;
+    }
+
+    const nextNoteFile = normalizeMarkdownFileName(rawValue);
+    if (
+      nextNoteFile.length === 0 ||
+      nextNoteFile === getNoteFileName(selectedItem)
+    ) {
+      return;
+    }
+
+    onUpdate({
+      ...selectedItem,
+      data_json: serializeNoteFileName(selectedItem, nextNoteFile),
+      content_format: 'markdown',
     });
   }
 
@@ -360,7 +429,7 @@ export function Inspector({
                 ? '位置與尺寸會隨連線目標自動計算'
                 : isSegmentItem
                   ? '直接拖曳畫布上的起點與終點控制點，調整長度與方向。'
-                : summarizeContent(selectedItem)}
+                  : summarizeContent(selectedItem)}
             </p>
           </div>
           <button className="ghost-button danger-button" onClick={onDelete}>
@@ -437,10 +506,12 @@ export function Inspector({
           <section className="inspector-section">
             <p className="meta-label">Table</p>
             <p className="inspector-meta">
-              已填入 {countFilledTableCells(tableData)}/{tableData.rows * tableData.cols} 格。
+              已填入 {countFilledTableCells(tableData)}/
+              {tableData.rows * tableData.cols} 格。
             </p>
             <p className="inspector-meta">
-              在表格內反白一格或多格後，底下 Style 的背景色會只套用到反白儲存格。
+              在表格內反白一格或多格後，底下 Style
+              的背景色會只套用到反白儲存格。
             </p>
           </section>
         ) : null}
@@ -549,6 +620,23 @@ export function Inspector({
                 />
               </label>
             ) : null}
+            {selectedItem.type === ITEM_TYPE.note_paper ? (
+              <label className="inspector-field">
+                Markdown file
+                <input
+                  key={`${selectedItem.id}-${getNoteFileName(selectedItem)}`}
+                  type="text"
+                  defaultValue={getNoteFileName(selectedItem)}
+                  placeholder="note.md"
+                  onBlur={(e) => handleNoteFileNameChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.currentTarget.blur();
+                    }
+                  }}
+                />
+              </label>
+            ) : null}
             {selectedItem.type === ITEM_TYPE.frame ? (
               <div className="inspector-row">
                 <span>{childCount} 個內含物件</span>
@@ -590,9 +678,13 @@ export function Inspector({
                 tone="background"
                 onSelect={(value) =>
                   isTable && selectedTableCells.length > 0
-                    ? onUpdateTableCells(selectedItem.id, selectedTableCellIds, {
-                        backgroundColor: value,
-                      })
+                    ? onUpdateTableCells(
+                        selectedItem.id,
+                        selectedTableCellIds,
+                        {
+                          backgroundColor: value,
+                        },
+                      )
                     : handleStyleChange({ backgroundColor: value })
                 }
               />

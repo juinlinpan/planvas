@@ -191,6 +191,12 @@ function buildRoutes(): Route[] {
         repository.listPages(params.projectId),
     },
     {
+      method: 'GET',
+      pattern: /^\/projects\/(?<projectId>[^/]+)\/notes$/,
+      handler: ({ repository }, { params }) =>
+        repository.listProjectNotes(params.projectId),
+    },
+    {
       method: 'POST',
       pattern: /^\/projects\/(?<projectId>[^/]+)\/pages$/,
       statusCode: 201,

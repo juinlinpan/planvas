@@ -937,6 +937,56 @@ body {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
+.sidebar-foldout-section {
+  min-height: 0;
+}
+
+.sidebar-foldout-trigger {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.sidebar-foldout-trigger:focus-visible {
+  outline: 2px solid var(--sidebar-accent);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.sidebar-foldout-title {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: 6px;
+}
+
+.sidebar-foldout-title svg {
+  flex: 0 0 auto;
+  transition: transform 140ms ease;
+}
+
+.sidebar-foldout-section.is-collapsed .sidebar-foldout-title svg {
+  transform: rotate(-90deg);
+}
+
+.sidebar-section-body {
+  display: flex;
+  min-height: 0;
+  max-height: calc((100vh - 260px) / 2);
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.sidebar-foldout-section.is-collapsed .sidebar-section-body {
+  display: none;
+}
+
 .sidebar-name-panel {
   gap: 10px;
 }
@@ -1273,6 +1323,21 @@ h3 {
 
 .list-button.is-sortable {
   cursor: grab;
+}
+
+.note-list-button {
+  cursor: grab;
+}
+
+.note-list-button:active {
+  cursor: grabbing;
+}
+
+.note-list-button small {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .list-button.is-sortable:active {

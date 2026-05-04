@@ -8,6 +8,7 @@ import {
   type DragEvent as ReactDragEvent,
 } from 'react';
 import {
+  createBoardItem,
   createPage,
   createProject,
   deletePage,
@@ -15,6 +16,7 @@ import {
   getPageBoardData,
   getHealth,
   listPages,
+  listProjectNotes,
   listProjects,
   openProjectPath,
   openProjectWithDialog,
@@ -25,6 +27,7 @@ import {
   type Page,
   type PageBoardData,
   type Project,
+  type ProjectNote,
   type ProjectThemeColor,
 } from './api';
 import { Canvas } from './Canvas';
@@ -43,7 +46,7 @@ import { resolveProjectEntryPageId } from './workspaceNavigation';
 
 type AppView = 'home' | 'workspace';
 type LoadState = 'loading' | 'ready' | 'error';
-type SidebarListKind = 'pages';
+type SidebarListKind = 'pages' | 'notes';
 type DropPosition = 'before' | 'after';
 type SidebarDragState = {
   kind: SidebarListKind;
@@ -52,6 +55,8 @@ type SidebarDragState = {
 type SidebarDropState = SidebarDragState & {
   position: DropPosition;
 };
+
+type SidebarSectionId = 'pages' | 'notes';
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY =
   'whiteboard.workspaceSidebarCollapsed';
@@ -122,6 +127,24 @@ function IconTrash() {
       <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
       <line x1="10" x2="10" y1="11" y2="17" />
       <line x1="14" x2="14" y1="11" y2="17" />
+    </svg>
+  );
+}
+
+function IconChevronDown() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m6 9 6 6 6-6" />
     </svg>
   );
 }
@@ -372,6 +395,7 @@ export function App() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
+  const [projectNotes, setProjectNotes] = useState<ProjectNote[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     initialRoute.view === 'workspace' ? initialRoute.projectId : null,
   );
@@ -387,6 +411,7 @@ export function App() {
   const [pageRenameDraft, setPageRenameDraft] = useState('');
   const [isMutating, setIsMutating] = useState(false);
   const [isLoadingPages, setIsLoadingPages] = useState(false);
+  const [isLoadingNotes, setIsLoadingNotes] = useState(false);
   const [pageRefreshTokenById, setPageRefreshTokenById] = useState<
     Record<string, number>
   >({});
@@ -397,6 +422,12 @@ export function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() =>
     readStoredBoolean(SIDEBAR_COLLAPSED_STORAGE_KEY, false),
   );
+  const [expandedSidebarSections, setExpandedSidebarSections] = useState<
+    Record<SidebarSectionId, boolean>
+  >({
+    pages: true,
+    notes: true,
+  });
   const pageImportInputRef = useRef<HTMLInputElement | null>(null);
 
   const selectedProject = useMemo(
@@ -596,6 +627,7 @@ export function App() {
   useEffect(() => {
     if (selectedProjectId === null) {
       setPages([]);
+      setProjectNotes([]);
       setSelectedPageId(null);
       return;
     }
@@ -603,12 +635,17 @@ export function App() {
     const projectId = selectedProjectId;
     const controller = new AbortController();
     setIsLoadingPages(true);
+    setIsLoadingNotes(true);
     setErrorMessage(null);
 
     async function loadProjectPages(): Promise<void> {
       try {
-        const nextPages = await listPages(projectId, controller.signal);
+        const [nextPages, nextNotes] = await Promise.all([
+          listPages(projectId, controller.signal),
+          listProjectNotes(projectId, controller.signal),
+        ]);
         setPages(nextPages);
+        setProjectNotes(nextNotes);
         setSelectedPageId((current) => selectFallbackId(nextPages, current));
       } catch (error) {
         if (isAbortError(error)) {
@@ -617,10 +654,12 @@ export function App() {
 
         setErrorMessage(getErrorMessage(error));
         setPages([]);
+        setProjectNotes([]);
         setSelectedPageId(null);
       } finally {
         if (!controller.signal.aborted) {
           setIsLoadingPages(false);
+          setIsLoadingNotes(false);
         }
       }
     }
@@ -640,6 +679,18 @@ export function App() {
     } finally {
       setIsMutating(false);
     }
+  }
+
+  async function refreshProjectNotes(projectId: string): Promise<void> {
+    const nextNotes = await listProjectNotes(projectId);
+    setProjectNotes(nextNotes);
+  }
+
+  function toggleSidebarSection(sectionId: SidebarSectionId): void {
+    setExpandedSidebarSections((current) => ({
+      ...current,
+      [sectionId]: !current[sectionId],
+    }));
   }
 
   async function handleCreateProject(): Promise<void> {
@@ -916,7 +967,7 @@ export function App() {
       return;
     }
 
-    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.effectAllowed = kind === 'notes' ? 'copy' : 'move';
     event.dataTransfer.setData('text/plain', `${kind}:${itemId}`);
     setDragState({ kind, itemId });
     setDropState(null);
@@ -927,13 +978,29 @@ export function App() {
     targetId: string,
     event: ReactDragEvent<HTMLElement>,
   ): void {
-    if (
-      dragState === null ||
-      dragState.kind !== kind ||
-      dragState.itemId === targetId
-    ) {
+    if (dragState === null) {
       return;
     }
+
+    if (dragState.kind === 'notes' && kind === 'pages') {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+      setDropState((current) => {
+        if (
+          current !== null &&
+          current.kind === kind &&
+          current.itemId === targetId &&
+          current.position === 'after'
+        ) {
+          return current;
+        }
+
+        return { kind, itemId: targetId, position: 'after' };
+      });
+      return;
+    }
+
+    if (dragState.kind !== kind || dragState.itemId === targetId) return;
 
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
@@ -982,6 +1049,59 @@ export function App() {
     }
   }
 
+  async function handleNoteDrop(noteFile: string, targetPageId: string): Promise<void> {
+    if (selectedProject === null) {
+      return;
+    }
+
+    const note = projectNotes.find((entry) => entry.note_file === noteFile);
+    const targetPage = pages.find((page) => page.id === targetPageId);
+    if (note === undefined || targetPage === undefined) {
+      return;
+    }
+
+    setIsMutating(true);
+    setErrorMessage(null);
+
+    try {
+      const targetBoardData = await getPageBoardData(targetPage.id);
+      const maxZIndex = targetBoardData.board_items.reduce(
+        (max, item) => Math.max(max, item.z_index),
+        -1,
+      );
+      await createBoardItem({
+        page_id: targetPage.id,
+        parent_item_id: null,
+        category: 'small_item',
+        type: 'note_paper',
+        title: note.title,
+        content: note.content,
+        content_format: note.content_format,
+        x: targetPage.viewport_x + 120,
+        y: targetPage.viewport_y + 120,
+        width: 264,
+        height: 216,
+        rotation: 0,
+        z_index: maxZIndex + 1,
+        is_collapsed: false,
+        style_json: null,
+        data_json: JSON.stringify({
+          noteFile: note.note_file,
+          noteFileManaged: false,
+        }),
+      });
+      setPageRefreshTokenById((current) => ({
+        ...current,
+        [targetPage.id]: (current[targetPage.id] ?? 0) + 1,
+      }));
+      await refreshProjectNotes(selectedProject.id);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsMutating(false);
+    }
+  }
+
   function handleSidebarDrop(
     kind: SidebarListKind,
     targetId: string,
@@ -992,11 +1112,16 @@ export function App() {
     const position = getDropPosition(event);
     clearDragState();
 
-    if (
-      currentDragState === null ||
-      currentDragState.kind !== kind ||
-      currentDragState.itemId === targetId
-    ) {
+    if (currentDragState === null) {
+      return;
+    }
+
+    if (currentDragState.kind === 'notes' && kind === 'pages') {
+      void handleNoteDrop(currentDragState.itemId, targetId);
+      return;
+    }
+
+    if (currentDragState.kind !== kind || currentDragState.itemId === targetId) {
       return;
     }
 
@@ -1188,12 +1313,25 @@ export function App() {
               </div>
             </div>
           </section>
-          <section className="sidebar-section">
-            <div className="section-title-row">
-              <h2 className="sidebar-pages-heading">Pages</h2>
+          <section
+            className={`sidebar-section sidebar-foldout-section ${
+              expandedSidebarSections.pages ? 'is-expanded' : 'is-collapsed'
+            }`}
+          >
+            <button
+              type="button"
+              className="section-title-row sidebar-foldout-trigger"
+              aria-expanded={expandedSidebarSections.pages}
+              onClick={() => toggleSidebarSection('pages')}
+            >
+              <span className="sidebar-foldout-title">
+                <IconChevronDown />
+                <span className="sidebar-pages-heading">Pages</span>
+              </span>
               <span className="count-badge">{pages.length}</span>
-            </div>
-            {selectedProject === null ? (
+            </button>
+            <div className="sidebar-section-body">
+              {selectedProject === null ? (
               <p className="empty-copy">Select a project to view pages.</p>
             ) : isLoadingPages ? (
               <p className="empty-copy">Loading pages...</p>
@@ -1334,14 +1472,70 @@ export function App() {
                   );
                 })}
               </div>
-            )}
+              )}
+              <button
+                className="primary-button sidebar-add-page-button"
+                disabled={selectedProject === null || isMutating}
+                onClick={() => void handleCreatePage()}
+              >
+                New page
+              </button>
+            </div>
+          </section>
+          <section
+            className={`sidebar-section sidebar-notes-section sidebar-foldout-section ${
+              expandedSidebarSections.notes ? 'is-expanded' : 'is-collapsed'
+            }`}
+          >
             <button
-              className="primary-button sidebar-add-page-button"
-              disabled={selectedProject === null || isMutating}
-              onClick={() => void handleCreatePage()}
+              type="button"
+              className="section-title-row sidebar-foldout-trigger"
+              aria-expanded={expandedSidebarSections.notes}
+              onClick={() => toggleSidebarSection('notes')}
             >
-              New page
+              <span className="sidebar-foldout-title">
+                <IconChevronDown />
+                <span className="sidebar-pages-heading">Notes</span>
+              </span>
+              <span className="count-badge">{projectNotes.length}</span>
             </button>
+            <div className="sidebar-section-body">
+              {selectedProject === null ? (
+              <p className="empty-copy">Select a project to view notes.</p>
+            ) : isLoadingNotes ? (
+              <p className="empty-copy">Loading notes...</p>
+            ) : projectNotes.length === 0 ? (
+              <p className="empty-copy">This project has no markdown notes yet.</p>
+            ) : (
+              <div className="list-stack sidebar-notes-list">
+                {projectNotes.map((note) => {
+                  const isDragging =
+                    dragState?.kind === 'notes' &&
+                    dragState.itemId === note.note_file;
+
+                  return (
+                    <button
+                      key={note.note_file}
+                      type="button"
+                      className={`list-button note-list-button ${
+                        isDragging ? 'is-dragging' : ''
+                      }`}
+                      draggable={!isMutating}
+                      title={`Drag ${note.note_file} into a page`}
+                      aria-label={`Drag note ${note.note_file} into a page`}
+                      onDragStart={(event) =>
+                        handleSidebarDragStart('notes', note.note_file, event)
+                      }
+                      onDragEnd={clearDragState}
+                    >
+                      <span>{note.note_file}</span>
+                      <small>{note.title}</small>
+                    </button>
+                  );
+                })}
+              </div>
+              )}
+            </div>
           </section>
         </aside>
 
@@ -1392,6 +1586,15 @@ export function App() {
               onViewportChange={(viewport) =>
                 handlePageViewportChange(selectedPage.id, viewport)
               }
+              onProjectNotesChanged={() => {
+                if (selectedProjectId !== null) {
+                  void refreshProjectNotes(selectedProjectId);
+                }
+                setPageRefreshTokenById((current) => ({
+                  ...current,
+                  [selectedPage.id]: (current[selectedPage.id] ?? 0) + 1,
+                }));
+              }}
             />
           )}
         </section>

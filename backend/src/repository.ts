@@ -22,6 +22,7 @@ import {
   type ProjectIndex,
   type ProjectIndexEntry,
   type ProjectMetadata,
+  type ProjectNote,
   type ProjectUpdatePayload,
 } from './types.js';
 
@@ -38,6 +39,7 @@ const metadataFilename = 'metadata.json';
 const projectIndexFilename = 'project.json';
 const projectStoreDirname = 'project_store';
 const projectMarkerDirname = '.pv_project';
+const noteFileExtension = '.md';
 
 type ProjectEntry = {
   projectDir: string;
@@ -236,6 +238,33 @@ export class WhiteboardRepository {
   listPages(projectId: string): Page[] {
     const { metadata } = this.findProjectMetadata(projectId);
     return this.pagesFromMetadata(metadata);
+  }
+
+  listProjectNotes(projectId: string): ProjectNote[] {
+    const { projectDir } = this.findProjectMetadata(projectId);
+    const projectDataDir = this.projectDataDir(projectDir);
+    if (!fs.existsSync(projectDataDir)) return [];
+
+    return fs
+      .readdirSync(projectDataDir, { withFileTypes: true })
+      .filter(
+        (entry) =>
+          entry.isFile() &&
+          path.extname(entry.name).toLowerCase() === noteFileExtension,
+      )
+      .map((entry): ProjectNote => {
+        const notePath = path.join(projectDataDir, entry.name);
+        const content = fs.readFileSync(notePath, 'utf8');
+        const stats = fs.statSync(notePath);
+        return {
+          note_file: entry.name,
+          title: getMarkdownH1(content) ?? path.basename(entry.name, noteFileExtension),
+          content,
+          content_format: 'markdown',
+          updated_at: stats.mtime.toISOString(),
+        };
+      })
+      .sort((left, right) => left.title.localeCompare(right.title));
   }
 
   getPage(pageId: string): Page {
@@ -475,6 +504,11 @@ export class WhiteboardRepository {
     const index = boardItems.findIndex((item) => item.id === itemId);
     if (index === -1)
       throw new HttpError(404, `Board item '${itemId}' was not found.`);
+    const { projectDir, metadata } = this.findPageMetadata(payload.page_id);
+    const previousNoteFile =
+      boardItems[index].type === 'note_paper'
+        ? this.noteFileFromDataJson(boardItems[index].data_json)
+        : null;
     const nextItem = {
       ...payload,
       id: itemId,
@@ -483,6 +517,13 @@ export class WhiteboardRepository {
     };
     boardItems[index] = nextItem;
     this.persistPageBoard(page, boardItems, connectorLinks);
+    const nextNoteFile =
+      nextItem.type === 'note_paper'
+        ? this.noteFileFromDataJson(nextItem.data_json)
+        : null;
+    if (previousNoteFile && nextNoteFile && previousNoteFile !== nextNoteFile) {
+      this.renameProjectNoteFile(projectDir, metadata, previousNoteFile, nextNoteFile);
+    }
     return nextItem;
   }
 
@@ -593,9 +634,13 @@ export class WhiteboardRepository {
   }
 
   getPageBoardData(pageId: string): PageBoardData {
-    const page = this.getPage(pageId);
+    const nextPage = this.getPage(pageId);
     const { boardItems, connectorLinks } = this.readPageXml(pageId);
-    return { page, board_items: boardItems, connector_links: connectorLinks };
+    return {
+      page: nextPage,
+      board_items: boardItems,
+      connector_links: connectorLinks,
+    };
   }
 
   private projectStoreDir(): string {
@@ -998,7 +1043,21 @@ export class WhiteboardRepository {
     connectorLinks: ConnectorLink[];
   } {
     const { projectDir, metadata, page } = this.findPageMetadata(pageId);
-    const pagePath = this.pagePath(projectDir, metadata, pageId);
+    return this.readPageXmlFile(
+      this.pagePath(projectDir, metadata, pageId),
+      page,
+      this.projectDataDir(projectDir),
+    );
+  }
+
+  private readPageXmlFile(
+    pagePath: string,
+    page: Page,
+    projectDataDir: string,
+  ): {
+    boardItems: BoardItem[];
+    connectorLinks: ConnectorLink[];
+  } {
     if (!fs.existsSync(pagePath)) return { boardItems: [], connectorLinks: [] };
     let xml: string;
     try {
@@ -1009,7 +1068,9 @@ export class WhiteboardRepository {
     const boardItems = [
       ...xml.matchAll(/<board_item\s+([^>]*)>([\s\S]*?)<\/board_item>/g),
     ]
-      .map((match) => this.boardItemFromXml(match[1], match[2], page.id))
+      .map((match) =>
+        this.boardItemFromXml(match[1], match[2], page.id, projectDataDir),
+      )
       .sort(compareBoardItems);
     const connectorBlock =
       xml.match(/<connector_links>([\s\S]*?)<\/connector_links>/)?.[1] ?? '';
@@ -1027,14 +1088,16 @@ export class WhiteboardRepository {
     boardItems: BoardItem[],
     connectorLinks: ConnectorLink[],
   ): void {
+    const projectDataDir = path.dirname(pagePath);
     const lines = [
       '<?xml version="1.0" encoding="utf-8"?>',
       `<page id="${escapeAttribute(page.id)}" project_id="${escapeAttribute(page.project_id)}" name="${escapeAttribute(page.name)}" sort_order="${page.sort_order}" viewport_x="${page.viewport_x}" viewport_y="${page.viewport_y}" zoom="${page.zoom}" created_at="${escapeAttribute(page.created_at)}" updated_at="${escapeAttribute(page.updated_at)}">`,
       '  <board_items>',
     ];
     for (const item of [...boardItems].sort(compareBoardItems)) {
+      const persistedItem = this.writeMarkdownBackedNote(projectDataDir, item);
       lines.push(
-        `    <board_item id="${escapeAttribute(item.id)}" page_id="${escapeAttribute(item.page_id)}" parent_item_id="${escapeAttribute(item.parent_item_id ?? '')}" category="${escapeAttribute(item.category)}" type="${escapeAttribute(item.type)}" x="${item.x}" y="${item.y}" width="${item.width}" height="${item.height}" rotation="${item.rotation}" z_index="${item.z_index}" is_collapsed="${item.is_collapsed ? 'true' : 'false'}" created_at="${escapeAttribute(item.created_at)}" updated_at="${escapeAttribute(item.updated_at)}">`,
+        `    <board_item id="${escapeAttribute(persistedItem.id)}" page_id="${escapeAttribute(persistedItem.page_id)}" parent_item_id="${escapeAttribute(persistedItem.parent_item_id ?? '')}" category="${escapeAttribute(persistedItem.category)}" type="${escapeAttribute(persistedItem.type)}" x="${persistedItem.x}" y="${persistedItem.y}" width="${persistedItem.width}" height="${persistedItem.height}" rotation="${persistedItem.rotation}" z_index="${persistedItem.z_index}" is_collapsed="${persistedItem.is_collapsed ? 'true' : 'false'}" created_at="${escapeAttribute(persistedItem.created_at)}" updated_at="${escapeAttribute(persistedItem.updated_at)}">`,
       );
       for (const fieldName of [
         'title',
@@ -1043,7 +1106,7 @@ export class WhiteboardRepository {
         'style_json',
         'data_json',
       ] as const) {
-        const value = item[fieldName];
+        const value = persistedItem[fieldName];
         if (value === null) lines.push(`      <${fieldName} />`);
         else
           lines.push(`      <${fieldName}>${escapeText(value)}</${fieldName}>`);
@@ -1072,9 +1135,10 @@ export class WhiteboardRepository {
     attributeSource: string,
     body: string,
     pageId: string,
+    projectDataDir: string,
   ): BoardItem {
     const attributes = parseAttributes(attributeSource);
-    return {
+    const item: BoardItem = {
       id: requiredAttribute(attributes, 'id'),
       page_id: attributes.page_id ?? pageId,
       parent_item_id: blankToNull(attributes.parent_item_id),
@@ -1095,6 +1159,148 @@ export class WhiteboardRepository {
       created_at: requiredAttribute(attributes, 'created_at'),
       updated_at: requiredAttribute(attributes, 'updated_at'),
     };
+    return this.readMarkdownBackedNote(projectDataDir, item);
+  }
+
+  private readMarkdownBackedNote(
+    projectDataDir: string,
+    item: BoardItem,
+  ): BoardItem {
+    if (item.type !== 'note_paper') return item;
+    const noteFile = this.noteFileFromDataJson(item.data_json);
+    if (!noteFile) return item;
+    const notePath = this.notePath(projectDataDir, noteFile);
+    if (!notePath || !fs.existsSync(notePath)) return item;
+    try {
+      return {
+        ...item,
+        content: fs.readFileSync(notePath, 'utf8'),
+        content_format: 'markdown',
+      };
+    } catch {
+      return item;
+    }
+  }
+
+  private writeMarkdownBackedNote(
+    projectDataDir: string,
+    item: BoardItem,
+  ): BoardItem {
+    if (item.type !== 'note_paper') return item;
+    const existingNoteData = parseJsonObject(item.data_json);
+    const existingNoteFile = this.noteFileFromDataJson(item.data_json);
+    const noteFile =
+      existingNoteFile ??
+      path.basename(
+        uniquePath(
+          projectDataDir,
+          slugify(
+            getMarkdownH1(item.content) ?? item.title ?? `note-${item.id}`,
+            `note-${item.id}`,
+          ),
+          noteFileExtension,
+        ),
+      );
+    const notePath = this.notePath(projectDataDir, noteFile);
+    if (notePath) {
+      fs.mkdirSync(projectDataDir, { recursive: true });
+      fs.writeFileSync(notePath, item.content ?? '', 'utf8');
+    }
+    const noteData = {
+      ...existingNoteData,
+      noteFile,
+      noteFileManaged:
+        typeof existingNoteData.noteFileManaged === 'boolean'
+          ? existingNoteData.noteFileManaged
+          : false,
+    };
+    return {
+      ...item,
+      content: null,
+      content_format: 'markdown',
+      data_json: JSON.stringify(noteData),
+    };
+  }
+
+  private renameProjectNoteFile(
+    projectDir: string,
+    metadata: ProjectMetadata,
+    previousNoteFile: string,
+    nextNoteFile: string,
+  ): void {
+    const projectDataDir = this.projectDataDir(projectDir);
+    const previousPath = this.notePath(projectDataDir, previousNoteFile);
+    const nextPath = this.notePath(projectDataDir, nextNoteFile);
+    if (!previousPath || !nextPath) return;
+
+    const content = fs.existsSync(nextPath)
+      ? fs.readFileSync(nextPath, 'utf8')
+      : fs.existsSync(previousPath)
+        ? fs.readFileSync(previousPath, 'utf8')
+        : '';
+    fs.mkdirSync(projectDataDir, { recursive: true });
+    fs.writeFileSync(nextPath, content, 'utf8');
+
+    const pages = this.pagesFromMetadata(metadata);
+    const timestamp = utcTimestamp();
+    let changed = false;
+    for (const page of pages) {
+      const pagePath = this.pagePath(projectDir, metadata, page.id);
+      const { boardItems } = this.readPageXmlFile(
+        pagePath,
+        page,
+        projectDataDir,
+      );
+      let pageChanged = false;
+      const nextBoardItems = boardItems.map((item) => {
+        const noteFile = this.noteFileFromDataJson(item.data_json);
+        if (noteFile !== previousNoteFile) return item;
+        pageChanged = true;
+        return {
+          ...item,
+          content,
+          data_json: JSON.stringify({
+            ...parseJsonObject(item.data_json),
+            noteFile: nextNoteFile,
+            noteFileManaged: false,
+          }),
+          updated_at: timestamp,
+        };
+      });
+
+      if (!pageChanged) continue;
+      changed = true;
+      const { connectorLinks } = this.readPageXmlFile(
+        pagePath,
+        page,
+        projectDataDir,
+      );
+      const nextPage = { ...page, updated_at: timestamp };
+      this.replacePageEntry(metadata, nextPage);
+      this.writePageXml(pagePath, nextPage, nextBoardItems, connectorLinks);
+    }
+
+    if (changed) {
+      this.touchProject(metadata, timestamp);
+      writeJsonAtomic(this.metadataPath(projectDir), metadata);
+    }
+    if (fs.existsSync(previousPath)) fs.rmSync(previousPath, { force: true });
+  }
+
+  private noteFileFromDataJson(dataJson: string | null): string | null {
+    const noteFile = parseJsonObject(dataJson).noteFile;
+    if (typeof noteFile !== 'string' || noteFile.trim().length === 0)
+      return null;
+    return path.basename(noteFile);
+  }
+
+  private notePath(projectDataDir: string, noteFile: string): string | null {
+    const safeFile = path.basename(noteFile);
+    if (path.extname(safeFile).toLowerCase() !== noteFileExtension) return null;
+    const notePath = path.resolve(projectDataDir, safeFile);
+    const relative = path.relative(path.resolve(projectDataDir), notePath);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) return null;
+    return notePath;
   }
 
   private findPageForBoardItem(itemId: string): Page {
@@ -1360,6 +1566,32 @@ function readJson(targetPath: string): Record<string, unknown> {
     500,
     `Project metadata '${targetPath}' could not be read.`,
   );
+}
+
+function parseJsonObject(value: string | null): Record<string, unknown> {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+    ) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // Legacy data_json values are not guaranteed to be JSON objects.
+  }
+  return {};
+}
+
+function getMarkdownH1(value: string | null): string | null {
+  if (!value) return null;
+  for (const line of value.split(/\r?\n/)) {
+    const match = line.match(/^#\s+(.+?)\s*$/);
+    if (match) return match[1];
+  }
+  return null;
 }
 
 function expandUser(value: string): string {

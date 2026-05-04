@@ -7,6 +7,8 @@ Local-first whiteboard planning app built with React, TypeScript, Node.js, and f
 - Opening a `Project` from the home screen now writes a dedicated browser history entry and enters the workspace on a real `Page` immediately. If a current page is already known for that project, the app keeps it; otherwise it falls back to the first page in the project.
 - The workspace left sidebar no longer shows project controls. Project renaming now happens directly in the top workspace header.
 - The `Home` button now lives in the workspace sidebar header, to the right of the `Whiteboard` title.
+- The workspace left sidebar includes a `Notes` box listing every markdown note filename in the current Project. Drag a note onto any Page row to place that note on that Page.
+- The `Pages` and `Notes` boxes can be expanded or collapsed. Expanded boxes scroll internally once their entries would exceed about half of the available sidebar height.
 
 ## Workspace Layout
 
@@ -108,12 +110,27 @@ Project content is stored as regular files. By default the backend creates:
 - `<user_home>/.planvas/project_store/<project_name>/.pv_project/`
 - `<user_home>/.planvas/project_store/<project_name>/.pv_project/metadata.json`
 - `<user_home>/.planvas/project_store/<project_name>/.pv_project/<page_name>.xml`
+- `<user_home>/.planvas/project_store/<project_name>/.pv_project/<note_name>.md`
 - `backend/logs/app.log`
 - `backend/logs/backend.log`
 
 Projects opened from other folders use the same `.pv_project/` data directory
-inside the selected folder, with metadata and page XML files under it. Their paths are tracked in
-`project.json`.
+inside the selected folder, with metadata, page XML files, and markdown note
+files under it. Their paths are tracked in `project.json`.
+
+Markdown files placed directly in `.pv_project/` are treated as `note_paper`
+notes. Creating or editing a `note_paper` still uses the normal app UI and API,
+but the backend stores the markdown body in a sibling `.md` file; Page XML keeps
+the board placement plus a reference to that markdown file. Select a
+`note_paper` and use the right inspector's `Markdown file` field to rename the
+backing `.md` file. The workspace sidebar lists those project notes and supports
+dragging a note onto any Page row to add a placement that references the same
+markdown file. The note list refreshes after markdown-backed notes are created,
+renamed, updated, or deleted in the canvas. Deleting a note from a Page removes
+only that board placement; the `.md` file remains in the Project and stays in
+the left Notes list. The same note file can be placed multiple times on one
+Page or across Pages, and every placement reads and writes the same backing
+markdown file.
 
 You can override the project storage root with `WHITEBOARD_PLANVAS_ROOT`:
 

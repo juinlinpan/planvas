@@ -179,4 +179,29 @@ describe('Inspector style palette', () => {
     expect(markup).not.toContain('列數');
     expect(markup).not.toContain('欄數');
   });
+  it('shows the markdown filename field for note paper items', () => {
+    const markup = renderToStaticMarkup(
+      <Inspector
+        item={createBoardItem({
+          type: ITEM_TYPE.note_paper,
+          content: '# Sprint note',
+          content_format: 'markdown',
+          data_json: JSON.stringify({ noteFile: 'Sprint-note.md' }),
+        })}
+        connector={null}
+        selectionCount={1}
+        childCount={0}
+        selectedTableCellIds={[]}
+        isCollapsed={false}
+        onUpdate={() => {}}
+        onUpdateTableCells={() => {}}
+        onDelete={() => {}}
+        onToggleInspector={() => {}}
+        onToggleCollapse={() => {}}
+      />,
+    );
+
+    expect(markup).toContain('Markdown file');
+    expect(markup).toContain('value="Sprint-note.md"');
+  });
 });

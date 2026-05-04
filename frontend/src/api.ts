@@ -32,6 +32,14 @@ export type Page = {
   updated_at: string;
 };
 
+export type ProjectNote = {
+  note_file: string;
+  title: string;
+  content: string;
+  content_format: 'markdown';
+  updated_at: string;
+};
+
 type SuccessResponse<T> = {
   data: T;
 };
@@ -148,6 +156,13 @@ export async function listPages(
   signal?: AbortSignal,
 ): Promise<Page[]> {
   return requestJson<Page[]>(`/projects/${projectId}/pages`, { signal });
+}
+
+export async function listProjectNotes(
+  projectId: string,
+  signal?: AbortSignal,
+): Promise<ProjectNote[]> {
+  return requestJson<ProjectNote[]>(`/projects/${projectId}/notes`, { signal });
 }
 
 export async function createPage(projectId: string, name: string): Promise<Page> {

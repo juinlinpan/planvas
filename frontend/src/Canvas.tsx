@@ -122,6 +122,7 @@ import { getMinimapLayout, worldToMinimap } from './minimap';
 type Props = {
   page: Page;
   onViewportChange?: (viewport: Viewport) => void;
+  onProjectNotesChanged?: () => void;
   onImportPage: () => void;
   onExportPage: (format: 'json' | 'png' | 'pptx') => void;
   importExportDisabled: boolean;
@@ -176,6 +177,7 @@ function readStoredNumber(key: string, fallbackValue: number): number {
 export function Canvas({
   page,
   onViewportChange,
+  onProjectNotesChanged,
   onImportPage,
   onExportPage,
   importExportDisabled,
@@ -496,6 +498,7 @@ export function Canvas({
     setActiveTool: handleToolChange,
     setAnchorIndicatorItems,
     setActiveAnchorHit,
+    onProjectNotesChanged,
   });
 
   useEffect(() => {

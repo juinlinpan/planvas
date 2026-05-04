@@ -14,6 +14,7 @@ Project data is file based. By default the service stores projects under:
 - Project data directory: `<project_directory>/.pv_project/`
 - Project metadata: `<project_directory>/.pv_project/metadata.json`
 - Page files: `<project_directory>/.pv_project/<page_name>.xml`
+- Markdown note files: `<project_directory>/.pv_project/<note_name>.md`
 - Logs: `<backend_root>/logs/app.log`
 - Logs: `<backend_root>/logs/backend.log`
 
@@ -42,6 +43,24 @@ path, creating `.pv_project/` and `.pv_project/metadata.json` only when they are
 before other registered paths.
 `DELETE /projects/{project_id}` removes a missing registered path from
 `project.json`; existing external project folders are not deleted.
+
+`note_paper` board items are markdown-file-backed. The HTTP API continues to
+send and accept the `content` field, while persistence writes that body to
+`.pv_project/<note_name>.md` and stores only a markdown file reference in the
+Page XML. Markdown files placed directly under `.pv_project/` are exposed as
+Project notes for the frontend sidebar. When the frontend updates
+`data_json.noteFile` for a `note_paper`, the repository moves the backing
+markdown content to that filename and updates every Page placement that
+referenced the previous filename.
+
+`GET /projects/{project_id}/notes` returns every `.md` file under the Project's
+`.pv_project/` directory with its title, markdown body, backing filename, and
+update timestamp. The frontend uses this project-level list for the left
+sidebar Notes box and creates Page placements that reference the same markdown
+file. Deleting a `note_paper` board item removes only that placement; markdown
+note files are not deleted by Page item deletion. If a placement renames its
+`data_json.noteFile`, the repository moves the backing file and updates all
+Page placements that referenced the previous filename.
 
 If `frontend/dist/index.html` exists, the backend also serves the built frontend
 bundle from `/` so the app can run on a single local port after `npm run build`.

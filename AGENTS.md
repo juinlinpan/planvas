@@ -5,6 +5,13 @@
 - `.pv_project` is a directory, not a file.
 - Project metadata lives at `<project_dir>/.pv_project/metadata.json`.
 - Page XML files live under `<project_dir>/.pv_project/`.
+- Markdown note files live under `<project_dir>/.pv_project/` and are treated as `note_paper` notes.
+- `note_paper` body text is stored in `.md` files; Page XML stores a reference to the markdown file instead of the note body.
+- The workspace left sidebar has a Notes box listing `.pv_project/*.md` project notes.
+- Dragging a note from the sidebar Notes box onto any Page creates a `note_paper` placement that references the same `.md` file.
+- The sidebar Pages and Notes boxes are individually expandable/collapsible and scroll internally when their entries exceed half the sidebar height.
+- Deleting a `note_paper` from a Page removes only that placement; `.md` note files remain Project-level notes.
+- Multiple placements can reference the same `.md` note file on one or more Pages, and edits to one placement update the shared file.
 
 這個檔案是本專案給 Codex 的固定啟動指引。每次開啟新的 Codex session，應先閱讀本檔，再閱讀 [spec.md](./spec.md) 與 [todo_list.md](./todo_list.md)，並確認本輪需求還會影響哪些其他文件。
 

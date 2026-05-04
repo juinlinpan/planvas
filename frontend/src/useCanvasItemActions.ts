@@ -65,6 +65,7 @@ interface UseCanvasItemActionsParams {
   setActiveTool: (tool: ActiveTool) => void;
   setAnchorIndicatorItems: Dispatch<SetStateAction<BoardItem[]>>;
   setActiveAnchorHit: Dispatch<SetStateAction<AnchorHit | null>>;
+  onProjectNotesChanged?: () => void;
 }
 
 export function useCanvasItemActions({
@@ -86,6 +87,7 @@ export function useCanvasItemActions({
   setActiveTool,
   setAnchorIndicatorItems,
   setActiveAnchorHit,
+  onProjectNotesChanged,
 }: UseCanvasItemActionsParams) {
   const clipboardRef = useRef<ClipboardSnapshot | null>(null);
   const pasteCountRef = useRef(0);
@@ -158,6 +160,15 @@ export function useCanvasItemActions({
 
         console.error('[Canvas] Failed to delete item', result.reason);
       }
+      if (
+        deleteIds.some(
+          (itemId) =>
+            snapshotBeforeDelete.items.find((item) => item.id === itemId)
+              ?.type === ITEM_TYPE.note_paper,
+        )
+      ) {
+        onProjectNotesChanged?.();
+      }
     },
     [
       captureBoardSnapshot,
@@ -170,6 +181,7 @@ export function useCanvasItemActions({
       setEditingId,
       setItemsAndSync,
       setSelection,
+      onProjectNotesChanged,
     ],
   );
 
@@ -390,6 +402,9 @@ export function useCanvasItemActions({
         setItemsAndSync((current) => [...current, created]);
         setSelection([created.id]);
         setEditingId(isInlineEditable(created) ? created.id : null);
+        if (created.type === ITEM_TYPE.note_paper) {
+          onProjectNotesChanged?.();
+        }
       } catch (err) {
         console.error('[Canvas] Failed to create item', err);
       }
@@ -402,6 +417,7 @@ export function useCanvasItemActions({
       setEditingId,
       setItemsAndSync,
       setSelection,
+      onProjectNotesChanged,
     ],
   );
 
@@ -493,9 +509,15 @@ export function useCanvasItemActions({
         void Promise.all([
           updateBoardItem(latestUpdated.id, toPayload(latestUpdated)),
           ...latestChildren.map((child) => updateBoardItem(child.id, toPayload(child))),
-        ]).catch((err) => {
-          console.error('[Canvas] Failed to update item', err);
-        });
+        ])
+          .then(() => {
+            if (latestUpdated.type === ITEM_TYPE.note_paper) {
+              onProjectNotesChanged?.();
+            }
+          })
+          .catch((err) => {
+            console.error('[Canvas] Failed to update item', err);
+          });
         if (editSessionRef.current?.itemId === updated.id) {
           editSessionRef.current = null;
         }
@@ -505,6 +527,7 @@ export function useCanvasItemActions({
       captureBoardSnapshot,
       editSessionRef,
       itemSaveTimerRef,
+      onProjectNotesChanged,
       pushUndoSnapshot,
       setItemsAndSync,
     ],

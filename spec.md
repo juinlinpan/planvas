@@ -11,6 +11,12 @@
 - Each Project directory must contain `.pv_project/` as a Planvas data directory.
 - Project metadata must live at `.pv_project/metadata.json`.
 - Each Page must be stored as an XML file inside `.pv_project/`.
+- Markdown files placed directly under `.pv_project/` are project note files and must be represented as `note_paper` notes by the system.
+- `note_paper` body content must be stored in `.md` files under `.pv_project/`; Page XML stores only the board item placement and a markdown file reference.
+- Creating a `note_paper` on a Page must create a corresponding `.md` file under `.pv_project/`.
+- The workspace left sidebar must include a Notes box listing all `.pv_project/*.md` project notes by filename.
+- Dragging a note from the left Notes box onto any Page row must create a `note_paper` placement on that Page referencing the same `.md` file.
+- The left sidebar Pages and Notes boxes must be individually expandable/collapsible. When expanded, each box grows downward but must not exceed half of the available vertical sidebar space; excess entries scroll inside that box.
 - The existing HTTP API may stay stable while the repository implementation reads and writes `.pv_project/metadata.json` and Page XML files.
 - Opening an external Project path must initialize missing `.pv_project/` / `.pv_project/metadata.json` files when the path is new, and must only add the path to `project.json` when the path is already a Planvas project.
 - Project listing must refresh path existence and sort `project_store/` projects before other registered paths.
@@ -67,6 +73,12 @@
 - When a `text_box` becomes too small to show all text, it should keep showing as much text as fits without introducing a scrollbar.
 - When a `note_paper` becomes too small to show all markdown content, the body area should scroll instead of clipping the whole note.
 - When a `note_paper` has very limited space, the read view should prioritize the first Markdown `#` heading before showing lower-priority body blocks.
+- `note_paper` content is markdown-file-backed: the frontend may continue using the API `content` field, but persistence must write the markdown body to `.pv_project/<note>.md` and reload the API `content` field from that file.
+- The right inspector must let users edit the `.md` filename for a selected `note_paper`; changing it renames the markdown backing file and updates the Page XML reference.
+- Project notes are reusable across Pages: placing a note from the left Notes box creates another board item placement that references the selected markdown file instead of duplicating note text into Page XML.
+- The Notes box must refresh after markdown-backed notes are created, renamed, updated, or deleted through the canvas or inspector so it reflects the Project's current note files.
+- Deleting a `note_paper` from a Page deletes only that Page placement. It must not delete the backing `.md` file or remove the note from the left Notes box.
+- The same `.md` note may appear multiple times on the same Page and on multiple Pages. All placements share the same backing file, so content or filename changes update every placement that references that note.
 
 ## Table And Small-Item Sizing Update Notes
 
@@ -330,13 +342,13 @@ Page ?臬鋆?閬?嚗?
 - ???脣??澆蝺刻摩??
 - 皛?獢憭敺＊蝷箝?雿萸????蔥?箏銝?脣??潘?`rowSpan` / `colSpan` > 1嚗?
 - 撌脣?雿萄摮?舀?璈怠? / 蝮勗???Ｗ儔
-- ?舀? `small_item`嚗text_box`?sticky_note`?note_paper`嚗??脣摮?賊?嚗? `frame` ?詨?摩嚗?item 敺撣?歹??批捆摮?脣??潛? `embed` 甈?
+- ?舀? `small_item`嚗text_box`?sticky_note`?note_paper`嚗??脣摮?賊?嚗? `frame`?詨?摩嚗?item 敺撣?歹??批捆摮?脣??潛?`embed` 甈?
 - 銵冽 resize ???脣??澆撌脣?? `small_item` 敹?頝?靘???cell bounds ?郊????葬?橘?銝衣雁???典??砍摮??
 - 撋?拐辣?摮?舀??嚗＊蝷箸?閬?/ 撅?嚗＊蝷箏??游摰對???
 - ???詨捆嚗閫???? `string[][]` ?澆?銝西????唳撘?
 - Inspector 憿舐內?桀?? / 甈?歇憛急?賂??航?嚗??????寧?賣??inline ??
 - ?蝺黎蝯???皛??詨???**?賊???湔?蝺挾**銝韏瑕?蝎?鈭殷?銝血閰脩黎蝯葉憭桅＊蝷?`+` ??嚗?湔??湔?蝺挾?脰??祝 / 甈?隤踵
-- ?蔥隤?嚗摮銝?血?雿蛛?閬**?啁??函??脣??澆祕擃?*嚗??????儔?鋡怨??摮? identity
+- ?蔥隤?嚗摮銝?血?雿蛛?閬\**?啁??函??脣??澆祕擃?*嚗??????儔?鋡怨??摮? identity
 - ?蝺蝡改??交?撌血嚗?銝?嚗?雿萄摮嚗◤?蔥?脣??潔葉?瑞?銝?嚗?撌血嚗??潛?閬**?函?蝺挾蝢斤?**嚗??芣????蝘餉?勗漲嚗????賊???
 - ?敺?畾萇蝡改?撌脣?雿萄摮?活????啁???脣??潸??箸?摮??啁??銝剝??蝺誑**?桀??蔥?潛???**?閮?嚗????甈?雿蔭嚗?銝??芸???銝?/ 撌血?蝺挾??????蝢斤?
 - 憭??游?隤?嚗?銵冽?憭??啣? row / col ???撘?table 憭?嚗????剝???????函??蝺?瑽????????憭批????潛?雿蔭??cell layout 敹?蝬剜? **exact 銝?**
@@ -474,6 +486,9 @@ Page ?臬鋆?閬?嚗?
 - `title`
 - `content`
 - `content_format`
+- For `note_paper`, `content` is an API/runtime field only. Page XML must not persist the markdown body in `<content>`; it must store the markdown filename in `data_json.noteFile` and read/write the body from `.pv_project/*.md`.
+- Project-level note lists are derived from `.pv_project/*.md` and exposed through `GET /projects/{project_id}/notes`.
+- Page XML may contain multiple `note_paper` placements referencing the same `data_json.noteFile`; the markdown file is the single source of truth.
 - `x`
 - `y`
 - `width`
@@ -620,4 +635,3 @@ MVP ?喳??嚗?
 5. ?拐辣??郊鋆?
 6. magnet ???
 7. Planvas file storage ????撽皜祈岫
-
