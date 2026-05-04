@@ -441,6 +441,8 @@ const tests: TestCase[] = [
         .readdirSync(projectDataDir)
         .filter((file) => file.endsWith('.md'));
       assert.deepEqual(markdownFiles, ['Created-note.md']);
+      assert.match(note.data_json ?? '', /"noteFile":"Created-note\.md"/);
+      assert.equal(note.content, '# Created note\n\nBody text');
       assert.equal(
         fs.readFileSync(path.join(projectDataDir, 'Created-note.md'), 'utf8'),
         '# Created note\n\nBody text',
@@ -605,6 +607,34 @@ const tests: TestCase[] = [
         (item) => item.content === '# Loose note\n\nImported body',
       );
       assert.equal(importedNote, undefined);
+
+      const loosePlacement = await createBoardItem(baseUrl, {
+        page_id: loosePage.id,
+        parent_item_id: null,
+        category: 'small_item',
+        type: 'note_paper',
+        title: 'Loose note',
+        content: null,
+        content_format: 'markdown',
+        x: 80,
+        y: 80,
+        width: 264,
+        height: 216,
+        rotation: 0,
+        z_index: 0,
+        is_collapsed: false,
+        style_json: null,
+        data_json: JSON.stringify({
+          noteFile: 'Loose.md',
+          noteFileManaged: false,
+        }),
+      });
+      assert.equal(loosePlacement.content, '# Loose note\n\nImported body');
+      assert.match(loosePlacement.data_json ?? '', /"noteFile":"Loose\.md"/);
+      assert.equal(
+        fs.readFileSync(path.join(looseProjectDataDir, 'Loose.md'), 'utf8'),
+        '# Loose note\n\nImported body',
+      );
     },
   },
   {

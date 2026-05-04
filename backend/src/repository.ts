@@ -484,9 +484,17 @@ export class WhiteboardRepository {
       updated_at: utcTimestamp(),
     };
     const { boardItems, connectorLinks } = this.readPageXml(page.id);
-    boardItems.push(item);
+    const { projectDir } = this.findPageMetadata(page.id);
+    const persistedItem = this.writeMarkdownBackedNote(
+      this.projectDataDir(projectDir),
+      item,
+    );
+    boardItems.push(persistedItem);
     this.persistPageBoard(page, boardItems, connectorLinks);
-    return item;
+    return this.readMarkdownBackedNote(
+      this.projectDataDir(projectDir),
+      persistedItem,
+    );
   }
 
   updateBoardItem(itemId: string, payload: BoardItemUpdatePayload): BoardItem {
@@ -1202,7 +1210,7 @@ export class WhiteboardRepository {
         ),
       );
     const notePath = this.notePath(projectDataDir, noteFile);
-    if (notePath) {
+    if (notePath && (item.content !== null || !fs.existsSync(notePath))) {
       fs.mkdirSync(projectDataDir, { recursive: true });
       fs.writeFileSync(notePath, item.content ?? '', 'utf8');
     }

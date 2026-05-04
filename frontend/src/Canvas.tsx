@@ -5,14 +5,17 @@ import {
   useMemo,
   useRef,
   useState,
+  type DragEvent as ReactDragEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
 import {
   type BoardItem,
   type ConnectorLink,
+  createBoardItem,
   getPageBoardData,
   updatePageViewport,
   type Page,
+  type ProjectNote,
 } from './api';
 import {
   findFrameDropTarget,
@@ -121,6 +124,7 @@ import { getMinimapLayout, worldToMinimap } from './minimap';
 
 type Props = {
   page: Page;
+  projectNotes?: ProjectNote[];
   onViewportChange?: (viewport: Viewport) => void;
   onProjectNotesChanged?: () => void;
   onImportPage: () => void;
@@ -176,6 +180,7 @@ function readStoredNumber(key: string, fallbackValue: number): number {
 
 export function Canvas({
   page,
+  projectNotes = [],
   onViewportChange,
   onProjectNotesChanged,
   onImportPage,
@@ -940,6 +945,66 @@ export function Canvas({
     };
   }
 
+  function getSidebarNoteDragFile(event: ReactDragEvent): string | null {
+    const rawValue = event.dataTransfer.getData('text/plain');
+    const prefix = 'notes:';
+    if (!rawValue.startsWith(prefix)) {
+      return null;
+    }
+
+    const noteFile = rawValue.slice(prefix.length);
+    return projectNotes.some((note) => note.note_file === noteFile)
+      ? noteFile
+      : null;
+  }
+
+  async function handleProjectNoteDrop(
+    noteFile: string,
+    clientX: number,
+    clientY: number,
+  ): Promise<void> {
+    const note = projectNotes.find((entry) => entry.note_file === noteFile);
+    if (note === undefined) {
+      return;
+    }
+
+    const snapshotBeforeCreate = captureBoardSnapshot();
+    const worldPoint = screenToWorld(clientX, clientY);
+    const zIndexes = itemsRef.current.map((item) => item.z_index);
+    const maxZ = zIndexes.length > 0 ? Math.max(...zIndexes) : 0;
+
+    try {
+      const created = await createBoardItem({
+        page_id: page.id,
+        parent_item_id: null,
+        category: ITEM_CATEGORY.small_item,
+        type: ITEM_TYPE.note_paper,
+        title: note.title,
+        content: null,
+        content_format: 'markdown',
+        x: worldPoint.x,
+        y: worldPoint.y,
+        width: 264,
+        height: 216,
+        rotation: 0,
+        z_index: maxZ + 1,
+        is_collapsed: false,
+        style_json: null,
+        data_json: JSON.stringify({
+          noteFile: note.note_file,
+          noteFileManaged: false,
+        }),
+      });
+      pushUndoSnapshot(snapshotBeforeCreate);
+      setItemsAndSync((current) => [...current, created]);
+      setSelection([created.id]);
+      setEditingId(null);
+      onProjectNotesChanged?.();
+    } catch (err) {
+      console.error('[Canvas] Failed to place project note', err);
+    }
+  }
+
   const handleCanvasContextMenu = useCallback(
     (event: React.MouseEvent) => {
       event.preventDefault();
@@ -1636,6 +1701,21 @@ export function Canvas({
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             onWheel={handleWheel}
+            onDragOver={(event) => {
+              if (getSidebarNoteDragFile(event) !== null) {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'copy';
+              }
+            }}
+            onDrop={(event) => {
+              const noteFile = getSidebarNoteDragFile(event);
+              if (noteFile === null) {
+                return;
+              }
+
+              event.preventDefault();
+              void handleProjectNoteDrop(noteFile, event.clientX, event.clientY);
+            }}
           >
             <div
               className={`canvas-background canvas-background-${backgroundMode}`}

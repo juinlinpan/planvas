@@ -46,6 +46,28 @@ import {
 } from './types';
 import type { AnchorHit, LayerAction } from './canvasHelpers';
 
+function getNoteFileName(item: BoardItem): string | null {
+  if (item.type !== ITEM_TYPE.note_paper || item.data_json === null) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(item.data_json) as unknown;
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      !Array.isArray(parsed) &&
+      typeof (parsed as { noteFile?: unknown }).noteFile === 'string'
+    ) {
+      return (parsed as { noteFile: string }).noteFile;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 interface UseCanvasItemActionsParams {
   pageId: string;
   itemsRef: MutableRefObject<BoardItem[]>;
@@ -484,9 +506,54 @@ export function useCanvasItemActions({
         editSessionRef.current = { itemId: updated.id };
       }
 
+      const previousUpdated =
+        itemsRef.current.find((item) => item.id === updated.id) ?? null;
+      const previousNoteFile = previousUpdated
+        ? getNoteFileName(previousUpdated)
+        : null;
+      const nextNoteFile = getNoteFileName(updated);
+      const shouldPropagateNoteContent =
+        updated.type === ITEM_TYPE.note_paper &&
+        nextNoteFile !== null &&
+        updated.content !== previousUpdated?.content;
+      const shouldPropagateNoteRename =
+        updated.type === ITEM_TYPE.note_paper &&
+        previousNoteFile !== null &&
+        nextNoteFile !== null &&
+        previousNoteFile !== nextNoteFile;
       let changedChildIds: string[] = [];
       setItemsAndSync((current) => {
-        const nextItems = current.map((item) => (item.id === updated.id ? updated : item));
+        const nextItems = current.map((item) => {
+          if (item.id === updated.id) {
+            return updated;
+          }
+
+          const itemNoteFile = getNoteFileName(item);
+          if (
+            shouldPropagateNoteContent &&
+            itemNoteFile === nextNoteFile
+          ) {
+            return {
+              ...item,
+              content: updated.content,
+              content_format: 'markdown',
+            };
+          }
+
+          if (
+            shouldPropagateNoteRename &&
+            itemNoteFile === previousNoteFile
+          ) {
+            return {
+              ...item,
+              content: updated.content,
+              content_format: 'markdown',
+              data_json: updated.data_json,
+            };
+          }
+
+          return item;
+        });
         if (updated.type !== ITEM_TYPE.table) {
           changedChildIds = [];
           return nextItems;

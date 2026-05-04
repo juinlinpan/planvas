@@ -1075,7 +1075,7 @@ export function App() {
         category: 'small_item',
         type: 'note_paper',
         title: note.title,
-        content: note.content,
+        content: null,
         content_format: note.content_format,
         x: targetPage.viewport_x + 120,
         y: targetPage.viewport_y + 120,
@@ -1580,6 +1580,7 @@ export function App() {
             <Canvas
               key={`${selectedPage.id}:${pageRefreshTokenById[selectedPage.id] ?? 0}`}
               page={selectedPage}
+              projectNotes={projectNotes}
               onImportPage={handleImportPageButtonClick}
               onExportPage={handleExportPageClick}
               importExportDisabled={isMutating}
