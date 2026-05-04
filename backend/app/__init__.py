@@ -1,1 +1,0 @@
-"""Whiteboard Planner backend package."""

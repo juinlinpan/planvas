@@ -3,20 +3,21 @@
   "private": true,
   "version": "0.1.0",
   "workspaces": [
+    "backend",
     "frontend"
   ],
   "scripts": {
     "dev": "concurrently -n frontend,backend -c blue,green \"npm run dev:frontend\" \"npm run dev:backend\"",
     "dev:frontend": "npm run dev --workspace frontend",
-    "dev:backend": "cd backend && uv run python -m uvicorn app.main:app --host 127.0.0.1 --port 18000 --reload",
-    "serve": "cd backend && uv run python -m uvicorn app.main:app --host 127.0.0.1 --port 18000",
-    "build": "npm run build --workspace frontend",
-    "lint": "npm run lint --workspace frontend && cd backend && uv run python -m ruff check . && uv run python -m mypy app",
+    "dev:backend": "npm run dev --workspace backend",
+    "serve": "npm run build --workspace backend && npm run serve --workspace backend",
+    "build": "npm run build --workspace frontend && npm run build --workspace backend",
+    "lint": "npm run lint --workspace frontend && npm run typecheck --workspace backend",
     "format": "node ./scripts/format.mjs",
     "smoke": "powershell -ExecutionPolicy Bypass -File ./scripts/smoke.ps1",
     "backup": "powershell -ExecutionPolicy Bypass -File ./scripts/backup.ps1",
-    "typecheck": "npm run typecheck --workspace frontend && cd backend && uv run python -m mypy app",
-    "check": "npm run lint && npm run typecheck && npm run test --workspace frontend && npm run build && cd backend && uv run pytest"
+    "typecheck": "npm run typecheck --workspace frontend && npm run typecheck --workspace backend",
+    "check": "npm run lint && npm run test --workspace frontend && npm run test --workspace backend && npm run build"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

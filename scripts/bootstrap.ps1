@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [switch]$InstallPython
+  [switch]$InstallNode
 )
 
 $ErrorActionPreference = "Stop"
@@ -15,13 +15,13 @@ Assert-Winget
 
 Write-Host "Whiteboard Planner bootstrap" -ForegroundColor Cyan
 
-if (-not $InstallPython) {
-  Write-Host "Nothing selected. Use -InstallPython to install Python 3.12." -ForegroundColor Yellow
+if (-not $InstallNode) {
+  Write-Host "Nothing selected. Use -InstallNode to install Node.js LTS." -ForegroundColor Yellow
   exit 0
 }
 
-Write-Host "Installing Python 3.12..." -ForegroundColor Yellow
-winget install --id Python.Python.3.12 --exact --accept-package-agreements --accept-source-agreements
+Write-Host "Installing Node.js LTS..." -ForegroundColor Yellow
+winget install --id OpenJS.NodeJS.LTS --exact --accept-package-agreements --accept-source-agreements
 
 Write-Host ""
 Write-Host "Run ./scripts/preflight.ps1 again after installation completes." -ForegroundColor Green

@@ -26,7 +26,7 @@
 以下技術決策預設視為已定案，除非使用者明確要求變更：
 
 - Frontend: `React + TypeScript`
-- Backend: `Python 3.12 + FastAPI`
+- Backend: `TypeScript + Node.js`
 - Persistence: file-based Planvas project storage
 
 補充限制：

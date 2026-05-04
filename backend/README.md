@@ -1,6 +1,6 @@
 # Backend Service
 
-FastAPI local API service for Whiteboard Planner.
+TypeScript + Node.js local API service for Whiteboard Planner.
 
 ## Storage Layout
 
@@ -27,8 +27,8 @@ Set `WHITEBOARD_FRONTEND_DIST` if the built frontend bundle is not located at
 ## Run
 
 ```powershell
-uv sync
-uv run python -m uvicorn app.main:app --host 127.0.0.1 --port 18000 --reload
+npm install
+npm run dev --workspace backend
 ```
 
 On startup the service creates any missing `.planvas`, `project_store`, and
@@ -45,3 +45,10 @@ before other registered paths.
 
 If `frontend/dist/index.html` exists, the backend also serves the built frontend
 bundle from `/` so the app can run on a single local port after `npm run build`.
+
+## Validation
+
+```powershell
+npm run typecheck --workspace backend
+npm run test --workspace backend
+```

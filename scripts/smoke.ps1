@@ -56,9 +56,8 @@ try {
   $env:WHITEBOARD_FRONTEND_DIST = $resolvedFrontendDist
 
   Write-Host "Running backend smoke tests..." -ForegroundColor Cyan
-  uv run --project backend python -m pytest `
-    backend/tests/test_healthz.py `
-    backend/tests/test_static_serving.py
+  npm run build --workspace backend
+  npm run test --workspace backend
 
   Write-Host ""
   Write-Host "Smoke checks passed." -ForegroundColor Green

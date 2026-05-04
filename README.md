@@ -1,6 +1,6 @@
 # Whiteboard Planner
 
-Local-first whiteboard planning app built with React, FastAPI, and file-based project storage.
+Local-first whiteboard planning app built with React, TypeScript, Node.js, and file-based project storage.
 
 ## Navigation Notes
 
@@ -11,7 +11,7 @@ Local-first whiteboard planning app built with React, FastAPI, and file-based pr
 ## Workspace Layout
 
 - `frontend/`: React + TypeScript + Vite web UI
-- `backend/`: Python 3.12 + FastAPI local API service
+- `backend/`: TypeScript + Node.js local API service
 - `scripts/`: Windows preflight and bootstrap helpers
 
 ## Prerequisites
@@ -22,26 +22,20 @@ Run the Windows preflight check first:
 ./scripts/preflight.ps1
 ```
 
-If Python 3.12 is missing, bootstrap it:
+If Node.js LTS is missing, bootstrap it:
 
 ```powershell
-./scripts/bootstrap.ps1 -InstallPython
+./scripts/bootstrap.ps1 -InstallNode
 ```
 
-`node`、`npm`、`uv` 仍需先在本機可用。
+`node` and `npm` must be available locally.
 
 ## Development
 
-Install JavaScript dependencies:
+Install workspace dependencies:
 
 ```powershell
 npm install
-```
-
-Sync the Python environment:
-
-```powershell
-uv sync --project backend
 ```
 
 Start frontend and backend together:
@@ -52,7 +46,7 @@ npm run dev
 
 Open `http://127.0.0.1:5173` in your browser.
 
-This mode keeps Vite on `5173` and the FastAPI backend on `18000`.
+This mode keeps Vite on `5173` and the TypeScript backend on `18000`.
 
 ## Project Home
 
@@ -102,7 +96,7 @@ Then start the backend-only server:
 npm run serve
 ```
 
-Open `http://127.0.0.1:18000` in your browser. FastAPI will serve the built
+Open `http://127.0.0.1:18000` in your browser. The Node.js backend will serve the built
 frontend bundle from `frontend/dist` and continue exposing the API on the same
 port.
 
@@ -181,7 +175,7 @@ npm run lint
 npm run typecheck
 npm run format -- --check
 npm run build
-uv run --project backend pytest
+npm run test --workspace backend
 npm run smoke
 ```
 
