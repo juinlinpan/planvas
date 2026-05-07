@@ -1,0 +1,386 @@
+﻿/* ??????????????????????????????????????????
+   Browser-like Tab Bar  (ws-tab-*)
+   Design: flat underline style ??tab bar shares the same bg as
+   the content area so there is no visual "layer break".
+   Active tab shows a 2 px accent underline (top bar) or
+   overline (bottom bar). No folder-tab overhang.
+?????????????????????????????????????????? */
+
+.workspace {
+  --ws-content-bg: var(--project-ws-bg, #f8f9fb);
+  --ws-tab-accent: var(--project-accent, var(--accent, #3b82f6));
+  --ws-tab-browser-bg: color-mix(
+    in srgb,
+    black 8%,
+    var(--ws-content-bg)
+  );
+  --ws-tab-active-bg: var(--ws-tab-browser-bg);
+  --ws-tab-idle-bg: color-mix(
+    in srgb,
+    white 4%,
+    var(--ws-tab-browser-bg)
+  );
+  --ws-tab-idle-hover-bg: color-mix(
+    in srgb,
+    white 12%,
+    var(--ws-tab-idle-bg)
+  );
+  --ws-tab-active-ink: var(--project-ink, #1e293b);
+  --ws-tab-muted-ink: color-mix(in srgb, var(--project-ink, #1e293b) 64%, transparent);
+  --ws-tab-h: 42px;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.app-shell[data-project-theme] .workspace {
+  --ws-content-bg: var(--project-shell-bg, var(--bg, #f8f9fb));
+}
+
+/* ?? Tab bar shell ?? */
+.ws-tab-bar {
+  display: flex;
+  align-items: flex-end;
+  height: var(--ws-tab-h);
+  min-height: var(--ws-tab-h);
+  flex-shrink: 0;
+  background: var(--ws-tab-browser-bg);
+  gap: 3px;
+  padding: 6px 8px 0;
+  position: relative;
+  z-index: 2;
+}
+
+.ws-tab-bar-top {
+  border-bottom: none;
+  box-shadow: none;
+}
+
+.ws-tab-bar-bottom {
+  align-items: flex-start;
+  padding: 0 8px 6px;
+  border-top: none;
+  box-shadow: none;
+  order: 2;
+}
+
+/* ?? Project name label on the far left ?? */
+.ws-tab-project-name {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--ws-tab-muted-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+  opacity: 0.72;
+  align-self: flex-end;
+  border-radius: 10px 10px 0 0;
+  background: transparent;
+}
+
+.ws-tab-bar-bottom .ws-tab-project-name {
+  align-self: flex-start;
+  border-radius: 0 0 10px 10px;
+}
+
+/* ?? Thin vertical divider between project label and tabs ?? */
+.ws-tab-divider-v {
+  width: 1px;
+  height: 22px;
+  background: color-mix(in srgb, var(--project-ink, var(--ink, #0f172a)) 14%, transparent);
+  flex-shrink: 0;
+  margin: 0 2px 5px;
+}
+
+.ws-tab-divider-notes {
+  margin: 0 4px 5px;
+}
+
+/* ?? Tab strip (scrollable row of tabs) ?? */
+.ws-tab-strip {
+  display: flex;
+  align-items: flex-end;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: none;
+  gap: 2px;
+}
+
+.ws-tab-bar-bottom .ws-tab-strip {
+  align-items: flex-start;
+}
+
+.ws-tab-strip::-webkit-scrollbar {
+  display: none;
+}
+
+/* ?? Individual tab wrapper ?? */
+.ws-tab {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  max-width: 208px;
+  height: 31px;
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  color: var(--ws-tab-muted-ink);
+  opacity: 0.66;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    opacity 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease;
+}
+
+.ws-tab-bar-bottom .ws-tab {
+  border-radius: 0 0 8px 8px;
+  border-top: none;
+  border-bottom: 1px solid transparent;
+}
+
+/* Underline indicator (top bar) */
+.ws-tab-bar-top .ws-tab::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 2px;
+  background: transparent;
+}
+
+.ws-tab-bar-top .ws-tab.is-active::after {
+  background: var(--ws-tab-active-bg);
+}
+
+/* Overline indicator (bottom bar) */
+.ws-tab-bar-bottom .ws-tab::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -2px;
+  height: 2px;
+  background: transparent;
+}
+
+.ws-tab-bar-bottom .ws-tab.is-active::after {
+  background: var(--ws-tab-active-bg);
+}
+
+/* ?? Tab inner button (label) ?? */
+.ws-tab-label-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 4px 0 11px;
+  height: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: inherit;
+  min-width: 0;
+  transition: color 0.12s;
+}
+
+.ws-tab.is-active {
+  background: var(--ws-tab-active-bg);
+  border-color: rgba(30, 46, 50, 0.08);
+  box-shadow:
+    0 12px 22px rgba(22, 50, 56, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  color: var(--ws-tab-active-ink);
+  opacity: 1;
+  z-index: 4;
+}
+
+.ws-tab.is-active .ws-tab-label-btn {
+  font-weight: 600;
+}
+
+.ws-tab:not(.is-active):hover .ws-tab-label-btn {
+  color: var(--project-ink, var(--ink, #334155));
+}
+
+/* Hover bg tint on the whole tab */
+.ws-tab:not(.is-active):hover {
+  background: var(--ws-tab-idle-hover-bg);
+  opacity: 0.86;
+}
+
+.ws-tab-note-icon {
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+
+.ws-tab.is-active .ws-tab-note-icon {
+  opacity: 0.8;
+}
+
+.ws-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+/* ?? Close ? button (page & note tabs) ?? */
+.ws-tab-close {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-right: 5px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s;
+  position: relative;
+  pointer-events: none;
+}
+
+.ws-tab:hover .ws-tab-close,
+.ws-tab.is-active .ws-tab-close {
+  opacity: 0.45;
+  pointer-events: auto;
+}
+
+.ws-tab-close:hover {
+  opacity: 1 !important;
+  background: rgba(0,0,0,0.09);
+}
+
+.ws-tab-close::before,
+.ws-tab-close::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 9px;
+  height: 1.5px;
+  background: currentColor;
+  border-radius: 1px;
+}
+
+.ws-tab-close::before { transform: translate(-50%, -50%) rotate(45deg); }
+.ws-tab-close::after  { transform: translate(-50%, -50%) rotate(-45deg); }
+
+/* ?? Position-toggle ?? button ?? */
+.ws-tab-position-toggle {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  margin-left: 2px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--project-muted, var(--muted, #94a3b8));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s;
+}
+
+.ws-tab-position-toggle:hover {
+  background: rgba(0,0,0,0.06);
+  color: var(--project-ink, var(--ink, #0f172a));
+}
+
+/* Chrome-like bookmark tabs: the selected page visually joins the ribbon below. */
+.ws-tab-bar-top .ws-tab {
+  margin-bottom: 0;
+}
+
+.ws-tab-bar-top .ws-tab.is-active {
+  height: 36px;
+  margin-bottom: -2px;
+  transform: translateY(-2px);
+  border-color: rgba(30, 46, 50, 0.08);
+  border-bottom-color: var(--ws-tab-active-bg);
+  box-shadow:
+    0 12px 22px rgba(22, 50, 56, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.ws-tab-bar-bottom .ws-tab {
+  margin-top: 0;
+}
+
+.ws-tab-bar-bottom .ws-tab.is-active {
+  height: 36px;
+  margin-top: -2px;
+  transform: translateY(2px);
+  border-color: rgba(30, 46, 50, 0.08);
+  border-top-color: var(--ws-tab-active-bg);
+  box-shadow:
+    0 12px 22px rgba(22, 50, 56, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.ws-tab-close {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+}
+
+.ws-tab:hover .ws-tab-close,
+.ws-tab.is-active .ws-tab-close {
+  opacity: 0.72;
+}
+
+.ws-tab-close:hover {
+  background: rgba(22, 50, 56, 0.1);
+}
+
+.ws-tab-position-toggle {
+  width: 30px;
+  height: 30px;
+  margin-bottom: 1px;
+  border-radius: 8px;
+  color: var(--ws-tab-muted-ink);
+}
+
+.ws-tab-position-toggle:hover {
+  background: rgba(255, 255, 255, 0.48);
+  color: var(--project-ink, var(--ink, #0f172a));
+}
+
+.ws-tab-bar-bottom .ws-tab-position-toggle {
+  margin-top: 1px;
+  margin-bottom: 0;
+}
+
+/* ?? Content area (canvas / editor) ?? */
+.workspace-content-area {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--ws-content-bg);
+}

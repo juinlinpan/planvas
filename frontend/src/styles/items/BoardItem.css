@@ -1,0 +1,347 @@
+﻿/* ??????????????????????????????????????????
+   Board item wrapper
+?????????????????????????????????????????? */
+
+.board-item {
+  cursor: move;
+  border-radius: var(--radius-md);
+  transition: box-shadow 100ms ease;
+}
+
+.board-item.board-item-table {
+  cursor: default;
+}
+
+.board-item.is-frame-ingest,
+.board-item.is-frame-eject {
+  transition:
+    left 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    top 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    height 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 220ms ease,
+    transform 220ms ease;
+}
+
+@keyframes frame-drop-target-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes frame-item-ingest-pop {
+  0% {
+    transform: scale(1.04);
+  }
+
+  55% {
+    transform: scale(0.95);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes frame-item-eject-pop {
+  0% {
+    transform: scale(0.96);
+  }
+
+  60% {
+    transform: translateY(-10px) scale(1.04);
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Segment items (line/arrow) cannot be dragged ??use default cursor on the wrapper */
+.board-item-segment {
+  cursor: default;
+  pointer-events: none;
+}
+
+.board-item.is-selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.board-item-segment.is-selected {
+  outline: none;
+  box-shadow: none;
+}
+
+.board-item.is-frame-drop-target {
+  animation: frame-drop-target-float 1s ease-in-out infinite;
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.18);
+}
+
+.board-item.is-frame-drop-target .frame-display {
+  border-color: rgba(37, 99, 235, 0.55);
+  background: rgba(37, 99, 235, 0.08);
+  box-shadow: 0 0 0 4px rgba(191, 219, 254, 0.6);
+}
+
+.board-item.is-frame-ingest {
+  animation: frame-item-ingest-pop 260ms ease;
+  box-shadow: 0 18px 30px rgba(37, 99, 235, 0.18);
+}
+
+.board-item.is-frame-eject {
+  animation: frame-item-eject-pop 260ms ease;
+  box-shadow: 0 16px 28px rgba(15, 23, 42, 0.14);
+}
+
+.board-item-resize-handle {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: var(--shadow-md);
+  cursor: nwse-resize;
+  z-index: 8;
+}
+
+.board-item-table-edge {
+  position: absolute;
+  z-index: 7;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: move;
+}
+
+.board-item-table-edge-top,
+.board-item-table-edge-bottom {
+  left: 0;
+  width: 100%;
+  height: 8px;
+}
+
+.board-item-table-edge-top {
+  top: 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.board-item-table-edge-bottom {
+  bottom: 0;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+.board-item-table-edge-left,
+.board-item-table-edge-right {
+  top: 0;
+  width: 8px;
+  height: 100%;
+}
+
+.board-item-table-edge-left {
+  left: 0;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+
+.board-item-table-edge-right {
+  right: 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.line-shape {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.line-shape-svg {
+  overflow: visible;
+  transform-origin: center;
+}
+
+.line-shape-stroke {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.segment-shape {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.segment-shape-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.segment-line {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.segment-hit-line {
+  stroke: transparent;
+  cursor: default;
+  pointer-events: stroke;
+}
+
+.segment-hit-line.is-translatable {
+  cursor: move;
+}
+
+.segment-marker-head {
+  fill: inherit;
+}
+
+.segment-endpoint-handle {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: var(--shadow-md);
+  transform: translate(-50%, -50%);
+  cursor: crosshair;
+  pointer-events: auto;
+}
+
+.segment-waypoint-handle {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.segment-waypoint-handle:active {
+  cursor: grabbing;
+}
+
+.segment-waypoint-handle.is-deleting {
+  border-color: var(--danger);
+  background: var(--danger);
+  cursor: no-drop;
+}
+
+.segment-waypoint-handle.is-deleting::before,
+.segment-waypoint-handle.is-deleting::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 2px;
+  background: #fff;
+  border-radius: 1px;
+}
+
+.segment-waypoint-handle.is-deleting::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.segment-waypoint-handle.is-deleting::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.segment-midpoint-handle {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--accent);
+  background: rgba(37, 99, 235, 0.2);
+  transform: translate(-50%, -50%) rotate(45deg);
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.15s ease-out;
+  pointer-events: auto;
+}
+
+.segment-midpoint-handle:hover {
+  opacity: 1;
+}
+
+/* ?? Connector anchor indicators (draw.io style) ?? */
+
+.connector-anchor-indicator {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.15), var(--shadow-sm);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 2147483646;
+  transition: transform 0.1s ease, background 0.1s ease;
+}
+
+.connector-anchor-indicator.is-active {
+  width: 20px;
+  height: 20px;
+  background: var(--accent);
+  border-color: #fff;
+  box-shadow: 0 0 0 2px var(--accent), 0 0 8px rgba(37, 99, 235, 0.4);
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.board-item-draft {
+  opacity: 0.75;
+}
+
+.arrow-svg {
+  overflow: visible;
+}
+
+.arrow-line {
+  stroke: #64748b;
+  stroke-width: 2px;
+  stroke-linecap: round;
+}
+
+.arrow-head-shape {
+  fill: #64748b;
+}
+
+.arrow-connector.is-selected .arrow-line {
+  stroke: var(--accent);
+  stroke-width: 2.5px;
+}
+
+.arrow-connector.is-selected .arrow-head-shape {
+  fill: var(--accent);
+}
+
+.arrow-hit-line {
+  stroke: transparent;
+  stroke-width: 18px;
+  cursor: pointer;
+  pointer-events: stroke;
+}

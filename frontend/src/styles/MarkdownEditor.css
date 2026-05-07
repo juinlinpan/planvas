@@ -1,0 +1,249 @@
+﻿/* ??????????????????????????????????????????
+   Markdown Editor  (markdown-editor-*)
+?????????????????????????????????????????? */
+
+.markdown-editor {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--ws-content-bg, var(--bg, #fff));
+  color: var(--project-ink, var(--ink, #0f172a));
+}
+
+/* ?? Top bar: filename + save status + view toggle ?? */
+.markdown-editor-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--project-line, var(--line, #d0d8e4));
+  background: var(--project-panel-soft, var(--surface-dim, #e8edf2));
+  flex-shrink: 0;
+}
+
+.markdown-editor-file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.markdown-editor-doc-icon {
+  flex-shrink: 0;
+  color: var(--project-muted, var(--muted, #64748b));
+}
+
+.markdown-editor-filename {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--project-ink, var(--ink, #0f172a));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Save badge */
+.markdown-editor-save-badge {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.markdown-editor-save-badge.is-saved {
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.markdown-editor-save-badge.is-saving {
+  background: rgba(234, 179, 8, 0.12);
+  color: #a16207;
+  border: 1px solid rgba(234, 179, 8, 0.25);
+}
+
+.markdown-editor-save-badge.is-unsaved {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* View toggle (Edit / Split / Preview) */
+.markdown-editor-view-toggle {
+  display: flex;
+  gap: 2px;
+  background: var(--project-panel-solid, var(--surface, #fff));
+  border: 1px solid var(--project-line, var(--line, #d0d8e4));
+  border-radius: 8px;
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.markdown-editor-view-btn {
+  padding: 3px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.76rem;
+  color: var(--project-muted, var(--muted, #64748b));
+  transition: background 0.1s, color 0.1s;
+}
+
+.markdown-editor-view-btn.is-active {
+  background: var(--project-accent, var(--accent, #3b82f6));
+  color: #fff;
+}
+
+.markdown-editor-view-btn:not(.is-active):hover {
+  background: rgba(0,0,0,0.06);
+  color: var(--project-ink, var(--ink, #0f172a));
+}
+
+/* ?? Formatting toolbar ?? */
+.markdown-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--project-line, var(--line, #d0d8e4));
+  background: var(--project-panel-soft, var(--surface-dim, #e8edf2));
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.markdown-editor-fmt-btn {
+  padding: 3px 8px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--project-ink, var(--ink, #0f172a));
+  line-height: 1.4;
+  transition: background 0.1s;
+}
+
+.markdown-editor-fmt-btn:hover {
+  background: rgba(0,0,0,0.08);
+}
+
+.markdown-editor-fmt-mono {
+  font-family: var(--mono, monospace);
+  font-size: 0.74rem;
+}
+
+/* separator */
+.markdown-editor-fmt-sep {
+  display: inline-block;
+  width: 1px;
+  height: 16px;
+  background: var(--project-line, var(--line, #d0d8e4));
+  margin: 0 4px;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+/* ?? Body: write + preview ?? */
+.markdown-editor-body {
+  display: flex;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Split mode: both panes visible */
+.markdown-editor-split .markdown-editor-write-pane,
+.markdown-editor-split .markdown-editor-preview-pane {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.markdown-editor-split .markdown-editor-write-pane {
+  border-right: 1px solid var(--project-line, var(--line, #d0d8e4));
+}
+
+/* Edit mode: only write pane */
+.markdown-editor-edit .markdown-editor-write-pane {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.markdown-editor-edit .markdown-editor-preview-pane {
+  display: none;
+}
+
+/* Preview mode: only preview pane */
+.markdown-editor-preview .markdown-editor-write-pane {
+  display: none;
+}
+
+.markdown-editor-preview .markdown-editor-preview-pane {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  flex-direction: column;
+}
+
+/* Textarea */
+.markdown-editor-textarea {
+  flex: 1 1 0;
+  min-height: 0;
+  resize: none;
+  padding: 16px 20px;
+  border: none;
+  outline: none;
+  font-family: var(--mono, 'JetBrains Mono', 'Fira Code', monospace);
+  font-size: 0.86rem;
+  line-height: 1.65;
+  background: var(--ws-content-bg, var(--bg, #fff));
+  color: var(--project-ink, var(--ink, #0f172a));
+  caret-color: var(--project-accent, var(--accent, #3b82f6));
+}
+
+.markdown-editor-textarea::placeholder {
+  color: var(--project-muted, var(--muted, #94a3b8));
+}
+
+/* Preview pane */
+.markdown-editor-preview-pane {
+  overflow-y: auto;
+  padding: 16px 24px;
+  background: var(--ws-content-bg, var(--bg, #fff));
+}
+
+.markdown-editor-preview-content {
+  max-width: 800px;
+}
+
+.markdown-editor-empty-preview {
+  color: var(--project-muted, var(--muted, #94a3b8));
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+/* Missing-note fallback */
+.markdown-editor-missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 0;
+  color: var(--project-muted, var(--muted, #64748b));
+  font-size: 0.9rem;
+}
+
+/* Sidebar note button ??selected state */
+.note-list-button.is-selected {
+  background: var(--project-accent-soft, var(--accent-soft, rgba(59, 130, 246, 0.1)));
+  color: var(--project-accent, var(--accent, #3b82f6));
+  border-left: 2px solid var(--project-accent, var(--accent, #3b82f6));
+}
