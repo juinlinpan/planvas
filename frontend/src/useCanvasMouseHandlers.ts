@@ -172,6 +172,7 @@ export type UseCanvasMouseHandlersParams = {
   clearSelection: () => void;
   screenToWorld: (x: number, y: number) => Point;
   startSegmentDraft: (type: SegmentDraftTool, x: number, y: number) => void;
+  onOpenNote?: (noteFile: string) => void;
 };
 
 export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
@@ -219,6 +220,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     clearSelection,
     screenToWorld,
     startSegmentDraft,
+    onOpenNote,
   } = params;
 
   function getSnappedPoint(point: Point, shouldSnap: boolean): Point {
@@ -1866,6 +1868,18 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     if (isFrame(item)) {
       handleToggleFrameCollapse(item.id);
       return;
+    }
+
+    if (item.type === ITEM_TYPE.note_paper && onOpenNote) {
+      try {
+        const data = JSON.parse(item.data_json ?? '{}');
+        if (data.noteFile) {
+          onOpenNote(data.noteFile);
+          return;
+        }
+      } catch (e) {
+        console.error('Failed to parse note_paper data_json', e);
+      }
     }
 
     if (isInlineEditable(item)) {

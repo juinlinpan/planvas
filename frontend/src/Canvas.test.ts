@@ -51,12 +51,18 @@ function createConnector(
 }
 
 function createProjectNote(overrides: Partial<ProjectNote> = {}): ProjectNote {
-  return {
+  const defaults: ProjectNote = {
     note_file: 'sprint-plan.md',
     title: 'Sprint Plan',
+    content: '',
     content_format: 'markdown',
     updated_at: FIXTURE_TIMESTAMP,
+  };
+
+  return {
+    ...defaults,
     ...overrides,
+    content: overrides.content ?? defaults.content,
   };
 }
 

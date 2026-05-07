@@ -228,8 +228,15 @@
 }
 
 .canvas-ribbon {
-  background: var(--ws-tab-browser-bg);
+  background: #ffffff;
   border-color: var(--ws-tab-line);
+  box-shadow: inset 0 -1px 0 var(--ws-tab-line);
+}
+
+.app-shell[data-project-theme] .canvas-ribbon {
+  background: var(--project-panel-solid, #ffffff);
+  border-color: var(--project-chrome-line);
+  box-shadow: inset 0 -1px 0 var(--project-chrome-line);
 }
 
 .canvas-ribbon-bar {
@@ -239,14 +246,14 @@
 .canvas-rbn-menu-btn,
 .canvas-rbn-ctrl-btn,
 .canvas-rbn-zoom {
-  background: var(--ws-tab-control-bg);
+  background: color-mix(in srgb, var(--project-accent, #197377) 5%, #ffffff);
 }
 
 .canvas-rbn-menu-btn:hover,
 .canvas-rbn-menu-btn.is-active,
 .canvas-rbn-ctrl-btn:hover,
 .canvas-rbn-zoom-btn:hover {
-  background: var(--project-chrome-hover, rgba(255, 255, 255, 0.82));
+  background: color-mix(in srgb, var(--project-accent, #197377) 10%, #ffffff);
 }
 
 .canvas-rbn-sep {

@@ -128,6 +128,7 @@ type Props = {
   draggedProjectNoteFile?: string | null;
   onViewportChange?: (viewport: Viewport) => void;
   onProjectNotesChanged?: () => void;
+  onOpenNote?: (noteFile: string) => void;
   onImportPage: () => void;
   onExportPage: (format: 'json' | 'png' | 'pptx') => void;
   importExportDisabled: boolean;
@@ -206,6 +207,7 @@ export function Canvas({
   draggedProjectNoteFile = null,
   onViewportChange,
   onProjectNotesChanged,
+  onOpenNote,
   onImportPage,
   onExportPage,
   importExportDisabled,
@@ -1386,6 +1388,7 @@ export function Canvas({
     clearSelection,
     screenToWorld,
     startSegmentDraft,
+    onOpenNote,
   });
 
   const cursorClass =

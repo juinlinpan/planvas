@@ -20,11 +20,53 @@ type ViewMode = 'edit' | 'split' | 'preview';
 const AUTOSAVE_DELAY_MS = 1500;
 
 function IconBold() {
-  return <strong style={{ fontFamily: 'serif', fontSize: '0.92rem' }}>B</strong>;
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
+      <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
+    </svg>
+  );
 }
 
 function IconItalic() {
-  return <em style={{ fontFamily: 'serif', fontSize: '0.92rem' }}>I</em>;
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="19" y1="4" x2="10" y2="4" />
+      <line x1="14" y1="20" x2="5" y2="20" />
+      <line x1="15" y1="4" x2="9" y2="20" />
+    </svg>
+  );
+}
+
+function IconCode() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="16 18 22 12 16 6" />
+      <polyline points="8 6 2 12 8 18" />
+    </svg>
+  );
+}
+
+function IconQuote() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 21c3 0 7-1 7-8V5H3v8h4c0 4.48-3.52 8-8 8z" />
+      <path d="M13 21c3 0 7-1 7-8V5h-7v8h4c0 4.48-3.52 8-8 8z" />
+    </svg>
+  );
+}
+
+function IconList() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="8" y1="6" x2="21" y2="6" />
+      <line x1="8" y1="12" x2="21" y2="12" />
+      <line x1="8" y1="18" x2="21" y2="18" />
+      <line x1="3" y1="6" x2="3.01" y2="6" />
+      <line x1="3" y1="12" x2="3.01" y2="12" />
+      <line x1="3" y1="18" x2="3.01" y2="18" />
+    </svg>
+  );
 }
 
 export function MarkdownEditor({
@@ -245,19 +287,25 @@ export function MarkdownEditor({
           className="markdown-editor-fmt-btn markdown-editor-fmt-mono"
           title="Inline code"
           onMouseDown={(e) => { e.preventDefault(); wrapSelection('`', '`'); }}
-        >`code`</button>
+        >
+          <IconCode />
+        </button>
         <button
           type="button"
           className="markdown-editor-fmt-btn"
           title="Blockquote"
           onMouseDown={(e) => { e.preventDefault(); prefixCurrentLine('> '); }}
-        >❝</button>
+        >
+          <IconQuote />
+        </button>
         <button
           type="button"
           className="markdown-editor-fmt-btn"
           title="Unordered list"
           onMouseDown={(e) => { e.preventDefault(); prefixCurrentLine('- '); }}
-        >• List</button>
+        >
+          <IconList />
+        </button>
         <button
           type="button"
           className="markdown-editor-fmt-btn"

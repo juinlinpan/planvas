@@ -50,10 +50,15 @@ type LoadState = 'loading' | 'ready' | 'error';
 type SidebarListKind = 'pages' | 'notes';
 type DropPosition = 'before' | 'after';
 type TabBarPosition = 'top' | 'bottom';
-type SidebarDragState = {
-  kind: SidebarListKind;
-  itemId: string;
-};
+type SidebarDragState =
+  | {
+      kind: SidebarListKind;
+      itemId: string;
+    }
+  | {
+      kind: 'tabs';
+      itemId: string; // "kind:id"
+    };
 type SidebarDropState = SidebarDragState & {
   position: DropPosition;
 };
@@ -727,14 +732,19 @@ export function App() {
   }
 
   function openNoteTab(noteFile: string): void {
-    setOpenNoteFiles((current) =>
-      current.includes(noteFile) ? current : [...current, noteFile],
-    );
+    setOpenTabs((current) => {
+      if (current.some((tab) => tab.kind === 'note' && tab.id === noteFile)) {
+        return current;
+      }
+      return [...current, { kind: 'note', id: noteFile }];
+    });
     setActiveNoteFile(noteFile);
   }
 
   function closeNoteTab(noteFile: string): void {
-    setOpenNoteFiles((current) => current.filter((f) => f !== noteFile));
+    setOpenTabs((current) =>
+      current.filter((tab) => !(tab.kind === 'note' && tab.id === noteFile)),
+    );
     setActiveNoteFile((current) => {
       if (current !== noteFile) return current;
       return null;
@@ -742,14 +752,15 @@ export function App() {
   }
 
   function closePageTab(pageId: string): void {
-    const nextOpenPageIds = openPageIds.filter((id) => id !== pageId);
-    setOpenPageIds(nextOpenPageIds);
+    const nextTabs = openTabs.filter(
+      (tab) => !(tab.kind === 'page' && tab.id === pageId),
+    );
+    setOpenTabs(nextTabs);
     if (selectedPageId === pageId) {
-      const fallback =
-        nextOpenPageIds.length > 0
-          ? nextOpenPageIds[nextOpenPageIds.length - 1]
-          : null;
-      setSelectedPageId(fallback);
+      const fallbackPage = [...nextTabs]
+        .reverse()
+        .find((tab) => tab.kind === 'page');
+      setSelectedPageId(fallbackPage?.id ?? null);
       setActiveNoteFile(null);
     }
   }
@@ -1666,24 +1677,26 @@ export function App() {
                           setDragState({ kind: 'tabs' as any, itemId: `${tab.kind}:${tab.id}` });
                         }}
                         onDragOver={(event) => {
-                          if (dragState?.kind !== ('tabs' as any)) return;
-                          if (dragState.itemId === `${tab.kind}:${tab.id}`) return;
+                          const currentDragState = dragState;
+                          if (currentDragState?.kind !== 'tabs') return;
+                          if (currentDragState.itemId === `${tab.kind}:${tab.id}`) return;
                           event.preventDefault();
                           event.dataTransfer.dropEffect = 'move';
                           const position = getDropPosition(event);
                           setDropState({
-                            kind: 'tabs' as any,
+                            kind: 'tabs',
                             itemId: `${tab.kind}:${tab.id}`,
                             position,
                           });
                         }}
                         onDrop={(event) => {
                           event.preventDefault();
-                          if (dragState?.kind !== ('tabs' as any)) {
+                          const currentDragState = dragState;
+                          if (currentDragState?.kind !== 'tabs') {
                             clearDragState();
                             return;
                           }
-                          const draggedId = dragState.itemId;
+                          const draggedId = currentDragState.itemId;
                           const targetId = `${tab.kind}:${tab.id}`;
                           const position = getDropPosition(event);
                           clearDragState();
@@ -1691,7 +1704,7 @@ export function App() {
                           if (draggedId === targetId) return;
 
                           setOpenTabs((current) => {
-                            const items = current.map(t => ({ id: `${t.kind}:${t.id}`, ...t }));
+                            const items = current.map(t => ({ tab: t, id: `${t.kind}:${t.id}` }));
                             const orderedIds = buildDraggedOrder(items, draggedId, targetId, position);
                             if (orderedIds === null) return current;
                             
@@ -1816,6 +1829,7 @@ export function App() {
                 onViewportChange={(viewport) =>
                   handlePageViewportChange(selectedPage.id, viewport)
                 }
+                onOpenNote={openNoteTab}
                 onProjectNotesChanged={() => {
                   if (selectedProjectId !== null) {
                     void refreshProjectNotes(selectedProjectId);
