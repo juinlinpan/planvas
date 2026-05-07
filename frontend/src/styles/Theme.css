@@ -15,7 +15,7 @@
   grid-template-columns: 282px minmax(0, 1fr);
   gap: 16px;
   padding: 16px;
-  background: linear-gradient(180deg, #f8faf8 0%, #eef4f1 100%);
+  background: #f8faf8;
 }
 
 .app-shell.is-sidebar-collapsed {
@@ -25,18 +25,15 @@
 .sidebar {
   border: 1px solid rgba(30, 46, 50, 0.1);
   border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 250, 248, 0.92));
-  box-shadow:
-    0 22px 48px rgba(22, 50, 56, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(22, 50, 56, 0.08);
   color: #17262b;
 }
 
 .sidebar.is-collapsed {
   border-color: rgba(30, 46, 50, 0.1);
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 18px 36px rgba(22, 50, 56, 0.1);
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(22, 50, 56, 0.08);
 }
 
 .sidebar-header,
@@ -150,8 +147,7 @@
 
 .list-button.is-selected {
   border-color: rgba(25, 115, 119, 0.34);
-  background:
-    linear-gradient(135deg, rgba(229, 246, 241, 0.96), rgba(255, 247, 225, 0.82));
+  background: #e9f3f0;
   color: #11383b;
   box-shadow:
     0 12px 22px rgba(22, 50, 56, 0.1),
@@ -174,20 +170,17 @@
 }
 
 .workspace {
-  border: 1px solid rgba(30, 46, 50, 0.055);
+  border: 1px solid rgba(30, 46, 50, 0.08);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.5);
-  box-shadow:
-    0 22px 52px rgba(22, 50, 56, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgba(22, 50, 56, 0.06);
 }
 
 .workspace-header {
   min-height: 56px;
   padding: 12px 18px;
   border-bottom: 1px solid rgba(22, 50, 56, 0.08);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 249, 0.9));
+  background: rgba(255, 255, 255, 0.96);
   color: #17262b;
   box-shadow: none;
 }
@@ -249,7 +242,7 @@
 }
 
 .canvas-stage {
-  margin: 0 0 8px 8px;
+  margin: 12px 0 8px 8px;
   border: 1px solid rgba(30, 46, 50, 0.08);
   border-radius: 8px;
   overflow: hidden;
@@ -264,7 +257,7 @@
 }
 
 .canvas-background-grid {
-  background-color: var(--ws-tab-active-bg, #fbfcfa);
+  background-color: #ffffff;
 }
 
 .canvas-minimap,
@@ -283,7 +276,7 @@
 .canvas-inspector {
   width: 300px;
   flex-basis: 300px;
-  margin: 0 8px 8px 6px;
+  margin: 12px 8px 8px 6px;
   border: 1px solid rgba(30, 46, 50, 0.08);
   border-radius: 8px;
   background: var(--ws-tab-active-bg, rgba(255, 255, 255, 0.9));
@@ -296,6 +289,7 @@
   width: var(--panel-collapsed-size);
   flex-basis: var(--panel-collapsed-size);
   margin-left: 6px;
+  margin-top: 12px;
   border-left-color: rgba(30, 46, 50, 0.08);
 }
 
@@ -436,7 +430,7 @@
 }
 
 .app-shell[data-project-theme] {
-  --project-shell-bg: linear-gradient(180deg, #f8faf8 0%, #eef4f1 100%);
+  --project-shell-bg: #f8faf8;
   --project-panel-bg: rgba(255, 255, 255, 0.72);
   --project-panel-solid: #ffffff;
   --project-panel-soft: #e9f3f0;
@@ -448,10 +442,15 @@
   --project-accent-dark: #163238;
   --project-shadow: rgba(22, 50, 56, 0.12);
   --project-ws-bg: #1e293b;
+  --project-chrome-bg: #edf4f1;
+  --project-chrome-surface: #f8fbf9;
+  --project-chrome-control: rgba(255, 255, 255, 0.68);
+  --project-chrome-hover: rgba(255, 255, 255, 0.82);
+  --project-chrome-line: rgba(22, 50, 56, 0.1);
 }
 
 .app-shell[data-project-theme='sage'] {
-  --project-shell-bg: linear-gradient(180deg, #f0f7ed 0%, #ddebd9 100%);
+  --project-shell-bg: #f0f7ed;
   --project-panel-bg: rgba(250, 255, 247, 0.78);
   --project-panel-solid: #fbfff8;
   --project-panel-soft: #e1efd9;
@@ -463,10 +462,15 @@
   --project-accent-dark: #284224;
   --project-shadow: rgba(42, 75, 36, 0.14);
   --project-ws-bg: #1f2f20;
+  --project-chrome-bg: #e7f2df;
+  --project-chrome-surface: #f5fbf0;
+  --project-chrome-control: rgba(250, 255, 247, 0.72);
+  --project-chrome-hover: rgba(250, 255, 247, 0.88);
+  --project-chrome-line: rgba(54, 94, 47, 0.13);
 }
 
 .app-shell[data-project-theme='sunset'] {
-  --project-shell-bg: linear-gradient(180deg, #fff4ec 0%, #f3dfd7 100%);
+  --project-shell-bg: #fff4ec;
   --project-panel-bg: rgba(255, 251, 247, 0.78);
   --project-panel-solid: #fffaf6;
   --project-panel-soft: #f8e2d4;
@@ -478,10 +482,15 @@
   --project-accent-dark: #5b3226;
   --project-shadow: rgba(105, 63, 43, 0.15);
   --project-ws-bg: #3a2721;
+  --project-chrome-bg: #f8e5d8;
+  --project-chrome-surface: #fff6ef;
+  --project-chrome-control: rgba(255, 251, 247, 0.72);
+  --project-chrome-hover: rgba(255, 251, 247, 0.88);
+  --project-chrome-line: rgba(131, 76, 49, 0.13);
 }
 
 .app-shell[data-project-theme='ocean'] {
-  --project-shell-bg: linear-gradient(180deg, #edf8fb 0%, #d7e8ee 100%);
+  --project-shell-bg: #edf8fb;
   --project-panel-bg: rgba(248, 253, 255, 0.78);
   --project-panel-solid: #f9fdff;
   --project-panel-soft: #dceff5;
@@ -493,6 +502,11 @@
   --project-accent-dark: #173d51;
   --project-shadow: rgba(28, 83, 107, 0.15);
   --project-ws-bg: #17313d;
+  --project-chrome-bg: #e0f0f6;
+  --project-chrome-surface: #f4fbfe;
+  --project-chrome-control: rgba(248, 253, 255, 0.72);
+  --project-chrome-hover: rgba(248, 253, 255, 0.88);
+  --project-chrome-line: rgba(29, 82, 103, 0.13);
 }
 
 .app-shell[data-project-theme]:not(.app-shell-single) {
@@ -529,19 +543,19 @@
 }
 
 .app-shell[data-project-theme] .workspace-header-compact {
-  background: var(--project-panel-soft);
+  background: var(--project-chrome-bg);
   box-shadow: none;
   border-bottom: none;
 }
 
 .app-shell[data-project-theme] .canvas-ribbon {
-  background: var(--ws-tab-active-bg, rgba(255, 255, 255, 0.9));
-  border-color: var(--project-line);
+  background: var(--project-chrome-bg);
+  border-color: var(--project-chrome-line);
 }
 
 .app-shell[data-project-theme] .workspace,
 .app-shell[data-project-theme] .canvas-root {
-  background: var(--project-shell-bg);
+  background: var(--project-chrome-surface);
 }
 
 .app-shell[data-project-theme] .sidebar h1,

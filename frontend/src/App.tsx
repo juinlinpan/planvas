@@ -59,6 +59,7 @@ type SidebarDropState = SidebarDragState & {
 };
 
 type SidebarSectionId = 'pages' | 'notes';
+type WorkspaceTab = { kind: 'page'; id: string } | { kind: 'note'; id: string };
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY =
   'whiteboard.workspaceSidebarCollapsed';
@@ -430,18 +431,20 @@ export function App() {
     const stored = typeof window !== 'undefined'
       ? window.localStorage.getItem(TAB_BAR_POSITION_STORAGE_KEY)
       : null;
-    return stored === 'bottom' ? 'bottom' : 'top';
+    return stored === 'top' ? 'top' : 'bottom';
   });
-  const [openNoteFiles, setOpenNoteFiles] = useState<string[]>([]);
+  const [openTabs, setOpenTabs] = useState<WorkspaceTab[]>([]);
   const [activeNoteFile, setActiveNoteFile] = useState<string | null>(null);
-  const [openPageIds, setOpenPageIds] = useState<string[]>([]);
 
-  // Keep openPageIds in sync whenever the selected page changes
+  // Keep openTabs in sync whenever the selected page changes
   useEffect(() => {
     if (selectedPageId !== null) {
-      setOpenPageIds((prev) =>
-        prev.includes(selectedPageId) ? prev : [...prev, selectedPageId],
-      );
+      setOpenTabs((prev) => {
+        if (prev.some((tab) => tab.kind === 'page' && tab.id === selectedPageId)) {
+          return prev;
+        }
+        return [...prev, { kind: 'page', id: selectedPageId }];
+      });
     }
   }, [selectedPageId]);
   const [expandedSidebarSections, setExpandedSidebarSections] = useState<
@@ -1604,10 +1607,13 @@ export function App() {
         <section className={`workspace workspace-tabpos-${tabBarPosition}`}>
           {/* ── browser-like tab bar ── */}
           {selectedProject !== null && (() => {
-            const visiblePageTabs = pages.filter((p) => openPageIds.includes(p.id));
-            const visibleNoteTabs = openNoteFiles.filter((f) =>
-              projectNotes.some((n) => n.note_file === f),
-            );
+            const visibleTabs = openTabs.filter((tab) => {
+              if (tab.kind === 'page') {
+                return pages.some((p) => p.id === tab.id);
+              }
+              return projectNotes.some((n) => n.note_file === tab.id);
+            });
+
             return (
               <div className={`ws-tab-bar ws-tab-bar-${tabBarPosition}`}>
                 {/* ── Left: Project name ── */}
@@ -1617,97 +1623,132 @@ export function App() {
 
                 <div className="ws-tab-divider-v" />
 
-                {/* ── Page tabs ── */}
+                {/* ── Tab strip ── */}
                 <div className="ws-tab-strip">
-                  {visiblePageTabs.map((page) => {
+                  {visibleTabs.map((tab, index) => {
                     const isActive =
-                      selectedPageId === page.id && activeNoteFile === null;
-                    return (
-                      <div
-                        key={page.id}
-                        className={`ws-tab ws-tab-page ${isActive ? 'is-active' : ''}`}
-                      >
-                        <button
-                          type="button"
-                          className="ws-tab-label-btn"
-                          title={page.name}
-                          onClick={() => {
-                            setSelectedPageId(page.id);
-                            setActiveNoteFile(null);
-                          }}
-                        >
-                          <span className="ws-tab-label">{page.name}</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="ws-tab-close"
-                          title={`Close tab: ${page.name}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            closePageTab(page.id);
-                          }}
-                          aria-label={`Close tab ${page.name}`}
-                        />
-                      </div>
-                    );
-                  })}
+                      tab.kind === 'page'
+                        ? selectedPageId === tab.id && activeNoteFile === null
+                        : activeNoteFile === tab.id;
 
-                  {/* ── Note tabs ── */}
-                  {visibleNoteTabs.length > 0 && (
-                    <div className="ws-tab-divider-v ws-tab-divider-notes" />
-                  )}
-                  {visibleNoteTabs.map((noteFile) => {
-                    const isActive = activeNoteFile === noteFile;
-                    const noteMeta = projectNotes.find(
-                      (n) => n.note_file === noteFile,
-                    );
+                    const label =
+                      tab.kind === 'page'
+                        ? pages.find((p) => p.id === tab.id)?.name ?? 'Unknown'
+                        : projectNotes.find((n) => n.note_file === tab.id)?.title ?? tab.id;
+
+                    const isDraggingTab =
+                      dragState?.kind === 'tabs' && dragState.itemId === `${tab.kind}:${tab.id}`;
+                    const isDropBefore =
+                      dropState?.kind === 'tabs' &&
+                      dropState.itemId === `${tab.kind}:${tab.id}` &&
+                      dropState.position === 'before';
+                    const isDropAfter =
+                      dropState?.kind === 'tabs' &&
+                      dropState.itemId === `${tab.kind}:${tab.id}` &&
+                      dropState.position === 'after';
+
                     return (
                       <div
-                        key={noteFile}
-                        className={`ws-tab ws-tab-note ${isActive ? 'is-active' : ''}`}
+                        key={`${tab.kind}:${tab.id}`}
+                        className={`ws-tab ws-tab-${tab.kind} ${isActive ? 'is-active' : ''} ${
+                          isDraggingTab ? 'is-dragging' : ''
+                        } ${isDropBefore ? 'is-drop-before' : ''} ${
+                          isDropAfter ? 'is-drop-after' : ''
+                        }`}
+                        draggable={!isMutating}
+                        onDragStart={(event) => {
+                          if (isMutating) {
+                            event.preventDefault();
+                            return;
+                          }
+                          event.dataTransfer.effectAllowed = 'move';
+                          event.dataTransfer.setData('text/plain', `tabs:${tab.kind}:${tab.id}`);
+                          setDragState({ kind: 'tabs' as any, itemId: `${tab.kind}:${tab.id}` });
+                        }}
+                        onDragOver={(event) => {
+                          if (dragState?.kind !== ('tabs' as any)) return;
+                          if (dragState.itemId === `${tab.kind}:${tab.id}`) return;
+                          event.preventDefault();
+                          event.dataTransfer.dropEffect = 'move';
+                          const position = getDropPosition(event);
+                          setDropState({
+                            kind: 'tabs' as any,
+                            itemId: `${tab.kind}:${tab.id}`,
+                            position,
+                          });
+                        }}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          if (dragState?.kind !== ('tabs' as any)) {
+                            clearDragState();
+                            return;
+                          }
+                          const draggedId = dragState.itemId;
+                          const targetId = `${tab.kind}:${tab.id}`;
+                          const position = getDropPosition(event);
+                          clearDragState();
+
+                          if (draggedId === targetId) return;
+
+                          setOpenTabs((current) => {
+                            const items = current.map(t => ({ id: `${t.kind}:${t.id}`, ...t }));
+                            const orderedIds = buildDraggedOrder(items, draggedId, targetId, position);
+                            if (orderedIds === null) return current;
+                            
+                            const positions = new Map(orderedIds.map((id, index) => [id, index]));
+                            return [...current].sort((left, right) => {
+                              const leftId = `${left.kind}:${left.id}`;
+                              const rightId = `${right.kind}:${right.id}`;
+                              const leftPos = positions.get(leftId) ?? 999;
+                              const rightPos = positions.get(rightId) ?? 999;
+                              return leftPos - rightPos;
+                            });
+                          });
+                        }}
+                        onDragEnd={clearDragState}
                       >
                         <button
                           type="button"
                           className="ws-tab-label-btn"
-                          title={noteFile}
-                          onClick={() => setActiveNoteFile(noteFile)}
+                          title={label}
+                          onClick={() => {
+                            if (tab.kind === 'page') {
+                              setSelectedPageId(tab.id);
+                              setActiveNoteFile(null);
+                            } else {
+                              setActiveNoteFile(tab.id);
+                            }
+                          }}
                         >
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="ws-tab-note-icon">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                          </svg>
-                          <span className="ws-tab-label">
-                            {noteMeta?.title ?? noteFile}
-                          </span>
+                          {tab.kind === 'note' && (
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="ws-tab-note-icon">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                              <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                          )}
+                          <span className="ws-tab-label">{label}</span>
                         </button>
                         <button
                           type="button"
                           className="ws-tab-close"
-                          title={`Close ${noteFile}`}
+                          title={`Close tab: ${label}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            closeNoteTab(noteFile);
+                            if (tab.kind === 'page') {
+                              closePageTab(tab.id);
+                            } else {
+                              closeNoteTab(tab.id);
+                            }
                           }}
-                          aria-label={`Close note tab ${noteFile}`}
+                          aria-label={`Close tab ${label}`}
                         />
                       </div>
                     );
                   })}
                 </div>
 
-                {/* ── Right: position toggle ── */}
-                <button
-                  type="button"
-                  className="ws-tab-position-toggle"
-                  title={
-                    tabBarPosition === 'top'
-                      ? 'Move tabs to bottom'
-                      : 'Move tabs to top'
-                  }
-                  onClick={toggleTabBarPosition}
-                >
-                  {tabBarPosition === 'top' ? '↓' : '↑'}
-                </button>
+                {/* ── Right: Spacer (toggle removed to fix tabs at bottom) ── */}
+                <div className="ws-tab-position-spacer" style={{ width: 34 }} />
               </div>
             );
           })()}
