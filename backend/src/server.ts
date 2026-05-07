@@ -14,6 +14,7 @@ import {
   validateBoardItemPayload,
   validateBoardStatePayload,
   validateConnectorPayload,
+  validateNoteUpdate,
   validateOrderedIds,
   validatePageCreate,
   validatePageUpdate,
@@ -195,6 +196,14 @@ function buildRoutes(): Route[] {
       pattern: /^\/projects\/(?<projectId>[^/]+)\/notes$/,
       handler: ({ repository }, { params }) =>
         repository.listProjectNotes(params.projectId),
+    },
+    {
+      method: 'PATCH',
+      pattern: /^\/projects\/(?<projectId>[^/]+)\/notes\/(?<noteFile>[^/]+\.md)$/,
+      handler: ({ repository, body }, { params }) => {
+        const { content } = validateNoteUpdate(body);
+        return repository.updateProjectNote(params.projectId, params.noteFile, content);
+      },
     },
     {
       method: 'POST',

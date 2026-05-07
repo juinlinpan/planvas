@@ -267,6 +267,32 @@ export class WhiteboardRepository {
       .sort((left, right) => left.title.localeCompare(right.title));
   }
 
+  updateProjectNote(
+    projectId: string,
+    noteFile: string,
+    content: string,
+  ): ProjectNote {
+    const safeFile = path.basename(noteFile);
+    if (safeFile !== noteFile || path.extname(safeFile).toLowerCase() !== noteFileExtension) {
+      throw new HttpError(400, 'Invalid note file name.');
+    }
+    const { projectDir } = this.findProjectMetadata(projectId);
+    const projectDataDir = this.projectDataDir(projectDir);
+    const notePath = path.join(projectDataDir, safeFile);
+    if (!fs.existsSync(notePath)) {
+      throw new HttpError(404, 'Note not found.');
+    }
+    fs.writeFileSync(notePath, content, 'utf8');
+    const stats = fs.statSync(notePath);
+    return {
+      note_file: safeFile,
+      title: getMarkdownH1(content) ?? path.basename(safeFile, noteFileExtension),
+      content,
+      content_format: 'markdown',
+      updated_at: stats.mtime.toISOString(),
+    };
+  }
+
   getPage(pageId: string): Page {
     return this.findPageMetadata(pageId).page;
   }

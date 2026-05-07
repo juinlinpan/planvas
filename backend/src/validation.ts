@@ -98,6 +98,16 @@ export const validatePageUpdate = validatePageCreate as (
   value: unknown,
 ) => PageUpdatePayload;
 
+export function validateNoteUpdate(value: unknown): { content: string } {
+  const body = asRecord(value);
+  if (typeof body.content !== 'string') {
+    throw validationError([
+      { loc: ['body', 'content'], msg: 'content must be a string.', type: 'type_error' },
+    ]);
+  }
+  return { content: body.content };
+}
+
 export function validateViewport(value: unknown): PageViewportPayload {
   const body = asRecord(value);
   const zoom = requireNumber(body.zoom, ['body', 'zoom']);

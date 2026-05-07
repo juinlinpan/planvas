@@ -32,6 +32,7 @@ import {
 } from './api';
 import { Canvas } from './Canvas';
 import { HomeView } from './HomeView';
+import { MarkdownEditor } from './MarkdownEditor';
 import { syncPageViewport } from './pageViewport';
 import {
   buildPageExportPayload,
@@ -48,6 +49,7 @@ type AppView = 'home' | 'workspace';
 type LoadState = 'loading' | 'ready' | 'error';
 type SidebarListKind = 'pages' | 'notes';
 type DropPosition = 'before' | 'after';
+type TabBarPosition = 'top' | 'bottom';
 type SidebarDragState = {
   kind: SidebarListKind;
   itemId: string;
@@ -60,6 +62,8 @@ type SidebarSectionId = 'pages' | 'notes';
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY =
   'whiteboard.workspaceSidebarCollapsed';
+
+const TAB_BAR_POSITION_STORAGE_KEY = 'whiteboard.tabBarPosition';
 
 const PROJECT_THEME_OPTIONS: Array<{
   value: ProjectThemeColor;
@@ -422,6 +426,24 @@ export function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() =>
     readStoredBoolean(SIDEBAR_COLLAPSED_STORAGE_KEY, false),
   );
+  const [tabBarPosition, setTabBarPosition] = useState<TabBarPosition>(() => {
+    const stored = typeof window !== 'undefined'
+      ? window.localStorage.getItem(TAB_BAR_POSITION_STORAGE_KEY)
+      : null;
+    return stored === 'bottom' ? 'bottom' : 'top';
+  });
+  const [openNoteFiles, setOpenNoteFiles] = useState<string[]>([]);
+  const [activeNoteFile, setActiveNoteFile] = useState<string | null>(null);
+  const [openPageIds, setOpenPageIds] = useState<string[]>([]);
+
+  // Keep openPageIds in sync whenever the selected page changes
+  useEffect(() => {
+    if (selectedPageId !== null) {
+      setOpenPageIds((prev) =>
+        prev.includes(selectedPageId) ? prev : [...prev, selectedPageId],
+      );
+    }
+  }, [selectedPageId]);
   const [expandedSidebarSections, setExpandedSidebarSections] = useState<
     Record<SidebarSectionId, boolean>
   >({
@@ -691,6 +713,42 @@ export function App() {
       ...current,
       [sectionId]: !current[sectionId],
     }));
+  }
+
+  function toggleTabBarPosition(): void {
+    setTabBarPosition((current) => {
+      const next: TabBarPosition = current === 'top' ? 'bottom' : 'top';
+      window.localStorage.setItem(TAB_BAR_POSITION_STORAGE_KEY, next);
+      return next;
+    });
+  }
+
+  function openNoteTab(noteFile: string): void {
+    setOpenNoteFiles((current) =>
+      current.includes(noteFile) ? current : [...current, noteFile],
+    );
+    setActiveNoteFile(noteFile);
+  }
+
+  function closeNoteTab(noteFile: string): void {
+    setOpenNoteFiles((current) => current.filter((f) => f !== noteFile));
+    setActiveNoteFile((current) => {
+      if (current !== noteFile) return current;
+      return null;
+    });
+  }
+
+  function closePageTab(pageId: string): void {
+    const nextOpenPageIds = openPageIds.filter((id) => id !== pageId);
+    setOpenPageIds(nextOpenPageIds);
+    if (selectedPageId === pageId) {
+      const fallback =
+        nextOpenPageIds.length > 0
+          ? nextOpenPageIds[nextOpenPageIds.length - 1]
+          : null;
+      setSelectedPageId(fallback);
+      setActiveNoteFile(null);
+    }
   }
 
   async function handleCreateProject(): Promise<void> {
@@ -1419,7 +1477,10 @@ export function App() {
                             handleSidebarDragStart('pages', page.id, event)
                           }
                           onDragEnd={clearDragState}
-                          onClick={() => setSelectedPageId(page.id)}
+                          onClick={() => {
+                            setSelectedPageId(page.id);
+                            setActiveNoteFile(null);
+                          }}
                         >
                           <span>{page.name}</span>
                           <small>zoom {page.zoom.toFixed(1)}x</small>
@@ -1519,10 +1580,11 @@ export function App() {
                       type="button"
                       className={`list-button note-list-button ${
                         isDragging ? 'is-dragging' : ''
-                      }`}
+                      } ${activeNoteFile === note.note_file ? 'is-selected' : ''}`}
                       draggable={!isMutating}
-                      title={`Drag ${note.note_file} into a page`}
-                      aria-label={`Drag note ${note.note_file} into a page`}
+                      title={`Click to edit · Drag to place on a page`}
+                      aria-label={`Open note ${note.note_file} in editor`}
+                      onClick={() => openNoteTab(note.note_file)}
                       onDragStart={(event) =>
                         handleSidebarDragStart('notes', note.note_file, event)
                       }
@@ -1539,68 +1601,192 @@ export function App() {
           </section>
         </aside>
 
-        <section className="workspace">
-          {errorMessage !== null ? (
-            <div className="error-banner">{errorMessage}</div>
-          ) : null}
+        <section className={`workspace workspace-tabpos-${tabBarPosition}`}>
+          {/* ── browser-like tab bar ── */}
+          {selectedProject !== null && (() => {
+            const visiblePageTabs = pages.filter((p) => openPageIds.includes(p.id));
+            const visibleNoteTabs = openNoteFiles.filter((f) =>
+              projectNotes.some((n) => n.note_file === f),
+            );
+            return (
+              <div className={`ws-tab-bar ws-tab-bar-${tabBarPosition}`}>
+                {/* ── Left: Project name ── */}
+                <span className="ws-tab-project-name" title={selectedProject.name}>
+                  {selectedProject.name}
+                </span>
 
-          {selectedProject === null ? (
-            <section className="hero-panel">
-              <div className="hero-copy">
-                <h3>Select a project</h3>
-                <p className="hero-text">Open a project from the home screen to start working on a board.</p>
+                <div className="ws-tab-divider-v" />
+
+                {/* ── Page tabs ── */}
+                <div className="ws-tab-strip">
+                  {visiblePageTabs.map((page) => {
+                    const isActive =
+                      selectedPageId === page.id && activeNoteFile === null;
+                    return (
+                      <div
+                        key={page.id}
+                        className={`ws-tab ws-tab-page ${isActive ? 'is-active' : ''}`}
+                      >
+                        <button
+                          type="button"
+                          className="ws-tab-label-btn"
+                          title={page.name}
+                          onClick={() => {
+                            setSelectedPageId(page.id);
+                            setActiveNoteFile(null);
+                          }}
+                        >
+                          <span className="ws-tab-label">{page.name}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="ws-tab-close"
+                          title={`Close tab: ${page.name}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            closePageTab(page.id);
+                          }}
+                          aria-label={`Close tab ${page.name}`}
+                        />
+                      </div>
+                    );
+                  })}
+
+                  {/* ── Note tabs ── */}
+                  {visibleNoteTabs.length > 0 && (
+                    <div className="ws-tab-divider-v ws-tab-divider-notes" />
+                  )}
+                  {visibleNoteTabs.map((noteFile) => {
+                    const isActive = activeNoteFile === noteFile;
+                    const noteMeta = projectNotes.find(
+                      (n) => n.note_file === noteFile,
+                    );
+                    return (
+                      <div
+                        key={noteFile}
+                        className={`ws-tab ws-tab-note ${isActive ? 'is-active' : ''}`}
+                      >
+                        <button
+                          type="button"
+                          className="ws-tab-label-btn"
+                          title={noteFile}
+                          onClick={() => setActiveNoteFile(noteFile)}
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="ws-tab-note-icon">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                          </svg>
+                          <span className="ws-tab-label">
+                            {noteMeta?.title ?? noteFile}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className="ws-tab-close"
+                          title={`Close ${noteFile}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            closeNoteTab(noteFile);
+                          }}
+                          aria-label={`Close note tab ${noteFile}`}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* ── Right: position toggle ── */}
                 <button
-                  className="primary-button"
-                  disabled={isMutating}
-                  onClick={() => goHome()}
+                  type="button"
+                  className="ws-tab-position-toggle"
+                  title={
+                    tabBarPosition === 'top'
+                      ? 'Move tabs to bottom'
+                      : 'Move tabs to top'
+                  }
+                  onClick={toggleTabBarPosition}
                 >
-                  Go home
+                  {tabBarPosition === 'top' ? '↓' : '↑'}
                 </button>
               </div>
-            </section>
-          ) : selectedPage === null ? (
-            <section className="hero-panel">
-              <div className="hero-copy">
-                <h3>{pages.length === 0 ? `Create a page in ${selectedProject.name}` : 'Select a page'}</h3>
-                <p className="hero-text">
-                  {pages.length === 0
-                    ? 'Add a page to start arranging notes, tables, frames, and connectors.'
-                    : 'Open a page from the sidebar to continue working.'}
-                </p>
-                <button
-                  className="primary-button"
-                  disabled={isMutating}
-                  onClick={() => void handleCreatePage()}
-                >
-                  New page
-                </button>
-              </div>
-            </section>
-          ) : (
-            <Canvas
-              key={`${selectedPage.id}:${pageRefreshTokenById[selectedPage.id] ?? 0}`}
-              page={selectedPage}
-              projectNotes={projectNotes}
-              draggedProjectNoteFile={
-                dragState?.kind === 'notes' ? dragState.itemId : null
-              }
-              onImportPage={handleImportPageButtonClick}
-              onExportPage={handleExportPageClick}
-              importExportDisabled={isMutating}
-              onViewportChange={(viewport) =>
-                handlePageViewportChange(selectedPage.id, viewport)
-              }
-              onProjectNotesChanged={() => {
-                if (selectedProjectId !== null) {
-                  void refreshProjectNotes(selectedProjectId);
+            );
+          })()}
+
+          <div className="workspace-content-area">
+            {errorMessage !== null ? (
+              <div className="error-banner">{errorMessage}</div>
+            ) : null}
+
+            {activeNoteFile !== null && selectedProjectId !== null ? (
+              <MarkdownEditor
+                key={activeNoteFile}
+                projectId={selectedProjectId}
+                noteFile={activeNoteFile}
+                projectNotes={projectNotes}
+                onNotesChanged={() => {
+                  if (selectedProjectId !== null) {
+                    void refreshProjectNotes(selectedProjectId);
+                  }
+                }}
+              />
+            ) : selectedProject === null ? (
+              <section className="hero-panel">
+                <div className="hero-copy">
+                  <h3>Select a project</h3>
+                  <p className="hero-text">Open a project from the home screen to start working on a board.</p>
+                  <button
+                    className="primary-button"
+                    disabled={isMutating}
+                    onClick={() => goHome()}
+                  >
+                    Go home
+                  </button>
+                </div>
+              </section>
+            ) : selectedPage === null ? (
+              <section className="hero-panel">
+                <div className="hero-copy">
+                  <h3>{pages.length === 0 ? `Create a page in ${selectedProject.name}` : 'Select a page'}</h3>
+                  <p className="hero-text">
+                    {pages.length === 0
+                      ? 'Add a page to start arranging notes, tables, frames, and connectors.'
+                      : 'Open a page from the sidebar to continue working.'}
+                  </p>
+                  <button
+                    className="primary-button"
+                    disabled={isMutating}
+                    onClick={() => void handleCreatePage()}
+                  >
+                    New page
+                  </button>
+                </div>
+              </section>
+            ) : (
+              <Canvas
+                key={`${selectedPage.id}:${pageRefreshTokenById[selectedPage.id] ?? 0}`}
+                page={selectedPage}
+                projectNotes={projectNotes}
+                draggedProjectNoteFile={
+                  dragState?.kind === 'notes' ? dragState.itemId : null
                 }
-                setPageRefreshTokenById((current) => ({
-                  ...current,
-                  [selectedPage.id]: (current[selectedPage.id] ?? 0) + 1,
-                }));
-              }}
-            />
-          )}
+                onImportPage={handleImportPageButtonClick}
+                onExportPage={handleExportPageClick}
+                importExportDisabled={isMutating}
+                onViewportChange={(viewport) =>
+                  handlePageViewportChange(selectedPage.id, viewport)
+                }
+                onProjectNotesChanged={() => {
+                  if (selectedProjectId !== null) {
+                    void refreshProjectNotes(selectedProjectId);
+                  }
+                  setPageRefreshTokenById((current) => ({
+                    ...current,
+                    [selectedPage.id]: (current[selectedPage.id] ?? 0) + 1,
+                  }));
+                }}
+              />
+            )}
+          </div>
         </section>
       </main>
       {projectSettingsDialogOpen && selectedProject !== null ? (

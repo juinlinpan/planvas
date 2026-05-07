@@ -165,6 +165,20 @@ export async function listProjectNotes(
   return requestJson<ProjectNote[]>(`/projects/${projectId}/notes`, { signal });
 }
 
+export async function updateProjectNote(
+  projectId: string,
+  noteFile: string,
+  content: string,
+): Promise<ProjectNote> {
+  return requestJson<ProjectNote>(
+    `/projects/${projectId}/notes/${encodeURIComponent(noteFile)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ content }),
+    },
+  );
+}
+
 export async function createPage(projectId: string, name: string): Promise<Page> {
   return requestJson<Page>(`/projects/${projectId}/pages`, {
     method: 'POST',
