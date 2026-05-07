@@ -125,6 +125,7 @@ import { getMinimapLayout, worldToMinimap } from './minimap';
 type Props = {
   page: Page;
   projectNotes?: ProjectNote[];
+  draggedProjectNoteFile?: string | null;
   onViewportChange?: (viewport: Viewport) => void;
   onProjectNotesChanged?: () => void;
   onImportPage: () => void;
@@ -178,9 +179,31 @@ function readStoredNumber(key: string, fallbackValue: number): number {
   return Number.isFinite(storedValue) ? storedValue : fallbackValue;
 }
 
+export function resolveSidebarNoteDragFile(
+  projectNotes: ProjectNote[],
+  draggedProjectNoteFile: string | null,
+  dataTransfer: Pick<DataTransfer, 'getData'>,
+): string | null {
+  const rawValue = dataTransfer.getData('text/plain');
+  const prefix = 'notes:';
+  if (rawValue.startsWith(prefix)) {
+    const noteFile = rawValue.slice(prefix.length);
+    if (projectNotes.some((note) => note.note_file === noteFile)) {
+      return noteFile;
+    }
+  }
+
+  return projectNotes.some(
+    (note) => note.note_file === draggedProjectNoteFile,
+  )
+    ? draggedProjectNoteFile
+    : null;
+}
+
 export function Canvas({
   page,
   projectNotes = [],
+  draggedProjectNoteFile = null,
   onViewportChange,
   onProjectNotesChanged,
   onImportPage,
@@ -946,16 +969,11 @@ export function Canvas({
   }
 
   function getSidebarNoteDragFile(event: ReactDragEvent): string | null {
-    const rawValue = event.dataTransfer.getData('text/plain');
-    const prefix = 'notes:';
-    if (!rawValue.startsWith(prefix)) {
-      return null;
-    }
-
-    const noteFile = rawValue.slice(prefix.length);
-    return projectNotes.some((note) => note.note_file === noteFile)
-      ? noteFile
-      : null;
+    return resolveSidebarNoteDragFile(
+      projectNotes,
+      draggedProjectNoteFile,
+      event.dataTransfer,
+    );
   }
 
   async function handleProjectNoteDrop(

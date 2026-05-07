@@ -1581,6 +1581,9 @@ export function App() {
               key={`${selectedPage.id}:${pageRefreshTokenById[selectedPage.id] ?? 0}`}
               page={selectedPage}
               projectNotes={projectNotes}
+              draggedProjectNoteFile={
+                dragState?.kind === 'notes' ? dragState.itemId : null
+              }
               onImportPage={handleImportPageButtonClick}
               onExportPage={handleExportPageClick}
               importExportDisabled={isMutating}

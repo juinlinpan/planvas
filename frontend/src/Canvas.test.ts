@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { BoardItem, ConnectorLink } from './api';
+import type { BoardItem, ConnectorLink, ProjectNote } from './api';
+import { resolveSidebarNoteDragFile } from './Canvas';
 import {
   getAutoAnchors,
   getConnectorPoints,
@@ -45,6 +46,16 @@ function createConnector(
     to_item_id: 'to-item',
     from_anchor: null,
     to_anchor: null,
+    ...overrides,
+  };
+}
+
+function createProjectNote(overrides: Partial<ProjectNote> = {}): ProjectNote {
+  return {
+    note_file: 'sprint-plan.md',
+    title: 'Sprint Plan',
+    content_format: 'markdown',
+    updated_at: FIXTURE_TIMESTAMP,
     ...overrides,
   };
 }
@@ -114,6 +125,28 @@ describe('summarizeFrameChild', () => {
       title: '整理待辦',
       body: '未找到 H1，改用第一行內容',
     });
+  });
+});
+
+describe('resolveSidebarNoteDragFile', () => {
+  it('falls back to the current sidebar drag state when text/plain is unavailable', () => {
+    const notes = [createProjectNote()];
+
+    const resolved = resolveSidebarNoteDragFile(notes, 'sprint-plan.md', {
+      getData: () => '',
+    });
+
+    expect(resolved).toBe('sprint-plan.md');
+  });
+
+  it('ignores stale dragged note ids that are not part of the current project notes', () => {
+    const notes = [createProjectNote()];
+
+    const resolved = resolveSidebarNoteDragFile(notes, 'missing.md', {
+      getData: () => '',
+    });
+
+    expect(resolved).toBeNull();
   });
 });
 
