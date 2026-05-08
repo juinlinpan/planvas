@@ -247,7 +247,7 @@ export function buildPageExportPayload(boardData: PageBoardData): ExportedPagePa
     category: item.category,
     type: item.type,
     title: item.title,
-    content: item.content,
+    content: item.type === 'note_paper' ? null : item.content,
     content_format: item.content_format,
     x: item.x,
     y: item.y,

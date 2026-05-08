@@ -72,6 +72,7 @@ type Props = {
   item: BoardItem;
   isSelected: boolean;
   isEditing: boolean;
+  renderMode?: 'interactive' | 'static';
   onUpdate: (item: BoardItem) => void;
   onEditEnd: () => void;
   onCellInteractionStart?: () => void;
@@ -86,6 +87,7 @@ export function Table({
   item,
   isSelected,
   isEditing,
+  renderMode = 'interactive',
   onUpdate,
   onEditEnd,
   onCellInteractionStart,
@@ -94,9 +96,10 @@ export function Table({
   magnetEnabled = false,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const isStatic = renderMode === 'static';
   const tableData = useMemo(() => parseTableData(item.data_json), [item.data_json]);
   const resolvedStyle = resolveBoardItemStyle(item);
-  const showsStructureControls = isEditing || isSelected;
+  const showsStructureControls = (isEditing || isSelected) && !isStatic;
 
   // Selected cell IDs (for merge operation)
   const [selectedCells, setSelectedCells] = useState<string[]>([]);
@@ -465,7 +468,7 @@ export function Table({
   return (
     <div
       ref={containerRef}
-      className={`table-v2 ${isEditing ? 'is-editing' : ''}`}
+      className={`table-v2 ${isEditing ? 'is-editing' : ''} ${isStatic ? 'is-static' : ''}`}
       style={containerStyle}
       tabIndex={isEditing ? 0 : undefined}
       onBlur={isEditing ? handleBlurContainer : undefined}

@@ -1223,15 +1223,13 @@ export class WhiteboardRepository {
     if (item.type !== 'note_paper') return item;
     const existingNoteData = parseJsonObject(item.data_json);
     const existingNoteFile = this.noteFileFromDataJson(item.data_json);
+    const title = getMarkdownH1(item.content) ?? item.title ?? `note-${item.id}`;
     const noteFile =
       existingNoteFile ??
       path.basename(
         uniquePath(
           projectDataDir,
-          slugify(
-            getMarkdownH1(item.content) ?? item.title ?? `note-${item.id}`,
-            `note-${item.id}`,
-          ),
+          slugify(title, `note-${item.id}`),
           noteFileExtension,
         ),
       );
@@ -1250,6 +1248,7 @@ export class WhiteboardRepository {
     };
     return {
       ...item,
+      title,
       content: null,
       content_format: 'markdown',
       data_json: JSON.stringify(noteData),

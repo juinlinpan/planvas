@@ -14,26 +14,9 @@ type Props = {
   onEditEnd: () => void;
 };
 
-function hasPreviewBody(content: string | null): boolean {
-  if (content === null) {
-    return false;
-  }
-
-  return content.split(/\r?\n/).some((line) => {
-    const trimmed = line.trim();
-    return trimmed.length > 0 && !/^#\s+/.test(trimmed);
-  });
-}
-
-function shouldPrioritizeTitle(item: Pick<BoardItem, 'width' | 'height'>): boolean {
-  return item.width < 210 || item.height < 150;
-}
-
 export function NotePaper({ item, isEditing, onUpdate, onEditEnd }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const title = getMarkdownH1(item.content) ?? getFirstNonEmptyLine(item.content);
-  const previewable = hasPreviewBody(item.content);
-  const prioritizeTitle = shouldPrioritizeTitle(item);
+  const title = item.title ?? getMarkdownH1(item.content) ?? getFirstNonEmptyLine(item.content);
   const resolvedStyle = resolveBoardItemStyle(item);
   const typographyStyle = getBoardItemTypographyStyle(item);
   const cardStyle = {
@@ -71,20 +54,19 @@ export function NotePaper({ item, isEditing, onUpdate, onEditEnd }: Props) {
 
   return (
     <div
-      className={`note-paper-display ${prioritizeTitle ? 'is-title-priority' : ''}`}
+      className="note-paper-display"
       style={cardStyle}
+      onWheel={(e) => e.stopPropagation()}
     >
       <div className="note-paper-header">
         <strong className="note-paper-title">{title ?? 'Untitled note'}</strong>
       </div>
-      {previewable && !prioritizeTitle ? (
-        <MarkdownPreview
-          content={item.content}
-          omitFirstHeading={true}
-          className="note-paper-body"
-          maxBlocks={null}
-        />
-      ) : null}
+      <MarkdownPreview
+        content={item.content}
+        omitFirstHeading={true}
+        className="note-paper-body"
+        maxBlocks={null}
+      />
     </div>
   );
 }

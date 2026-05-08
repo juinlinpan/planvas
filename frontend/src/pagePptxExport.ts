@@ -104,6 +104,132 @@ function getTextContent(item: BoardItem): string {
   return item.type;
 }
 
+type PptxTextRun = {
+  text: string;
+  options?: {
+    bold?: boolean;
+    italic?: boolean;
+    color?: string;
+    fontSize?: number;
+    breakLine?: boolean;
+    bullet?: boolean | { type: string };
+  };
+};
+
+/**
+ * Convert a markdown string into a pptxgenjs text-run array.
+ * Handles: h1-h3 (bold + larger), **bold**, *italic*, bullet lists (- / *), plain text.
+ * Each logical line becomes its own text run with breakLine:true so the layout matches.
+ */
+function markdownToPptxRuns(md: string, baseColor = '334155', baseFontSize = 11): PptxTextRun[] {
+  const runs: PptxTextRun[] = [];
+
+  const lines = md.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+
+    // Heading detection
+    const h1 = raw.match(/^#\s+(.*)/);
+    const h2 = raw.match(/^##\s+(.*)/);
+    const h3 = raw.match(/^###\s+(.*)/);
+    const bullet = raw.match(/^[\-\*]\s+(.*)/);
+
+    const isLast = i === lines.length - 1;
+    const breakLine = isLast ? false : true;
+
+    if (h1 || h2 || h3) {
+      const level = h1 ? 1 : h2 ? 2 : 3;
+      const text = (h1 ?? h2 ?? h3)![1];
+      const fontSize = level === 1 ? baseFontSize + 5 : level === 2 ? baseFontSize + 3 : baseFontSize + 1;
+      runs.push({ text, options: { bold: true, color: '111827', fontSize, breakLine } });
+    } else if (bullet) {
+      const text = bullet[1];
+      const inlineRuns = parseInlineMarkdown(text, baseColor, baseFontSize);
+      // Prepend bullet character
+      inlineRuns[0] = { text: '• ' + inlineRuns[0].text, options: inlineRuns[0].options };
+      // Only the last inline run of this line gets breakLine
+      inlineRuns.forEach((r, ri) => {
+        r.options = { ...r.options, breakLine: ri === inlineRuns.length - 1 ? breakLine : false };
+      });
+      runs.push(...inlineRuns);
+    } else {
+      const inlineRuns = parseInlineMarkdown(raw, baseColor, baseFontSize);
+      inlineRuns.forEach((r, ri) => {
+        r.options = { ...r.options, breakLine: ri === inlineRuns.length - 1 ? breakLine : false };
+      });
+      runs.push(...inlineRuns);
+    }
+  }
+
+  return runs.length > 0 ? runs : [{ text: '' }];
+}
+
+function parseInlineMarkdown(text: string, color: string, fontSize: number): PptxTextRun[] {
+  // Split on **bold** and *italic* tokens
+  const runs: PptxTextRun[] = [];
+  const pattern = /(\*\*(.+?)\*\*|\*(.+?)\*)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      runs.push({ text: text.slice(lastIndex, match.index), options: { color, fontSize } });
+    }
+    if (match[2] !== undefined) {
+      // **bold**
+      runs.push({ text: match[2], options: { bold: true, color, fontSize } });
+    } else if (match[3] !== undefined) {
+      // *italic*
+      runs.push({ text: match[3], options: { italic: true, color, fontSize } });
+    }
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    runs.push({ text: text.slice(lastIndex), options: { color, fontSize } });
+  }
+
+  return runs.length > 0 ? runs : [{ text: text, options: { color, fontSize } }];
+}
+
+function renderNoteContentSlides(pptx: any, item: BoardItem, index: number): void {
+  if (!item.content || item.content.trim().length === 0) {
+    return;
+  }
+
+  const slide = pptx.addSlide();
+  slide.background = { color: 'FFFFFF' };
+
+  const heading = item.title?.trim() || item.content.trim().split('\n')[0].replace(/^#+\s*/, '').slice(0, 60) || 'Note';
+  const label = `${index}. ${heading}`;
+
+  // Slide title
+  slide.addText(label, {
+    x: SLIDE_MARGIN,
+    y: SLIDE_MARGIN,
+    w: SLIDE_WIDTH - SLIDE_MARGIN * 2,
+    h: TITLE_HEIGHT,
+    bold: true,
+    color: '111827',
+    fontFace: 'Arial',
+    fontSize: 18,
+    margin: 0,
+    valign: 'middle',
+  });
+
+  // Full content rendered from markdown
+  const textRuns = markdownToPptxRuns(item.content);
+  slide.addText(textRuns, {
+    x: SLIDE_MARGIN,
+    y: SLIDE_MARGIN + TITLE_HEIGHT + TITLE_GAP,
+    w: SLIDE_WIDTH - SLIDE_MARGIN * 2,
+    h: SLIDE_HEIGHT - (SLIDE_MARGIN * 2 + TITLE_HEIGHT + TITLE_GAP),
+    fontFace: 'Arial',
+    valign: 'top',
+    margin: 5,
+  });
+}
+
 function renderTableAsNativeTable(slide: any, item: BoardItem, placement: Placement): void {
   const table = parseTableData(item.data_json);
   const rows: Array<Array<string | Record<string, unknown>>> = [];
@@ -186,10 +312,34 @@ function renderFrameAsFooterRect(slide: any, item: BoardItem, placement: Placeme
   });
 }
 
+function truncateText(text: string, width: number, height: number, fontSize: number): string {
+  // Rough estimation: each character is about 0.5 * fontSize wide, each line is about 1.2 * fontSize high.
+  // PPT units are inches. 1 point = 1/72 inch.
+  const charWidth = (fontSize * 0.5) / 72;
+  const lineHeight = (fontSize * 1.2) / 72;
+  const charsPerLine = Math.floor(width / charWidth);
+  const maxLines = Math.floor(height / lineHeight);
+  const maxChars = charsPerLine * maxLines;
+
+  if (text.length <= maxChars) {
+    return text;
+  }
+
+  return text.slice(0, Math.max(0, maxChars - 3)) + '...';
+}
+
 function renderAsTextBox(slide: any, item: BoardItem, placement: Placement): void {
   const style = resolveBoardItemStyle(item);
   const parsed = parseBoardItemStyle(item.style_json);
-  slide.addText(getTextContent(item), {
+  const fontSize = Math.max(Math.min(style.fontSize * 0.7, 24), 9);
+  let text = getTextContent(item);
+
+  // For note_paper / sticky_note on the main slide, truncate to fit the box
+  if (item.type === ITEM_TYPE.note_paper || item.type === ITEM_TYPE.sticky_note) {
+    text = truncateText(text, placement.w, placement.h, fontSize);
+  }
+
+  slide.addText(text, {
     x: placement.x,
     y: placement.y,
     w: placement.w,
@@ -208,7 +358,7 @@ function renderAsTextBox(slide: any, item: BoardItem, placement: Placement): voi
     },
     color: toPptxColor(style.textColor, '0F172A'),
     fontFace: 'Arial',
-    fontSize: Math.max(Math.min(style.fontSize * 0.7, 24), 9),
+    fontSize,
     bold: style.fontWeight === 'bold',
     italic: style.fontStyle === 'italic',
     valign: 'top',
@@ -264,6 +414,15 @@ export async function exportPageAsPptx(boardData: PageBoardData): Promise<Blob> 
       continue;
     }
     renderAsTextBox(slide, item, placement);
+  }
+
+  // Add detail slides for notes
+  let noteIndex = 0;
+  for (const item of orderedItems) {
+    if (item.type === ITEM_TYPE.note_paper || item.type === ITEM_TYPE.sticky_note) {
+      noteIndex += 1;
+      renderNoteContentSlides(pptx, item, noteIndex);
+    }
   }
 
   slide.addNotes(`Whiteboard page export: ${boardData.page.name}`);

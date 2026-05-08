@@ -74,6 +74,15 @@
   box-shadow: 0 0 0 4px var(--accent-soft);
 }
 
+.board-item.is-static {
+  border-radius: 0;
+}
+
+.board-item.is-static.is-selected {
+  outline: none;
+  box-shadow: none;
+}
+
 .board-item-segment.is-selected {
   outline: none;
   box-shadow: none;

@@ -96,11 +96,24 @@
   flex-direction: column;
   gap: 8px;
   align-items: flex-start;
-  padding: 14px 16px;
+  padding: 14px 6px 14px 16px;
   background: var(--surface);
   border: 1px solid var(--line-strong);
   box-shadow: var(--shadow-md);
   overflow: hidden;
+}
+
+.board-item.is-static .sticky-note-display {
+  box-shadow: none;
+}
+
+.board-item.is-static .text-box-display {
+  box-shadow: none;
+}
+
+.board-item.is-static .note-paper-display {
+  box-shadow: none;
+  border-color: var(--line);
 }
 
 .note-paper-header {
@@ -119,17 +132,23 @@
 
 .note-paper-body {
   margin: 0;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
   gap: 8px;
   overflow: auto;
-  padding-right: 4px;
+  padding-right: 2px;
   word-break: break-word;
   font-size: 0.8rem;
   line-height: 1.55;
   color: var(--muted);
+}
+
+.board-item.is-static .note-paper-body {
+  overflow: hidden;
+  padding-right: 0;
 }
 
 .note-paper-body > * {

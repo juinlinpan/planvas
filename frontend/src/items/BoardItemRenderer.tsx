@@ -76,7 +76,7 @@ export function BoardItemRenderer({
 
   const wrapperClass = `board-item board-item-type-${item.type} ${
     isSelected ? 'is-selected' : ''
-  } ${className}`.trim();
+  } ${isStatic ? 'is-static' : ''} ${className}`.trim();
   const handleMouseDownCapture = (e: React.MouseEvent) => {
     if (e.button === 1) {
       onMouseDown(e);
@@ -148,6 +148,7 @@ export function BoardItemRenderer({
             item={item}
             isSelected={isSelected}
             isEditing={isEditing}
+            renderMode={renderMode}
             onUpdate={onUpdate}
             onEditEnd={onEditEnd}
             onCellInteractionStart={onTableCellInteractionStart}
