@@ -66,6 +66,7 @@ import {
   canTranslateSegmentItem,
   getSegmentConnections,
   getSegmentWaypoints,
+  getSegmentWorldWaypoints,
   getSegmentWorldPoints,
   hasStoredSegmentData,
   insertWaypointAt,
@@ -1050,7 +1051,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
             }
           }
 
-          const waypoints = getSegmentWaypoints(item);
+          const waypoints = getSegmentWorldWaypoints(item);
           const geometry = buildSegmentGeometry(
             newStart,
             newEnd,

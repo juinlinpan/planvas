@@ -2,6 +2,7 @@ import { type BoardItem, type ConnectorLink } from './api';
 import {
   BACKGROUND_COLOR_OPTIONS,
   TEXT_COLOR_OPTIONS,
+  STROKE_COLOR_OPTIONS,
   parseBoardItemStyle,
   resolveBoardItemStyle,
   serializeBoardItemStyle,
@@ -437,70 +438,65 @@ export function Inspector({
           </button>
         </div>
 
-        <section className="inspector-section">
-          <p className="meta-label">Position</p>
-          <div className="inspector-grid">
-            <label>
-              X
-              <input
-                type="number"
-                value={Math.round(selectedItem.x)}
-                disabled={isLegacyConnectorArrow}
-                onChange={(e) => handleNumberChange('x', e.target.value)}
-              />
-            </label>
-            <label>
-              Y
-              <input
-                type="number"
-                value={Math.round(selectedItem.y)}
-                disabled={isLegacyConnectorArrow}
-                onChange={(e) => handleNumberChange('y', e.target.value)}
-              />
-            </label>
-          </div>
-        </section>
+        {!isLegacyConnectorArrow ? (
+          <section className="inspector-section">
+            <p className="meta-label">Position</p>
+            <div className="inspector-grid">
+              <label>
+                X
+                <input
+                  type="number"
+                  value={Math.round(selectedItem.x)}
+                  onChange={(e) => handleNumberChange('x', e.target.value)}
+                />
+              </label>
+              <label>
+                Y
+                <input
+                  type="number"
+                  value={Math.round(selectedItem.y)}
+                  onChange={(e) => handleNumberChange('y', e.target.value)}
+                />
+              </label>
+            </div>
+          </section>
+        ) : null}
 
-        <section className="inspector-section">
-          <p className="meta-label">Size</p>
-          <div className="inspector-grid">
-            <label>
-              Width
-              <input
-                type="number"
-                value={Math.round(selectedItem.width)}
-                disabled={isLegacyConnectorArrow || isSegmentItem}
-                onChange={(e) => handleNumberChange('width', e.target.value)}
-              />
-            </label>
-            <label>
-              Height
-              <input
-                type="number"
-                value={Math.round(selectedItem.height)}
-                disabled={isLegacyConnectorArrow || isSegmentItem}
-                onChange={(e) => handleNumberChange('height', e.target.value)}
-              />
-            </label>
-          </div>
-          {isLine && !isSegmentItem ? (
-            <label className="inspector-field">
-              角度
-              <input
-                type="number"
-                min={-180}
-                max={180}
-                value={selectedItem.rotation}
-                onChange={(e) => handleRotationChange(e.target.value)}
-              />
-            </label>
-          ) : null}
-          {isSegmentItem ? (
-            <p className="inspector-meta">
-              線條與箭頭會以包圍盒儲存，尺寸請直接用畫布上的端點控制。
-            </p>
-          ) : null}
-        </section>
+        {!isLegacyConnectorArrow && !isSegmentItem ? (
+          <section className="inspector-section">
+            <p className="meta-label">Size</p>
+            <div className="inspector-grid">
+              <label>
+                Width
+                <input
+                  type="number"
+                  value={Math.round(selectedItem.width)}
+                  onChange={(e) => handleNumberChange('width', e.target.value)}
+                />
+              </label>
+              <label>
+                Height
+                <input
+                  type="number"
+                  value={Math.round(selectedItem.height)}
+                  onChange={(e) => handleNumberChange('height', e.target.value)}
+                />
+              </label>
+            </div>
+            {isLine ? (
+              <label className="inspector-field">
+                角度
+                <input
+                  type="number"
+                  min={-180}
+                  max={180}
+                  value={selectedItem.rotation}
+                  onChange={(e) => handleRotationChange(e.target.value)}
+                />
+              </label>
+            ) : null}
+          </section>
+        ) : null}
 
         {isTable && tableData !== null ? (
           <section className="inspector-section">
@@ -768,17 +764,16 @@ export function Inspector({
                 重設
               </button>
             </div>
-            <div className="inspector-color-grid">
-              <label className="inspector-color-field">
-                線條顏色
-                <input
-                  type="color"
-                  value={resolvedStyle.strokeColor}
-                  onChange={(e) =>
-                    handleStyleChange({ strokeColor: e.target.value })
-                  }
-                />
-              </label>
+            <div className="inspector-field">
+              <ColorPaletteField
+                label="線條顏色"
+                options={STROKE_COLOR_OPTIONS}
+                selectedValue={resolvedStyle.strokeColor}
+                tone="background"
+                onSelect={(value) => handleStyleChange({ strokeColor: value })}
+              />
+            </div>
+            <div className="inspector-grid">
               <label className="inspector-field">
                 粗細
                 <input
@@ -789,39 +784,56 @@ export function Inspector({
                   onChange={(e) => handleStrokeWidthChange(e.target.value)}
                 />
               </label>
-            </div>
-            <label className="inspector-field">
-              線條樣式
-              <select
-                value={resolvedStyle.strokeStyle}
-                onChange={(e) =>
-                  handleStyleChange({
-                    strokeStyle: e.target
-                      .value as BoardItemStyle['strokeStyle'],
-                  })
-                }
-              >
-                <option value="solid">實線</option>
-                <option value="dashed">虛線</option>
-                <option value="dotted">點線</option>
-              </select>
-            </label>
-            {isArrow ? (
               <label className="inspector-field">
-                箭頭大小
-                <input
-                  type="number"
-                  min={8}
-                  max={40}
-                  value={resolvedStyle.arrowHeadSize}
+                線條樣式
+                <select
+                  value={resolvedStyle.strokeStyle}
                   onChange={(e) =>
                     handleStyleChange({
-                      arrowHeadSize: Number(e.target.value),
+                      strokeStyle: e.target
+                        .value as BoardItemStyle['strokeStyle'],
                     })
                   }
-                />
+                >
+                  <option value="solid">實線</option>
+                  <option value="dashed">虛線</option>
+                  <option value="dotted">點線</option>
+                </select>
               </label>
-            ) : null}
+            </div>
+            <div className="inspector-grid">
+              <label className="inspector-field">
+                轉折
+                <select
+                  value={resolvedStyle.lineCornerType}
+                  onChange={(e) =>
+                    handleStyleChange({
+                      lineCornerType: e.target
+                        .value as BoardItemStyle['lineCornerType'],
+                    })
+                  }
+                >
+                  <option value="sharp">直角</option>
+                  <option value="rounded">彎的</option>
+                </select>
+              </label>
+              {isArrow ? (
+                <label className="inspector-field">
+                  箭頭大小
+                  <input
+                    type="number"
+                    min={8}
+                    max={40}
+                    value={resolvedStyle.arrowHeadSize}
+                    onChange={(e) =>
+                      handleStyleChange({
+                        arrowHeadSize: Number(e.target.value),
+                      })
+                    }
+                  />
+                </label>
+              ) : null}
+            </div>
             <p className="inspector-meta">
               {isSegmentItem
                 ? '直接拖曳畫布上的端點控制長度與方向，這裡只調整樣式。'

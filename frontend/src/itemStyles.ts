@@ -5,6 +5,7 @@ import { ITEM_TYPE } from './types';
 export type FontWeightValue = 'normal' | 'bold';
 export type FontStyleValue = 'normal' | 'italic';
 export type StrokeStyleValue = 'solid' | 'dashed' | 'dotted';
+export type LineCornerType = 'sharp' | 'rounded';
 export type ColorOption = {
   name: string;
   value: string;
@@ -19,6 +20,7 @@ export type BoardItemStyle = {
   strokeColor?: string;
   strokeWidth?: number;
   strokeStyle?: StrokeStyleValue;
+  lineCornerType?: LineCornerType;
   arrowHeadSize?: number;
 };
 
@@ -31,6 +33,7 @@ export type ResolvedBoardItemStyle = {
   strokeColor: string;
   strokeWidth: number;
   strokeStyle: StrokeStyleValue;
+  lineCornerType: LineCornerType;
   arrowHeadSize: number;
 };
 
@@ -54,9 +57,21 @@ export const TEXT_COLOR_OPTIONS = [
   { name: 'Rose', value: '#be123c' },
 ] as const satisfies readonly ColorOption[];
 
+export const STROKE_COLOR_OPTIONS = [
+  { name: 'Black',  value: '#1f2937' },
+  { name: 'Red',    value: '#ef4444' },
+  { name: 'Orange', value: '#f97316' },
+  { name: 'Yellow', value: '#f59e0b' },
+  { name: 'Green',  value: '#22c55e' },
+  { name: 'Blue',   value: '#3b82f6' },
+  { name: 'Purple', value: '#a855f7' },
+  { name: 'Pink',   value: '#ec4899' },
+] as const satisfies readonly ColorOption[];
+
 const DEFAULT_BACKGROUND_COLOR = BACKGROUND_COLOR_OPTIONS[0].value;
 const DEFAULT_FRAME_BACKGROUND_COLOR = BACKGROUND_COLOR_OPTIONS[5].value;
 const DEFAULT_TEXT_COLOR = TEXT_COLOR_OPTIONS[0].value;
+const DEFAULT_STROKE_COLOR = STROKE_COLOR_OPTIONS[0].value;
 const STICKY_COLORS = BACKGROUND_COLOR_OPTIONS.slice(1).map(
   (option) => option.value,
 );
@@ -92,6 +107,11 @@ const TEXT_COLOR_LOOKUP = createPaletteLookup(TEXT_COLOR_OPTIONS, {
   '#1d1d1f': DEFAULT_TEXT_COLOR,
   '#0f172a': DEFAULT_TEXT_COLOR,
   '#164e63': TEXT_COLOR_OPTIONS[2].value,
+});
+
+const STROKE_COLOR_LOOKUP = createPaletteLookup(STROKE_COLOR_OPTIONS, {
+  '#475569': DEFAULT_STROKE_COLOR,
+  '#64748b': DEFAULT_STROKE_COLOR,
 });
 
 function sanitizeFreeColor(value: unknown): string | undefined {
@@ -141,6 +161,10 @@ function sanitizeStrokeStyle(value: unknown): StrokeStyleValue | undefined {
     : undefined;
 }
 
+function sanitizeLineCornerType(value: unknown): LineCornerType | undefined {
+  return value === 'sharp' || value === 'rounded' ? value : undefined;
+}
+
 function sanitizeArrowHeadSize(value: unknown): number | undefined {
   if (typeof value !== 'number' || Number.isNaN(value)) {
     return undefined;
@@ -177,9 +201,10 @@ export function parseBoardItemStyle(styleJson: string | null): BoardItemStyle {
       fontSize: sanitizeFontSize(parsed.fontSize),
       fontWeight: sanitizeFontWeight(parsed.fontWeight),
       fontStyle: sanitizeFontStyle(parsed.fontStyle),
-      strokeColor: sanitizeFreeColor(parsed.strokeColor),
+      strokeColor: sanitizePaletteColor(parsed.strokeColor, STROKE_COLOR_LOOKUP) ?? sanitizeFreeColor(parsed.strokeColor),
       strokeWidth: sanitizeStrokeWidth(parsed.strokeWidth),
       strokeStyle: sanitizeStrokeStyle(parsed.strokeStyle),
+      lineCornerType: sanitizeLineCornerType(parsed.lineCornerType),
       arrowHeadSize: sanitizeArrowHeadSize(parsed.arrowHeadSize),
     };
   } catch {
@@ -197,9 +222,10 @@ export function serializeBoardItemStyle(style: BoardItemStyle): string | null {
     fontSize: sanitizeFontSize(style.fontSize),
     fontWeight: sanitizeFontWeight(style.fontWeight),
     fontStyle: sanitizeFontStyle(style.fontStyle),
-    strokeColor: sanitizeFreeColor(style.strokeColor),
+    strokeColor: sanitizePaletteColor(style.strokeColor, STROKE_COLOR_LOOKUP) ?? sanitizeFreeColor(style.strokeColor),
     strokeWidth: sanitizeStrokeWidth(style.strokeWidth),
     strokeStyle: sanitizeStrokeStyle(style.strokeStyle),
+    lineCornerType: sanitizeLineCornerType(style.lineCornerType),
     arrowHeadSize: sanitizeArrowHeadSize(style.arrowHeadSize),
   };
 
@@ -235,9 +261,10 @@ export function resolveBoardItemStyle(item: BoardItem): ResolvedBoardItemStyle {
     fontSize: parsed.fontSize ?? 14,
     fontWeight: parsed.fontWeight ?? 'normal',
     fontStyle: parsed.fontStyle ?? 'normal',
-    strokeColor: parsed.strokeColor ?? '#475569',
+    strokeColor: parsed.strokeColor ?? DEFAULT_STROKE_COLOR,
     strokeWidth: parsed.strokeWidth ?? 3,
     strokeStyle: parsed.strokeStyle ?? 'solid',
+    lineCornerType: parsed.lineCornerType ?? 'sharp',
     arrowHeadSize: parsed.arrowHeadSize ?? 30,
   };
 }

@@ -1,13 +1,13 @@
 import { type BoardItem } from '../api';
 import { resolveBoardItemStyle } from '../itemStyles';
-import { getSegmentLocalPoints, getSegmentWaypoints, type SegmentEndpoint } from '../segmentData';
+import { getSegmentLocalPoints, getSegmentWaypoints, type Point, type SegmentEndpoint } from '../segmentData';
 import { ITEM_TYPE } from '../types';
 
 type Props = {
   item: BoardItem;
   isSelected: boolean;
   canTranslate: boolean;
-  onMouseDown: (e: React.MouseEvent<SVGPolylineElement>) => void;
+  onMouseDown: (e: React.MouseEvent<SVGPathElement>) => void;
   onEndpointMouseDown: (
     e: React.MouseEvent<HTMLButtonElement>,
     endpoint: SegmentEndpoint,
@@ -27,6 +27,52 @@ function getStrokeDasharray(style: 'solid' | 'dashed' | 'dotted'): string | unde
     default:
       return undefined;
   }
+}
+
+function getPathData(points: Point[], cornerType: 'sharp' | 'rounded'): string {
+  if (points.length < 2) {
+    return '';
+  }
+
+  if (cornerType === 'sharp') {
+    return `M ${points[0].x},${points[0].y} ` + points.slice(1).map((p) => `L ${p.x},${p.y}`).join(' ');
+  }
+
+  // Rounded corners
+  const radius = 20;
+  let d = `M ${points[0].x},${points[0].y}`;
+
+  for (let i = 1; i < points.length - 1; i++) {
+    const pPrev = points[i - 1];
+    const pCurr = points[i];
+    const pNext = points[i + 1];
+
+    // Vectors
+    const vIn = { x: pCurr.x - pPrev.x, y: pCurr.y - pPrev.y };
+    const vOut = { x: pNext.x - pCurr.x, y: pNext.y - pCurr.y };
+
+    const dIn = Math.sqrt(vIn.x * vIn.x + vIn.y * vIn.y);
+    const dOut = Math.sqrt(vOut.x * vOut.x + vOut.y * vOut.y);
+
+    const r = Math.min(radius, dIn / 2, dOut / 2);
+
+    if (r > 0) {
+      const p1 = {
+        x: pCurr.x - (vIn.x / dIn) * r,
+        y: pCurr.y - (vIn.y / dIn) * r,
+      };
+      const p2 = {
+        x: pCurr.x + (vOut.x / dOut) * r,
+        y: pCurr.y + (vOut.y / dOut) * r,
+      };
+      d += ` L ${p1.x},${p1.y} Q ${pCurr.x},${pCurr.y} ${p2.x},${p2.y}`;
+    } else {
+      d += ` L ${pCurr.x},${pCurr.y}`;
+    }
+  }
+
+  d += ` L ${points[points.length - 1].x},${points[points.length - 1].y}`;
+  return d;
 }
 
 export function SegmentShape({
@@ -55,7 +101,7 @@ export function SegmentShape({
 
   // All points in local (item-relative) coordinates
   const allLocalPoints = [points.start, ...localWaypoints, points.end];
-  const polylinePoints = allLocalPoints.map((p) => `${p.x},${p.y}`).join(' ');
+  const pathData = getPathData(allLocalPoints, resolvedStyle.lineCornerType);
   const strokeDasharray = getStrokeDasharray(resolvedStyle.strokeStyle);
   const hitStrokeWidth = Math.max(resolvedStyle.strokeWidth + 12, 14);
 
@@ -87,8 +133,8 @@ export function SegmentShape({
           </defs>
         ) : null}
 
-        <polyline
-          points={polylinePoints}
+        <path
+          d={pathData}
           fill="none"
           className={`segment-line ${isSelected ? 'is-selected' : ''}`}
           style={{
@@ -98,8 +144,8 @@ export function SegmentShape({
           }}
           markerEnd={item.type === ITEM_TYPE.arrow ? `url(#${markerId})` : undefined}
         />
-        <polyline
-          points={polylinePoints}
+        <path
+          d={pathData}
           fill="none"
           className={`segment-hit-line${canTranslate ? ' is-translatable' : ''}`}
           style={{ strokeWidth: hitStrokeWidth }}

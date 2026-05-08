@@ -17,6 +17,7 @@ import {
   buildSegmentGeometry,
   getSegmentConnections,
   getSegmentWaypoints,
+  getSegmentWorldWaypoints,
   getSegmentWorldPoints,
   hasStoredSegmentData,
 } from './segmentData';
@@ -176,7 +177,7 @@ export function syncSegmentConnectionsForItems(
         }
       }
 
-      const waypoints = getSegmentWaypoints(item);
+      const waypoints = getSegmentWorldWaypoints(item);
       const geometry = buildSegmentGeometry(
         newStart,
         newEnd,

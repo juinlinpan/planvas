@@ -105,7 +105,7 @@ export function BoardItemRenderer({
             item={item}
             isSelected={isSelected}
             canTranslate={canTranslateSegment}
-            onMouseDown={onMouseDown as (e: React.MouseEvent<SVGPolylineElement>) => void}
+            onMouseDown={onMouseDown as (e: React.MouseEvent<SVGPathElement>) => void}
             onContextMenu={onContextMenu}
             onEndpointMouseDown={onEndpointMouseDown}
             onWaypointMouseDown={onWaypointMouseDown}

@@ -239,6 +239,14 @@ export function getSegmentWaypoints(item: BoardItem): Point[] {
   return parsed?.waypoints ?? [];
 }
 
+export function getSegmentWorldWaypoints(item: BoardItem): Point[] {
+  const waypoints = getSegmentWaypoints(item);
+  return waypoints.map((wp) => ({
+    x: item.x + wp.x,
+    y: item.y + wp.y,
+  }));
+}
+
 /** Returns all world-space points: [start, ...waypoints, end] */
 export function getSegmentAllWorldPoints(item: BoardItem): Point[] | null {
   const parsed = parseRelativeSegmentData(item.data_json);
