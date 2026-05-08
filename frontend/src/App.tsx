@@ -44,11 +44,11 @@ import { exportPageAsPng } from './pagePngExport';
 import { exportPageAsPptx } from './pagePptxExport';
 import { buildAppRouteUrl, readAppRoute, type AppRoute } from './appRoute';
 import { resolveProjectEntryPageId } from './workspaceNavigation';
+import { getInlineDropPosition, type DropPosition } from './dragDrop';
 
 type AppView = 'home' | 'workspace';
 type LoadState = 'loading' | 'ready' | 'error';
 type SidebarListKind = 'pages' | 'notes';
-type DropPosition = 'before' | 'after';
 type TabBarPosition = 'top' | 'bottom';
 type SidebarDragState =
   | {
@@ -364,6 +364,13 @@ function reorderItemsByIds<T extends { id: string }>(
 function getDropPosition(event: ReactDragEvent<HTMLElement>): DropPosition {
   const bounds = event.currentTarget.getBoundingClientRect();
   return event.clientY - bounds.top < bounds.height / 2 ? 'before' : 'after';
+}
+
+function getTabDropPosition(event: ReactDragEvent<HTMLElement>): DropPosition {
+  return getInlineDropPosition(
+    event.clientX,
+    event.currentTarget.getBoundingClientRect(),
+  );
 }
 
 function readStoredBoolean(key: string, fallbackValue: boolean): boolean {
@@ -721,14 +728,6 @@ export function App() {
       ...current,
       [sectionId]: !current[sectionId],
     }));
-  }
-
-  function toggleTabBarPosition(): void {
-    setTabBarPosition((current) => {
-      const next: TabBarPosition = current === 'top' ? 'bottom' : 'top';
-      window.localStorage.setItem(TAB_BAR_POSITION_STORAGE_KEY, next);
-      return next;
-    });
   }
 
   function openNoteTab(noteFile: string): void {
@@ -1624,19 +1623,105 @@ export function App() {
               }
               return projectNotes.some((n) => n.note_file === tab.id);
             });
+            const lastVisibleTab = visibleTabs.at(-1);
+            const lastVisibleTabId =
+              lastVisibleTab === undefined
+                ? null
+                : `${lastVisibleTab.kind}:${lastVisibleTab.id}`;
 
             return (
               <div className={`ws-tab-bar ws-tab-bar-${tabBarPosition}`}>
                 {/* ── Left: Project name ── */}
-                <span className="ws-tab-project-name" title={selectedProject.name}>
-                  {selectedProject.name}
+                <span
+                  className="ws-tab-project-name"
+                  title={selectedProject.name}
+                  aria-label={`Project: ${selectedProject.name}`}
+                >
+                  <span className="ws-tab-project-value">{selectedProject.name}</span>
                 </span>
 
                 <div className="ws-tab-divider-v" />
 
                 {/* ── Tab strip ── */}
-                <div className="ws-tab-strip">
-                  {visibleTabs.map((tab, index) => {
+                <div
+                  className="ws-tab-strip"
+                  onDragOver={(event) => {
+                    const currentDragState = dragState;
+                    if (
+                      currentDragState?.kind !== 'tabs' ||
+                      lastVisibleTabId === null ||
+                      currentDragState.itemId === lastVisibleTabId
+                    ) {
+                      return;
+                    }
+
+                    const target = event.target;
+                    if (
+                      target instanceof Element &&
+                      target.closest('.ws-tab') !== null
+                    ) {
+                      return;
+                    }
+
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'move';
+                    setDropState({
+                      kind: 'tabs',
+                      itemId: lastVisibleTabId,
+                      position: 'after',
+                    });
+                  }}
+                  onDrop={(event) => {
+                    const target = event.target;
+                    if (
+                      target instanceof Element &&
+                      target.closest('.ws-tab') !== null
+                    ) {
+                      return;
+                    }
+
+                    event.preventDefault();
+                    const currentDragState = dragState;
+                    if (
+                      currentDragState?.kind !== 'tabs' ||
+                      lastVisibleTabId === null
+                    ) {
+                      clearDragState();
+                      return;
+                    }
+
+                    const draggedId = currentDragState.itemId;
+                    clearDragState();
+
+                    if (draggedId === lastVisibleTabId) return;
+
+                    setOpenTabs((current) => {
+                      const items = current.map((tab) => ({
+                        tab,
+                        id: `${tab.kind}:${tab.id}`,
+                      }));
+                      const orderedIds = buildDraggedOrder(
+                        items,
+                        draggedId,
+                        lastVisibleTabId,
+                        'after',
+                      );
+                      if (orderedIds === null) return current;
+
+                      const positions = new Map(
+                        orderedIds.map((id, index) => [id, index]),
+                      );
+                      return [...current].sort((left, right) => {
+                        const leftId = `${left.kind}:${left.id}`;
+                        const rightId = `${right.kind}:${right.id}`;
+                        const leftPos = positions.get(leftId) ?? 999;
+                        const rightPos = positions.get(rightId) ?? 999;
+                        return leftPos - rightPos;
+                      });
+                    });
+                  }}
+                >
+                  {visibleTabs.map((tab) => {
                     const isActive =
                       tab.kind === 'page'
                         ? selectedPageId === tab.id && activeNoteFile === null
@@ -1674,7 +1759,7 @@ export function App() {
                           }
                           event.dataTransfer.effectAllowed = 'move';
                           event.dataTransfer.setData('text/plain', `tabs:${tab.kind}:${tab.id}`);
-                          setDragState({ kind: 'tabs' as any, itemId: `${tab.kind}:${tab.id}` });
+                          setDragState({ kind: 'tabs', itemId: `${tab.kind}:${tab.id}` });
                         }}
                         onDragOver={(event) => {
                           const currentDragState = dragState;
@@ -1682,7 +1767,7 @@ export function App() {
                           if (currentDragState.itemId === `${tab.kind}:${tab.id}`) return;
                           event.preventDefault();
                           event.dataTransfer.dropEffect = 'move';
-                          const position = getDropPosition(event);
+                          const position = getTabDropPosition(event);
                           setDropState({
                             kind: 'tabs',
                             itemId: `${tab.kind}:${tab.id}`,
@@ -1698,7 +1783,7 @@ export function App() {
                           }
                           const draggedId = currentDragState.itemId;
                           const targetId = `${tab.kind}:${tab.id}`;
-                          const position = getDropPosition(event);
+                          const position = getTabDropPosition(event);
                           clearDragState();
 
                           if (draggedId === targetId) return;

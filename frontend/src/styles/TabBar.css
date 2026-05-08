@@ -59,23 +59,37 @@
   display: inline-flex;
   align-items: center;
   height: 100%;
-  padding: 0 16px;
+  max-width: 200px;
+  padding: 0 12px 0 16px;
   font-size: 0.8rem;
   font-weight: 700;
   color: var(--ws-tab-muted-ink);
-  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+  background: transparent;
+}
+
+.ws-tab-project-value {
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 180px;
+  white-space: nowrap;
 }
 
 /* ?? Thin vertical divider ?? */
 .ws-tab-divider-v {
-  width: 1px;
-  height: 20px;
-  background: var(--ws-tab-line);
   flex-shrink: 0;
-  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 100%;
+  color: color-mix(in srgb, var(--ws-tab-muted-ink) 62%, transparent);
+}
+
+.ws-tab-divider-v::before {
+  content: '/';
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
 /* ?? Tab strip (scrollable row of tabs) ?? */
@@ -116,6 +130,18 @@
   color: var(--ws-tab-active-ink);
   z-index: 4;
   border-right-color: var(--ws-tab-line);
+}
+
+.ws-tab.is-dragging {
+  opacity: 0.45;
+}
+
+.ws-tab.is-drop-before {
+  box-shadow: inset 2px 0 0 var(--ws-tab-accent);
+}
+
+.ws-tab.is-drop-after {
+  box-shadow: inset -2px 0 0 var(--ws-tab-accent);
 }
 
 /* Active tab top/bottom indicator */
