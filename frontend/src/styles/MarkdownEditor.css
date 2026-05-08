@@ -256,9 +256,16 @@
   font-size: 0.9rem;
 }
 
-/* Sidebar note button ??selected state */
+/* Sidebar note button selected state */
 .note-list-button.is-selected {
   background: var(--project-accent-soft, rgba(59, 130, 246, 0.1));
   color: var(--project-accent, #3b82f6);
-  border-left: 2px solid var(--project-accent, #3b82f6);
+  border-color: color-mix(
+    in srgb,
+    var(--project-accent, #3b82f6) 34%,
+    var(--project-chrome-line, rgba(22, 50, 56, 0.1))
+  );
+  box-shadow:
+    inset 3px 0 0 var(--project-accent, #3b82f6),
+    0 10px 18px var(--project-shadow, rgba(22, 50, 56, 0.09));
 }

@@ -140,6 +140,7 @@ h3 {
   transition:
     background 120ms ease,
     border-color 120ms ease,
+    box-shadow 120ms ease,
     opacity 120ms ease,
     transform 120ms ease;
 }
@@ -172,6 +173,12 @@ h3 {
   cursor: grabbing;
 }
 
+.list-button.is-open-tab {
+  border-color: rgba(125, 211, 252, 0.24);
+  background: rgba(125, 211, 252, 0.12);
+  box-shadow: inset 3px 0 0 rgba(125, 211, 252, 0.72);
+}
+
 .list-button.is-selected {
   background: linear-gradient(
     135deg,
@@ -180,7 +187,9 @@ h3 {
   );
   border-color: rgba(125, 211, 252, 0.42);
   color: #ffffff;
-  box-shadow: 0 14px 28px rgba(5, 17, 30, 0.16);
+  box-shadow:
+    inset 3px 0 0 rgba(255, 255, 255, 0.72),
+    0 10px 20px rgba(5, 17, 30, 0.14);
 }
 
 .list-button.is-selected small {

@@ -1414,6 +1414,11 @@ export function App() {
                   const isDragging =
                     dragState?.kind === 'pages' && dragState.itemId === page.id;
                   const isRenaming = pageRenameTargetId === page.id;
+                  const isOpenInTab = openTabs.some(
+                    (tab) => tab.kind === 'page' && tab.id === page.id,
+                  );
+                  const isSelectedPage =
+                    page.id === selectedPageId && activeNoteFile === null;
                   const isDropBefore =
                     dropState?.kind === 'pages' &&
                     dropState.itemId === page.id &&
@@ -1439,8 +1444,8 @@ export function App() {
                       {isRenaming ? (
                         <div
                           className={`list-button list-button-rename is-editing ${
-                            page.id === selectedPageId ? 'is-selected' : ''
-                          }`}
+                            isOpenInTab ? 'is-open-tab' : ''
+                          } ${isSelectedPage ? 'is-selected' : ''}`}
                           onMouseDown={(event) => event.stopPropagation()}
                         >
                           <input
@@ -1471,8 +1476,10 @@ export function App() {
                       ) : (
                         <button
                           className={`list-button ${
-                            page.id === selectedPageId ? 'is-selected' : ''
-                          } ${isDragging ? 'is-dragging' : ''} ${
+                            isOpenInTab ? 'is-open-tab' : ''
+                          } ${isSelectedPage ? 'is-selected' : ''} ${
+                            isDragging ? 'is-dragging' : ''
+                          } ${
                             pages.length > 1 ? 'is-sortable' : ''
                           }`}
                           draggable={!isMutating && pages.length > 1}
@@ -1586,6 +1593,10 @@ export function App() {
                   const isDragging =
                     dragState?.kind === 'notes' &&
                     dragState.itemId === note.note_file;
+                  const isOpenInTab = openTabs.some(
+                    (tab) => tab.kind === 'note' && tab.id === note.note_file,
+                  );
+                  const isSelectedNote = activeNoteFile === note.note_file;
 
                   return (
                     <button
@@ -1593,7 +1604,9 @@ export function App() {
                       type="button"
                       className={`list-button note-list-button ${
                         isDragging ? 'is-dragging' : ''
-                      } ${activeNoteFile === note.note_file ? 'is-selected' : ''}`}
+                      } ${isOpenInTab ? 'is-open-tab' : ''} ${
+                        isSelectedNote ? 'is-selected' : ''
+                      }`}
                       draggable={!isMutating}
                       title={`Click to edit · Drag to place on a page`}
                       aria-label={`Open note ${note.note_file} in editor`}

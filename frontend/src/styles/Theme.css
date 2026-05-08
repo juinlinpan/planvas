@@ -145,13 +145,22 @@
   transform: translateY(-1px);
 }
 
+.list-button.is-open-tab {
+  border-color: rgba(25, 115, 119, 0.24);
+  background: #f2faf7;
+  color: #164247;
+  box-shadow:
+    inset 3px 0 0 rgba(25, 115, 119, 0.54),
+    0 6px 14px rgba(22, 50, 56, 0.06);
+}
+
 .list-button.is-selected {
   border-color: rgba(25, 115, 119, 0.34);
   background: #e9f3f0;
   color: #11383b;
   box-shadow:
-    0 12px 22px rgba(22, 50, 56, 0.1),
-    0 0 0 3px rgba(25, 115, 119, 0.07);
+    inset 3px 0 0 rgba(25, 115, 119, 0.72),
+    0 10px 18px rgba(22, 50, 56, 0.09);
 }
 
 .sidebar .list-button.is-selected small {
@@ -634,13 +643,22 @@
   color: var(--project-ink);
 }
 
+.app-shell[data-project-theme] .list-button.is-open-tab {
+  border-color: color-mix(in srgb, var(--project-accent) 28%, var(--project-line));
+  background: color-mix(in srgb, var(--project-accent) 8%, var(--project-panel-bg));
+  color: var(--project-ink);
+  box-shadow:
+    inset 3px 0 0 color-mix(in srgb, var(--project-accent) 56%, transparent),
+    0 6px 14px var(--project-shadow);
+}
+
 .app-shell[data-project-theme] .list-button.is-selected {
   border-color: var(--project-line-strong);
   background: var(--project-panel-soft);
   color: var(--project-accent-dark);
   box-shadow:
-    0 12px 22px var(--project-shadow),
-    0 0 0 3px color-mix(in srgb, var(--project-accent) 12%, transparent);
+    inset 3px 0 0 color-mix(in srgb, var(--project-accent) 74%, transparent),
+    0 10px 18px var(--project-shadow);
 }
 
 .app-shell[data-project-theme] .list-button-rename.is-editing {
