@@ -144,6 +144,10 @@ export async function deleteProject(id: string): Promise<void> {
   await requestVoid(`/projects/${id}`, { method: 'DELETE' });
 }
 
+export async function revealProject(id: string): Promise<void> {
+  await requestVoid(`/projects/${id}/reveal`, { method: 'POST' });
+}
+
 export async function reorderProjects(orderedIds: string[]): Promise<Project[]> {
   return requestJson<Project[]>('/projects/reorder', {
     method: 'POST',

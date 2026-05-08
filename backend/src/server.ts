@@ -173,6 +173,12 @@ function buildRoutes(): Route[] {
         repository.getProject(params.projectId),
     },
     {
+      method: 'POST',
+      pattern: /^\/projects\/(?<projectId>[^/]+)\/reveal$/,
+      handler: ({ repository }, { params }) =>
+        repository.revealProject(params.projectId),
+    },
+    {
       method: 'PATCH',
       pattern: /^\/projects\/(?<projectId>[^/]+)$/,
       handler: ({ repository, body }, { params }) =>

@@ -20,6 +20,7 @@ import {
   listProjects,
   openProjectPath,
   openProjectWithDialog,
+  revealProject,
   replacePageBoardState,
   reorderPages,
   updatePage,
@@ -155,6 +156,24 @@ function IconChevronDown() {
       aria-hidden="true"
     >
       <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+function IconFolder() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
     </svg>
   );
 }
@@ -728,6 +747,16 @@ export function App() {
       ...current,
       [sectionId]: !current[sectionId],
     }));
+  }
+
+  async function handleRevealProject(): Promise<void> {
+    if (selectedProject === null) {
+      return;
+    }
+
+    await runMutation(async () => {
+      await revealProject(selectedProject.id);
+    });
   }
 
   function openNoteTab(noteFile: string): void {
@@ -2027,6 +2056,27 @@ export function App() {
                     ))}
                   </select>
                 </label>
+              </section>
+              <section className="project-settings-panel">
+                <div className="project-settings-panel-heading">Location</div>
+                <div className="project-settings-location-row">
+                  <code
+                    className="project-settings-path"
+                    title={selectedProject.path ?? 'No path available'}
+                  >
+                    {selectedProject.path ?? 'No path available'}
+                  </code>
+                  <button
+                    type="button"
+                    className="ghost-button project-settings-reveal-button"
+                    disabled={isMutating || !selectedProject.path}
+                    onClick={() => void handleRevealProject()}
+                    title="Open in file explorer"
+                  >
+                    <IconFolder />
+                    <span>Open Folder</span>
+                  </button>
+                </div>
               </section>
               <section className="project-settings-panel project-settings-panel-actions">
                 <div className="project-settings-panel-heading">Actions</div>

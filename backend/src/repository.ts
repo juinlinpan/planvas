@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { HttpError, StorageInitializationError } from './httpError.js';
 import type { AppSettings } from './settings.js';
 import {
@@ -233,6 +234,24 @@ export class WhiteboardRepository {
       );
     }
     return projects.sort((left, right) => left.sort_order - right.sort_order);
+  }
+
+  revealProject(projectId: string): void {
+    const { projectDir } = this.findProjectMetadata(projectId);
+    if (!fs.existsSync(projectDir)) {
+      throw new HttpError(
+        404,
+        `Project directory '${projectDir}' does not exist.`,
+      );
+    }
+
+    if (process.platform === 'win32') {
+      spawnSync('explorer', [projectDir]);
+    } else if (process.platform === 'darwin') {
+      spawnSync('open', [projectDir]);
+    } else {
+      spawnSync('xdg-open', [projectDir]);
+    }
   }
 
   listPages(projectId: string): Page[] {
