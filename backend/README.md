@@ -2,6 +2,13 @@
 
 TypeScript + Node.js local API service for Whiteboard Planner.
 
+The local web launcher and Tauri desktop shell both use this service as the
+local API. The near-term desktop packaging path is to launch the same Node
+backend as a Tauri sidecar so web and desktop modes share one implementation.
+Rust commands remain a future option for local filesystem operations, while a
+future server edition can keep using an HTTP/WebSocket backend with different
+team and permission semantics.
+
 ## Storage Layout
 
 Project data is file based. By default the service stores projects under:

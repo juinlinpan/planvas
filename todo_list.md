@@ -1,5 +1,19 @@
 ﻿# Whiteboard Planner Todo List
 
+## Desktop Runtime Notes
+
+- [x] Create a Tauri 2 desktop shell for the existing React UI.
+- [x] Add root scripts for desktop development and desktop builds.
+- [x] Keep the first desktop shell compatible with the current Node local API so existing Planvas storage behavior is preserved.
+- [ ] Extract the frontend API layer into a `PlanvasApi` contract with swappable adapters.
+- [ ] Implement a `HttpPlanvasApi` adapter for current web/dev usage.
+- [x] Add a browser-based local web launcher that starts or reuses the Node local backend.
+- [x] Add a Windows `.bat` entry point for local web mode.
+- [ ] Add a Tauri sidecar packaging path that starts the Node local backend automatically from the desktop executable.
+- [ ] Make the desktop executable load the packaged frontend while using the sidecar Node local backend.
+- [ ] Consider a `TauriPlanvasApi` adapter backed by Rust commands only after the shared Node backend launcher path is stable.
+- [ ] Keep future team/server project creation, permissions, and collaboration as a separate server edition scope.
+
 ## Persistence Redesign Notes
 
 - [x] Replace SQLite-backed repository persistence with file-based Planvas project storage.

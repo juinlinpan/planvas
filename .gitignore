@@ -15,5 +15,6 @@ logs/
 data/
 backups/
 dev-server*.log
+src-tauri/target/
 .DS_Store
 Thumbs.db

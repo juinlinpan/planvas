@@ -49,12 +49,72 @@ npm run dev
 Open `http://127.0.0.1:5173` in your browser.
 
 This mode keeps Vite on `5173` and the TypeScript backend on `18000`.
+If `18000` is already serving a healthy Planvas backend, the dev backend wrapper
+reuses it instead of starting another backend process.
 
 If a previous dev session left either port busy, stop the local dev processes:
 
 ```powershell
 npm run dev:stop
 ```
+
+## Local Web Launcher
+
+For company environments that may block unsigned desktop executables, Planvas
+also supports a browser-based local launcher. It uses the same Node local
+backend and opens the built web app in your default browser:
+
+```powershell
+npm run web:start
+```
+
+Windows users can also double-click:
+
+```text
+scripts\start-web.bat
+```
+
+The launcher reuses an existing backend if `http://127.0.0.1:18000/healthz`
+already responds. Otherwise it builds the app, opens the browser, and runs the
+Node backend in the launcher console. Closing that console stops the local
+backend.
+
+## Desktop Development
+
+Planvas now includes a Tauri 2 desktop shell for the local-first desktop path.
+The first desktop implementation preserves the current React UI and Node local
+API behavior while the Rust command backend is migrated incrementally.
+
+Start the desktop app in development:
+
+```powershell
+npm run desktop:dev
+```
+
+If this machine does not have MSVC `link.exe`, this command exits before
+starting Vite/backend and points you to the local web launcher instead. That is
+expected on non-admin company machines.
+
+On Windows, Tauri needs the Visual Studio C++ build tools and Windows SDK. If
+`npx tauri info` reports that MSVC is missing, run:
+
+```powershell
+npm run desktop:setup
+```
+
+Accept the Windows UAC prompt when it appears, then restart your terminal.
+
+Build the desktop shell:
+
+```powershell
+npm run desktop:build
+```
+
+During this phase, Tauri loads the Vite frontend from `5173` and the frontend
+continues to call the local API on `18000`. The intended desktop packaging path
+is to bundle and launch the same Node local backend as a Tauri sidecar, so web
+and desktop modes keep one backend implementation. Rust commands remain a
+future option for local filesystem operations, not the required near-term path.
 
 ## Project Home
 

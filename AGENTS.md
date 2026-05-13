@@ -1,5 +1,14 @@
 # AGENTS.md
 
+## Desktop Runtime Update Notes
+
+- The project now has an explicit desktop-first path using Tauri 2.
+- Tauri is allowed when the user asks for desktop/local runtime work.
+- The first desktop implementation may wrap the existing React UI and Node local API to preserve current behavior.
+- The near-term desktop architecture keeps the Node local API as the shared backend for both browser and desktop entry points.
+- The intended packaged desktop path is Tauri launching the Node local API as a sidecar; Rust commands remain a later option.
+- Keep the future team/server edition separate: it should use a Web UI plus server API/WebSocket backend, not desktop local filesystem access.
+
 ## Storage Update Notes
 
 - `.pv_project` is a directory, not a file.

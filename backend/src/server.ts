@@ -496,7 +496,13 @@ function handleError(
 
 function applyCors(request: IncomingMessage, response: ServerResponse): void {
   const origin = request.headers.origin;
-  if (typeof origin === 'string' && devOrigins.has(origin)) {
+  if (
+    typeof origin === 'string' &&
+    (devOrigins.has(origin) ||
+      origin === 'tauri://localhost' ||
+      origin === 'http://tauri.localhost' ||
+      origin === 'https://tauri.localhost')
+  ) {
     response.setHeader('Access-Control-Allow-Origin', origin);
   }
   response.setHeader(
