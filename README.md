@@ -50,6 +50,12 @@ Open `http://127.0.0.1:5173` in your browser.
 
 This mode keeps Vite on `5173` and the TypeScript backend on `18000`.
 
+If a previous dev session left either port busy, stop the local dev processes:
+
+```powershell
+npm run dev:stop
+```
+
 ## Project Home
 
 The app now opens on a dedicated home page. From there you can:
