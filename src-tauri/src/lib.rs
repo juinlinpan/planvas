@@ -2,18 +2,37 @@ use std::env;
 use std::fs;
 use std::io;
 use std::io::{Read, Write};
+use std::mem::{size_of, zeroed};
 use std::net::{TcpStream, ToSocketAddrs};
+#[cfg(target_os = "windows")]
+use std::os::windows::io::AsRawHandle;
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+#[cfg(target_os = "windows")]
+use std::ptr::null;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+#[cfg(target_os = "windows")]
+use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+#[cfg(target_os = "windows")]
+use windows_sys::Win32::System::JobObjects::{
+    AssignProcessToJobObject, CreateJobObjectW, SetInformationJobObject,
+    JobObjectExtendedLimitInformation, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+    JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+};
 
 const BACKEND_HOST: &str = "127.0.0.1";
 const BACKEND_PORT: u16 = 18000;
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+struct ManagedBackendProcess {
+    child: Child,
+    #[cfg(target_os = "windows")]
+    job_handle: isize,
+}
 
 #[tauri::command]
 fn desktop_health() -> &'static str {
@@ -22,7 +41,7 @@ fn desktop_health() -> &'static str {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let backend_process = Arc::new(Mutex::new(None::<Child>));
+    let backend_process = Arc::new(Mutex::new(None::<ManagedBackendProcess>));
     let backend_process_for_setup = Arc::clone(&backend_process);
 
     tauri::Builder::default()
@@ -35,30 +54,27 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running Planvas desktop");
 
-    let mut backend_child = backend_process
-        .lock()
-        .expect("backend mutex poisoned")
-        .take();
-    if let Some(mut child) = backend_child.take() {
-        let _ = child.kill();
-        let _ = child.wait();
-    }
+    drop(
+        backend_process
+            .lock()
+            .expect("backend mutex poisoned")
+            .take(),
+    );
 }
 
-fn ensure_backend_ready() -> io::Result<Option<Child>> {
+fn ensure_backend_ready() -> io::Result<Option<ManagedBackendProcess>> {
     if wait_for_backend(Duration::from_secs(8)) {
         return Ok(None);
     }
 
     let backend_entry = resolve_backend_entry_script()?;
-    let mut child = spawn_backend(&backend_entry)?;
+    let child = ManagedBackendProcess::new(spawn_backend(&backend_entry)?)?;
 
     if wait_for_backend(Duration::from_secs(15)) {
         return Ok(Some(child));
     }
 
-    let _ = child.kill();
-    let _ = child.wait();
+    drop(child);
 
     Err(io::Error::other(
         "Planvas desktop could not start the local Node backend. Install Node.js or use npm run web:start.",
@@ -145,6 +161,65 @@ fn spawn_backend(backend_entry: &Path) -> io::Result<Child> {
     }
 
     command.spawn()
+}
+
+impl ManagedBackendProcess {
+    fn new(child: Child) -> io::Result<Self> {
+        #[cfg(target_os = "windows")]
+        let job_handle = attach_child_to_kill_on_close_job(&child)?;
+
+        Ok(Self {
+            child,
+            #[cfg(target_os = "windows")]
+            job_handle: job_handle as isize,
+        })
+    }
+}
+
+impl Drop for ManagedBackendProcess {
+    fn drop(&mut self) {
+        if self.child.try_wait().ok().flatten().is_none() {
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
+
+        #[cfg(target_os = "windows")]
+        unsafe {
+            CloseHandle(self.job_handle as HANDLE);
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn attach_child_to_kill_on_close_job(child: &Child) -> io::Result<HANDLE> {
+    unsafe {
+        let job_handle = CreateJobObjectW(null(), null());
+        if job_handle.is_null() {
+            return Err(io::Error::last_os_error());
+        }
+
+        let mut limits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = zeroed();
+        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+
+        let set_result = SetInformationJobObject(
+            job_handle,
+            JobObjectExtendedLimitInformation,
+            &mut limits as *mut _ as *mut _,
+            size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+        );
+        if set_result == 0 {
+            CloseHandle(job_handle);
+            return Err(io::Error::last_os_error());
+        }
+
+        let assign_result = AssignProcessToJobObject(job_handle, child.as_raw_handle() as HANDLE);
+        if assign_result == 0 {
+            CloseHandle(job_handle);
+            return Err(io::Error::last_os_error());
+        }
+
+        Ok(job_handle)
+    }
 }
 
 fn resolve_backend_entry_script() -> io::Result<PathBuf> {

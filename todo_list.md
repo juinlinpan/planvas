@@ -6,6 +6,7 @@
 - [x] Add root scripts for desktop development and desktop builds.
 - [x] Keep the first desktop shell compatible with the current Node local API so existing Planvas storage behavior is preserved.
 - [x] Auto-start the desktop shell's bundled Node backend when the local API is not already healthy.
+- [x] Tie the Windows desktop-started Node backend process lifecycle to the desktop app so the spawned backend exits when the app closes.
 - [ ] Extract the frontend API layer into a `PlanvasApi` contract with swappable adapters.
 - [ ] Implement a `HttpPlanvasApi` adapter for current web/dev usage.
 - [x] Add a browser-based local web launcher that starts or reuses the Node local backend.

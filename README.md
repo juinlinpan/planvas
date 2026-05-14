@@ -127,6 +127,10 @@ already healthy, but it still relies on a local `node.exe` installation on the
 machine. Rust commands remain a future option for local filesystem operations,
 not the required near-term path.
 
+On Windows, any backend process that the desktop shell starts itself is now tied
+more tightly to the desktop app lifecycle and should stop when that desktop app
+process exits.
+
 Directly opening the packaged desktop executable should now start the backend
 automatically. If `node.exe` is not installed on that machine, the desktop shell
 cannot launch the bundled backend yet; use the local web launcher or install
