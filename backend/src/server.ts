@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { buildSettings, type AppSettings } from './settings.js';
 import { getErrorCode, HttpError } from './httpError.js';
@@ -138,6 +138,11 @@ function buildRoutes(): Route[] {
     },
     {
       method: 'GET',
+      pattern: /^\/fs\/dirs$/,
+      handler: ({ settings, url }) => listDirectoryContents(settings, url),
+    },
+    {
+      method: 'GET',
       pattern: /^\/projects$/,
       handler: ({ repository }) => repository.listProjects(),
     },
@@ -157,8 +162,8 @@ function buildRoutes(): Route[] {
     {
       method: 'POST',
       pattern: /^\/projects\/open-dialog$/,
-      handler: ({ repository }) =>
-        repository.openProjectPath(selectProjectDirectory()),
+      handler: async ({ repository }) =>
+        repository.openProjectPath(await selectProjectDirectory()),
     },
     {
       method: 'POST',
@@ -365,7 +370,40 @@ async function readRequestBody(request: IncomingMessage): Promise<unknown> {
   }
 }
 
-function selectProjectDirectory(): string {
+type DirEntry = { name: string; path: string };
+type DirListing = { current: string; home: string; dirs: DirEntry[] };
+
+function listDirectoryContents(settings: AppSettings, url: URL): DirListing {
+  const home = path.dirname(settings.planvasRoot);
+  const rawPath = url.searchParams.get('path');
+  const target = rawPath ? path.resolve(rawPath) : home;
+
+  const normalizedHome = path.resolve(home);
+  const normalizedTarget = path.resolve(target);
+
+  if (
+    normalizedTarget !== normalizedHome &&
+    !normalizedTarget.startsWith(normalizedHome + path.sep)
+  ) {
+    throw new HttpError(400, 'Path must be within the user home directory.');
+  }
+
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(normalizedTarget, { withFileTypes: true });
+  } catch {
+    throw new HttpError(400, `Cannot read directory: ${normalizedTarget}`);
+  }
+
+  const dirs = entries
+    .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+    .map((e) => ({ name: e.name, path: path.join(normalizedTarget, e.name) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return { current: normalizedTarget, home: normalizedHome, dirs };
+}
+
+function selectProjectDirectory(): Promise<string> {
   if (process.platform !== 'win32') {
     throw new HttpError(
       400,
@@ -373,32 +411,68 @@ function selectProjectDirectory(): string {
     );
   }
   const script = `
-Add-Type -AssemblyName System.Windows.Forms
-$dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-$dialog.Description = "Open Planvas Project"
-$dialog.ShowNewFolderButton = $true
-if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-  [Console]::Out.Write($dialog.SelectedPath)
+$shell = New-Object -ComObject Shell.Application
+$folder = $shell.BrowseForFolder(0, "Open Planvas Project", 0x51, 0)
+if ($null -ne $folder) {
+  [Console]::Out.Write($folder.Self.Path)
 } else {
   [Console]::Out.Write("__CANCELLED__")
 }
 `;
-  const result = spawnSync(
-    'powershell',
-    ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script],
-    { encoding: 'utf8' },
-  );
-  if (result.error || result.status !== 0) {
-    throw new HttpError(
-      400,
-      'Native folder picker is not available on this system.',
+  const encodedScript = Buffer.from(script, 'utf16le').toString('base64');
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      'powershell.exe',
+      [
+        '-STA',
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-EncodedCommand',
+        encodedScript,
+      ],
+      { windowsHide: false },
     );
-  }
-  const selectedPath = result.stdout.trim();
-  if (!selectedPath || selectedPath === '__CANCELLED__') {
-    throw new HttpError(400, 'Project folder selection was cancelled.');
-  }
-  return selectedPath;
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk: string) => {
+      stdout += chunk;
+    });
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', (chunk: string) => {
+      stderr += chunk;
+    });
+    child.on('error', (error) => {
+      reject(
+        new HttpError(
+          400,
+          `Native folder picker is not available on this system: ${error.message}`,
+        ),
+      );
+    });
+    child.on('close', (code) => {
+      if (code !== 0) {
+        const detail = stderr.trim();
+        reject(
+          new HttpError(
+            400,
+            detail.length > 0
+              ? `Native folder picker failed: ${detail}`
+              : 'Native folder picker is not available on this system.',
+          ),
+        );
+        return;
+      }
+      const selectedPath = stdout.trim();
+      if (!selectedPath || selectedPath === '__CANCELLED__') {
+        reject(new HttpError(400, 'Project folder selection was cancelled.'));
+        return;
+      }
+      resolve(selectedPath);
+    });
+  });
 }
 
 function serveFrontendIndex(

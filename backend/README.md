@@ -37,8 +37,11 @@ On startup the service creates any missing `.planvas`, `project_store`, and
 writable.
 
 `POST /projects` creates new projects under `project_store`. `POST
-/projects/open-dialog` opens a native folder picker and registers the selected
-path, creating `.pv_project/` and `.pv_project/metadata.json` only when they are missing.
+/projects/open-dialog` opens the Windows native folder picker and registers the
+selected path, creating `.pv_project/` and `.pv_project/metadata.json` only when
+they are missing. `POST /projects/open-path` remains available as the manual
+path fallback; it accepts absolute paths, `~` paths, and paths relative to
+`<user_home>`.
 `GET /projects` refreshes path existence and returns `project_store` projects
 before other registered paths.
 `DELETE /projects/{project_id}` removes a missing registered path from

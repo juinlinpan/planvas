@@ -254,6 +254,48 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: 'opens manual relative paths from the user home directory',
+    run: async () => {
+      const previousHome = process.env.HOME;
+      const previousUserProfile = process.env.USERPROFILE;
+      const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'whiteboard-home-'));
+      try {
+        process.env.HOME = fakeHome;
+        process.env.USERPROFILE = fakeHome;
+        const { baseUrl } = await createTestServer();
+        const relativeProjectPath = path.join('Documents', 'Client Plan');
+        const expectedPath = path.resolve(fakeHome, relativeProjectPath);
+
+        const opened = await requestJson<Project>(
+          baseUrl,
+          '/projects/open-path',
+          {
+            method: 'POST',
+            ...jsonBody({ path: relativeProjectPath }),
+          },
+        );
+
+        assert.equal(opened.data.path, expectedPath);
+        assert.equal(
+          fs.existsSync(path.join(expectedPath, '.pv_project', 'metadata.json')),
+          true,
+        );
+      } finally {
+        if (previousHome === undefined) {
+          delete process.env.HOME;
+        } else {
+          process.env.HOME = previousHome;
+        }
+        if (previousUserProfile === undefined) {
+          delete process.env.USERPROFILE;
+        } else {
+          process.env.USERPROFILE = previousUserProfile;
+        }
+        fs.rmSync(fakeHome, { recursive: true, force: true });
+      }
+    },
+  },
+  {
     name: 'persists board items, connectors, and board-state replacements',
     run: async () => {
       const { baseUrl } = await createTestServer();

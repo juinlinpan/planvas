@@ -61,7 +61,7 @@ npm run dev:stop
 The app now opens on a dedicated home page. From there you can:
 
 - create a new `Project`
-- open an existing `Project` folder with the native folder picker
+- open an existing `Project` folder with the Windows native folder picker
 - refresh common projects to re-check whether registered paths still exist
 - remove missing registered projects from the common project list
 
@@ -69,6 +69,8 @@ New projects are created under `<user_home>/.planvas/project_store/`. Opened
 external folders are initialized as Planvas projects when needed, then registered
 in `<user_home>/.planvas/project.json`. The home list shows `project_store`
 projects first, then registered projects from other paths.
+If the native folder picker is unavailable, the manual fallback accepts absolute
+paths, `~` paths, and paths relative to `<user_home>`.
 
 ## Page JSON Export / Import
 

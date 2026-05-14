@@ -39,6 +39,9 @@
 - [x] Keep duplicate out of the left sidebar while allowing page rename and delete icon buttons there.
 - [x] The workspace `Home` button now sits beside the `Planvas` heading.
 - [x] Home now shows `Create Project`, `Open Project`, and `Refresh`; project JSON import is removed from the home screen.
+- [x] `Create Project` now uses an app modal instead of a browser prompt.
+- [x] `Open Project` uses the Windows native folder picker, with manual path entry as fallback.
+- [x] Manual `Open Project` paths can be absolute, `~`-based, or relative to `<user_home>`.
 - [x] Home project list is grouped into `project_store` projects first and other registered paths second.
 - [x] Home missing-path projects can be removed from `project.json` after Refresh.
 - [x] Clicking `嚗??啣? Page` now creates `untitled_n` directly without a prompt dialog.

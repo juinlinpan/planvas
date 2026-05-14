@@ -26,7 +26,8 @@
 - The workspace left page sidebar and right inspector must both support collapse / expand toggles while keeping a visible restore handle.
 - Opening a `Project` from the dedicated home screen must create a browser history entry and enter a concrete `Page` immediately.
 - The home screen left action area must show `Create Project` and `Open Project`; the previous project JSON import action is removed from the home screen.
-- `Open Project` should use a native folder picker when available and fall back to a manual path entry if the picker is unavailable.
+- `Create Project` should open an app modal for project naming instead of using a browser prompt.
+- `Open Project` should use the Windows native folder picker when available and fall back to manual path entry only if the picker is unavailable; manual paths may be absolute, `~`-based, or relative to `<user_home>`.
 - The home screen project list is `Common Projects`: first projects under `project_store/`, then registered projects from other paths.
 - The home screen must provide `Refresh` to re-check whether registered project paths still exist.
 - After Refresh marks a registered project path as missing, the home screen must provide a remove button that deletes only the `project.json` entry.

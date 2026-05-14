@@ -139,7 +139,7 @@ export class WhiteboardRepository {
   }
 
   openProjectPath(projectPath: string): Project {
-    const projectDir = path.resolve(expandUser(projectPath));
+    const projectDir = resolveProjectPath(projectPath);
     if (fs.existsSync(projectDir) && !fs.statSync(projectDir).isDirectory()) {
       throw new HttpError(
         400,
@@ -1652,6 +1652,12 @@ function expandUser(value: string): string {
     return path.join(os.homedir(), value.slice(2));
   }
   return value;
+}
+
+function resolveProjectPath(value: string): string {
+  const expanded = expandUser(value.trim());
+  if (path.isAbsolute(expanded)) return path.resolve(expanded);
+  return path.resolve(os.homedir(), expanded);
 }
 
 function isProject(value: unknown): value is Project {

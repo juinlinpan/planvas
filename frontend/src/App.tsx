@@ -6,6 +6,7 @@ import {
   useState,
   type ChangeEvent,
   type DragEvent as ReactDragEvent,
+  type FormEvent,
 } from 'react';
 import {
   createBoardItem,
@@ -19,7 +20,6 @@ import {
   listProjectNotes,
   listProjects,
   openProjectPath,
-  openProjectWithDialog,
   revealProject,
   replacePageBoardState,
   reorderPages,
@@ -32,6 +32,7 @@ import {
   type ProjectThemeColor,
 } from './api';
 import { Canvas } from './Canvas';
+import { FolderPickerModal } from './FolderPickerModal';
 import { HomeView } from './HomeView';
 import { MarkdownEditor } from './MarkdownEditor';
 import { syncPageViewport } from './pageViewport';
@@ -290,16 +291,6 @@ function isUserCancelledFilePickerError(error: unknown): boolean {
   return false;
 }
 
-function askForName(label: string, initialValue: string): string | null {
-  const value = window.prompt(label, initialValue);
-  if (value === null) {
-    return null;
-  }
-
-  const normalized = value.trim();
-  return normalized.length > 0 ? normalized : null;
-}
-
 function buildUntitledPageName(pages: Page[]): string {
   const takenNumbers = new Set<number>();
 
@@ -441,6 +432,9 @@ export function App() {
   const [projectNameDraft, setProjectNameDraft] = useState('');
   const [projectSettingsDialogOpen, setProjectSettingsDialogOpen] =
     useState(false);
+  const [createProjectDialogOpen, setCreateProjectDialogOpen] = useState(false);
+  const [folderPickerOpen, setFolderPickerOpen] = useState(false);
+  const [createProjectNameDraft, setCreateProjectNameDraft] = useState('');
   const [pageRenameTargetId, setPageRenameTargetId] = useState<string | null>(
     null,
   );
@@ -793,42 +787,45 @@ export function App() {
     }
   }
 
-  async function handleCreateProject(): Promise<void> {
-    const name = askForName('新增 Project 名稱', 'Untitled Project');
-    if (name === null) {
+  function openCreateProjectDialog(): void {
+    setCreateProjectNameDraft('Untitled Project');
+    setCreateProjectDialogOpen(true);
+  }
+
+  function closeCreateProjectDialog(): void {
+    if (isMutating) {
+      return;
+    }
+    setCreateProjectDialogOpen(false);
+    setCreateProjectNameDraft('');
+  }
+
+  async function handleCreateProject(event?: FormEvent<HTMLFormElement>): Promise<void> {
+    event?.preventDefault();
+    const name = createProjectNameDraft.trim();
+    if (name.length === 0) {
       return;
     }
 
     await runMutation(async () => {
       const project = await createProject(name);
       setProjects((current) => [...current, project]);
+      setCreateProjectDialogOpen(false);
+      setCreateProjectNameDraft('');
       openProject(project.id, null);
     });
   }
 
-  async function handleOpenProject(): Promise<void> {
+  function handleOpenProject(): void {
+    setFolderPickerOpen(true);
+  }
+
+  async function handleFolderPickerConfirm(folderPath: string): Promise<void> {
+    setFolderPickerOpen(false);
     await runMutation(async () => {
-      let project: Project;
-      try {
-        project = await openProjectWithDialog();
-      } catch (error) {
-        if (
-          error instanceof Error &&
-          error.message.toLowerCase().includes('cancelled')
-        ) {
-          return;
-        }
-
-        const path = window.prompt('Project folder path');
-        if (path === null || path.trim().length === 0) {
-          return;
-        }
-        project = await openProjectPath(path);
-      }
-
+      await openProjectPath(folderPath);
       const nextProjects = await listProjects();
       setProjects(nextProjects);
-      openProject(project.id, null);
     });
   }
 
@@ -1321,18 +1318,96 @@ export function App() {
 
   if (loadState === 'error' || appView === 'home') {
     return (
-      <HomeView
-        errorMessage={errorMessage}
-        isBusy={isMutating}
-        isLoading={loadState === 'loading'}
-        projects={projects}
-        selectedProjectId={selectedProjectId}
-        onCreateProject={() => void handleCreateProject()}
-        onOpenProject={() => void handleOpenProject()}
-        onSelectProject={(projectId) => openProject(projectId, null)}
-        onRemoveProject={(projectId) => void handleRemoveProjectFromHome(projectId)}
-        onRefreshProjects={() => void loadWorkspace()}
-      />
+      <>
+        <HomeView
+          errorMessage={errorMessage}
+          isBusy={isMutating}
+          isLoading={loadState === 'loading'}
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          onCreateProject={openCreateProjectDialog}
+          onOpenProject={() => handleOpenProject()}
+          onSelectProject={(projectId) => openProject(projectId, null)}
+          onRemoveProject={(projectId) => void handleRemoveProjectFromHome(projectId)}
+          onRefreshProjects={() => void loadWorkspace()}
+        />
+        {folderPickerOpen ? (
+          <FolderPickerModal
+            isBusy={isMutating}
+            onConfirm={(folderPath) => void handleFolderPickerConfirm(folderPath)}
+            onCancel={() => setFolderPickerOpen(false)}
+          />
+        ) : null}
+        {createProjectDialogOpen ? (
+          <div
+            className="confirmation-dialog-backdrop"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                closeCreateProjectDialog();
+              }
+            }}
+          >
+            <form
+              className="confirmation-dialog project-create-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="project-create-dialog-title"
+              onSubmit={(event) => void handleCreateProject(event)}
+            >
+              <div className="confirmation-dialog-header">
+                <h2 id="project-create-dialog-title">Create Project</h2>
+                <button
+                  type="button"
+                  className="ghost-button confirmation-dialog-close"
+                  disabled={isMutating}
+                  onClick={closeCreateProjectDialog}
+                  aria-label="Close create project dialog"
+                >
+                  X
+                </button>
+              </div>
+              <label
+                className="confirmation-dialog-label"
+                htmlFor="project-create-name-input"
+              >
+                Project name
+              </label>
+              <input
+                id="project-create-name-input"
+                className="confirmation-dialog-input"
+                disabled={isMutating}
+                value={createProjectNameDraft}
+                onChange={(event) => setCreateProjectNameDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') {
+                    event.preventDefault();
+                    closeCreateProjectDialog();
+                  }
+                }}
+                autoFocus
+              />
+              <div className="confirmation-dialog-actions">
+                <button
+                  type="button"
+                  className="ghost-button"
+                  disabled={isMutating}
+                  onClick={closeCreateProjectDialog}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="ghost-button primary-action-button"
+                  disabled={isMutating || createProjectNameDraft.trim().length === 0}
+                >
+                  Create
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : null}
+      </>
     );
   }
 

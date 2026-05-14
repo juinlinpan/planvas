@@ -130,6 +130,14 @@ export async function openProjectPath(path: string): Promise<Project> {
   });
 }
 
+export type DirEntry = { name: string; path: string };
+export type DirListing = { current: string; home: string; dirs: DirEntry[] };
+
+export async function listDirs(dirPath?: string): Promise<DirListing> {
+  const query = dirPath ? `?path=${encodeURIComponent(dirPath)}` : '';
+  return requestJson<DirListing>(`/fs/dirs${query}`);
+}
+
 export async function updateProject(
   id: string,
   payload: { name?: string; theme_color?: ProjectThemeColor },
