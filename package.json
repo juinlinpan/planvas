@@ -14,7 +14,7 @@
     "web:start": "powershell -ExecutionPolicy Bypass -File ./scripts/start-web.ps1",
     "desktop:setup": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-tauri-windows.ps1",
     "desktop:dev": "powershell -ExecutionPolicy Bypass -File ./scripts/start-desktop-dev.ps1",
-    "desktop:build": "tauri build",
+    "desktop:build": "powershell -ExecutionPolicy Bypass -File ./scripts/start-desktop-build.ps1",
     "serve": "npm run build --workspace backend && npm run serve --workspace backend",
     "build": "npm run build --workspace frontend && npm run build --workspace backend",
     "lint": "npm run lint --workspace frontend && npm run typecheck --workspace backend",

@@ -29,6 +29,12 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "category": "Productivity"
+    "category": "Productivity",
+    "resources": [
+      "../backend/dist/**/*"
+    ],
+    "icon": [
+      "icons/icon.ico"
+    ]
   }
 }

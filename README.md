@@ -91,12 +91,16 @@ Start the desktop app in development:
 npm run desktop:dev
 ```
 
+The desktop dev/build scripts now auto-detect the installed MSVC linker and
+Rust cargo bin directories, so you should not need to prepend PATH manually in
+normal use.
+
 If this machine does not have MSVC `link.exe`, this command exits before
 starting Vite/backend and points you to the local web launcher instead. That is
 expected on non-admin company machines.
 
-On Windows, Tauri needs the Visual Studio C++ build tools and Windows SDK. If
-`npx tauri info` reports that MSVC is missing, run:
+On Windows, Tauri needs the Visual Studio C++ build tools, Windows SDK, and a
+Rust toolchain. If `npx tauri info` reports that MSVC or Rust is missing, run:
 
 ```powershell
 npm run desktop:setup
@@ -105,7 +109,8 @@ npm run desktop:setup
 Accept the Windows UAC prompt when it appears, then restart your terminal.
 If Visual Studio Build Tools is already installed but `where.exe link` still
 finds nothing, run the same setup command again. The setup script now repairs an
-existing Build Tools install by adding the missing C++ workload.
+existing Build Tools install by adding the missing C++ workload. It also installs
+`rustup` when `cargo` / `rustc` are not available yet.
 
 Build the desktop shell:
 
@@ -116,8 +121,16 @@ npm run desktop:build
 During this phase, Tauri loads the Vite frontend from `5173` and the frontend
 continues to call the local API on `18000`. The intended desktop packaging path
 is to bundle and launch the same Node local backend as a Tauri sidecar, so web
-and desktop modes keep one backend implementation. Rust commands remain a
-future option for local filesystem operations, not the required near-term path.
+and desktop modes keep one backend implementation. The current desktop shell now
+auto-starts the bundled backend JavaScript when `127.0.0.1:18000` is not
+already healthy, but it still relies on a local `node.exe` installation on the
+machine. Rust commands remain a future option for local filesystem operations,
+not the required near-term path.
+
+Directly opening the packaged desktop executable should now start the backend
+automatically. If `node.exe` is not installed on that machine, the desktop shell
+cannot launch the bundled backend yet; use the local web launcher or install
+Node.js first.
 
 ## Project Home
 
