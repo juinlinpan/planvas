@@ -103,6 +103,9 @@ npm run desktop:setup
 ```
 
 Accept the Windows UAC prompt when it appears, then restart your terminal.
+If Visual Studio Build Tools is already installed but `where.exe link` still
+finds nothing, run the same setup command again. The setup script now repairs an
+existing Build Tools install by adding the missing C++ workload.
 
 Build the desktop shell:
 

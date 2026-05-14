@@ -40,6 +40,25 @@ function Find-VsWhere {
   return $null
 }
 
+function Get-BuildToolsInstallationPath {
+  $vswhere = Find-VsWhere
+  if (-not $vswhere) {
+    return $null
+  }
+
+  $path = & $vswhere -latest -products Microsoft.VisualStudio.Product.BuildTools -property installationPath
+  if ($LASTEXITCODE -ne 0) {
+    return $null
+  }
+
+  $path = ($path | Select-Object -First 1).Trim()
+  if ([string]::IsNullOrWhiteSpace($path)) {
+    return $null
+  }
+
+  return $path
+}
+
 $linkExe = Find-LinkExe
 if ($linkExe) {
   Write-Host "MSVC linker found: $linkExe"
@@ -66,18 +85,41 @@ if (-not (Test-IsAdmin)) {
   exit 0
 }
 
-Write-Host "Installing Visual Studio 2022 Build Tools with C++ toolchain..."
-winget install `
-  --source winget `
-  --id Microsoft.VisualStudio.2022.BuildTools `
-  --exact `
-  --accept-package-agreements `
-  --accept-source-agreements `
-  --override "--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
-
 $vswhere = Find-VsWhere
-if ($vswhere) {
-  & $vswhere -latest -products Microsoft.VisualStudio.Product.BuildTools -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+$buildToolsPath = Get-BuildToolsInstallationPath
+
+if ($buildToolsPath) {
+  Write-Host "Modifying existing Visual Studio Build Tools installation to add the C++ toolchain..."
+
+  $installer = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\setup.exe"
+  if (-not (Test-Path $installer)) {
+    Write-Error "Visual Studio Installer was not found. Open the Visual Studio Installer and add the Desktop development with C++ workload manually."
+  }
+
+  & $installer modify `
+    --installPath "$buildToolsPath" `
+    --passive `
+    --norestart `
+    --add Microsoft.VisualStudio.Workload.VCTools `
+    --includeRecommended
+
+  if ($LASTEXITCODE -ne 0) {
+    Write-Error "Visual Studio Installer modify failed with exit code $LASTEXITCODE. Open the Visual Studio Installer and add the Desktop development with C++ workload manually."
+  }
+}
+else {
+  Write-Host "Installing Visual Studio 2022 Build Tools with C++ toolchain..."
+  winget install `
+    --source winget `
+    --id Microsoft.VisualStudio.2022.BuildTools `
+    --exact `
+    --accept-package-agreements `
+    --accept-source-agreements `
+    --override "--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+
+  if ($LASTEXITCODE -ne 0) {
+    Write-Error "winget install for Visual Studio Build Tools failed with exit code $LASTEXITCODE."
+  }
 }
 
 $linkExe = Find-LinkExe
