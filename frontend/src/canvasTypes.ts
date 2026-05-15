@@ -1,6 +1,7 @@
 import type { BoardItem, BoardItemPayload, ConnectorLink } from './api';
 import type { BoardSnapshot } from './boardHistory';
 import type { Point, SegmentConnection, SegmentEndpoint } from './segmentData';
+import type { TableInsertDirection } from './tableInsertPreview';
 import type { ActiveTool } from './types';
 
 export type DragState = {
@@ -70,6 +71,7 @@ export type TableInsertPreviewState = {
   cols: number;
   rows: number;
   isActive: boolean;
+  direction?: TableInsertDirection;
   worldX?: number;
   worldY?: number;
   width?: number;

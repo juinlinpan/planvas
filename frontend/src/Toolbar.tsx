@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  getTableInsertAnchorPoint,
+  type TableInsertDockPosition,
+} from './tableInsertPreview';
 import { type ActiveTool } from './types';
 
 type ToolDef = {
@@ -81,7 +85,11 @@ const TOOLS: ToolDef[] = [
 type Props = {
   activeTool: ActiveTool;
   onToolChange: (tool: ActiveTool) => void;
-  onTableToolClick: (clientX: number, clientY: number) => void;
+  onTableToolClick: (
+    clientX: number,
+    clientY: number,
+    position: TableInsertDockPosition,
+  ) => void;
 };
 export type ToolbarPosition = 'top' | 'bottom' | 'left' | 'right';
 
@@ -223,7 +231,11 @@ export function Toolbar({
               title={`${tool.label} (${tool.shortcut})`}
               onClick={(event) => {
                 if (tool.id === 'table') {
-                  onTableToolClick(event.clientX, event.clientY);
+                  const anchor = getTableInsertAnchorPoint(
+                    activePosition,
+                    event.currentTarget.getBoundingClientRect(),
+                  );
+                  onTableToolClick(anchor.x, anchor.y, activePosition);
                   return;
                 }
 

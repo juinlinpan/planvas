@@ -82,10 +82,13 @@ import {
 import {
   TABLE_INSERT_PREVIEW_CELL_HEIGHT,
   TABLE_INSERT_PREVIEW_CELL_WIDTH,
-  TABLE_INSERT_PREVIEW_OFFSET_X,
-  TABLE_INSERT_PREVIEW_OFFSET_Y,
+  getDirectionalTableInsertDelta,
   getTableInsertDimensions,
+  getTableInsertDirection,
   getTableInsertItemSize,
+  getTableInsertPreviewPosition,
+  type TableInsertDockPosition,
+  type TableInsertDirection,
 } from './tableInsertPreview';
 import { Toolbar } from './Toolbar';
 import { ArrowConnector } from './items/ArrowConnector';
@@ -281,7 +284,11 @@ export function Canvas({
   const vpSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const itemSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editSessionRef = useRef<EditSessionState | null>(null);
-  const toolbarTableInsertOriginRef = useRef<{ clientX: number; clientY: number } | null>(null);
+  const toolbarTableInsertOriginRef = useRef<{
+    clientX: number;
+    clientY: number;
+    direction: TableInsertDirection;
+  } | null>(null);
   const utilityMenuRef = useRef<HTMLDivElement | null>(null);
   const resetZoomPanelRef = useRef<HTMLDivElement | null>(null);
 
@@ -434,20 +441,33 @@ export function Canvas({
   }, []);
 
   const handleToolbarTableClick = useCallback(
-    (clientX: number, clientY: number) => {
+    (
+      clientX: number,
+      clientY: number,
+      toolbarPosition: TableInsertDockPosition,
+    ) => {
+      if (toolbarTableInsertOriginRef.current !== null) {
+        toolbarTableInsertOriginRef.current = null;
+        setToolbarTableInsertPreview(null);
+        handleToolChange('select');
+        return;
+      }
+
+      const direction = getTableInsertDirection(toolbarPosition);
       tableInsertDraftRef.current = null;
       setTableInsertPreview(null);
-      toolbarTableInsertOriginRef.current = { clientX, clientY };
+      toolbarTableInsertOriginRef.current = { clientX, clientY, direction };
       setToolbarTableInsertPreview({
         cursorX: clientX,
         cursorY: clientY,
         cols: 1,
         rows: 1,
         isActive: true,
+        direction,
       });
       setActiveTool(ITEM_TYPE.table);
     },
-    [],
+    [handleToolChange],
   );
 
   const primarySelectedId = useMemo(
@@ -599,9 +619,14 @@ export function Canvas({
     const origin = currentOrigin;
 
     function handleWindowMouseMove(event: MouseEvent) {
-      const dims = getTableInsertDimensions(
+      const delta = getDirectionalTableInsertDelta(
         event.clientX - origin.clientX,
         event.clientY - origin.clientY,
+        origin.direction,
+      );
+      const dims = getTableInsertDimensions(
+        delta.x,
+        delta.y,
         TABLE_MAX_DIMENSION,
         TABLE_MAX_DIMENSION,
       );
@@ -611,6 +636,7 @@ export function Canvas({
         cols: dims.cols,
         rows: dims.rows,
         isActive: true,
+        direction: origin.direction,
       });
     }
 
@@ -628,9 +654,14 @@ export function Canvas({
       event.preventDefault();
       event.stopPropagation();
 
-      const dims = getTableInsertDimensions(
+      const delta = getDirectionalTableInsertDelta(
         event.clientX - origin.clientX,
         event.clientY - origin.clientY,
+        origin.direction,
+      );
+      const dims = getTableInsertDimensions(
+        delta.x,
+        delta.y,
         TABLE_MAX_DIMENSION,
         TABLE_MAX_DIMENSION,
       );
@@ -885,6 +916,7 @@ export function Canvas({
     handleDeleteSelection,
     handlePasteSelection,
     handleRedo,
+    handleToolChange,
     handleUndo,
   ]);
 
@@ -1407,10 +1439,13 @@ export function Canvas({
           className={`table-insert-preview table-insert-preview-fixed ${
             toolbarTableInsertPreview.isActive ? 'is-dragging' : ''
           }`}
-          style={{
-            left: toolbarTableInsertPreview.cursorX + TABLE_INSERT_PREVIEW_OFFSET_X,
-            top: toolbarTableInsertPreview.cursorY + TABLE_INSERT_PREVIEW_OFFSET_Y,
-          }}
+          style={getTableInsertPreviewPosition(
+            toolbarTableInsertPreview.cursorX,
+            toolbarTableInsertPreview.cursorY,
+            toolbarTableInsertPreview.direction ?? { x: 1, y: 1 },
+            toolbarTableInsertPreview.cols,
+            toolbarTableInsertPreview.rows,
+          )}
         >
           <div
             className="table-insert-preview-grid"
@@ -1826,10 +1861,13 @@ export function Canvas({
                 className={`table-insert-preview ${
                   tableInsertPreview.isActive ? 'is-dragging' : ''
                 }`}
-                style={{
-                  left: tableInsertPreview.cursorX + TABLE_INSERT_PREVIEW_OFFSET_X,
-                  top: tableInsertPreview.cursorY + TABLE_INSERT_PREVIEW_OFFSET_Y,
-                }}
+                style={getTableInsertPreviewPosition(
+                  tableInsertPreview.cursorX,
+                  tableInsertPreview.cursorY,
+                  tableInsertPreview.direction ?? { x: 1, y: 1 },
+                  tableInsertPreview.cols,
+                  tableInsertPreview.rows,
+                )}
               >
                 <div
                   className="table-insert-preview-grid"
