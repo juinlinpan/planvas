@@ -14,9 +14,9 @@ import {
   getFrameChildFitSize,
   getFrameChildren,
   getFrameContentBounds,
-  getFrameEjectPosition,
   getItemsNearPoint,
   getItemMagnetBounds,
+  getPartialFrameExitEjectPosition,
   getSelectionMagnetBounds,
   getTableCellBounds,
   computeCellChildLayout,
@@ -1395,22 +1395,13 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
             if (isItemFullyOutsideFrame(movedItem, previousParent)) {
               nextParentId = null;
             } else {
-              const fittedSize = fitItemWithinBounds(
-                movedItem,
-                getFrameContentBounds(previousParent).width,
-                getFrameContentBounds(previousParent).height,
-              );
-              const clampedPosition = clampItemToFrame(
+              const ejectPosition = getPartialFrameExitEjectPosition(
                 movedItem,
                 previousParent,
-                fittedSize,
               );
-
-              nextParentId = previousParent.id;
-              nextWidth = fittedSize.width;
-              nextHeight = fittedSize.height;
-              nextX = clampedPosition.x;
-              nextY = clampedPosition.y;
+              nextParentId = null;
+              nextX = ejectPosition?.x ?? nextX;
+              nextY = ejectPosition?.y ?? nextY;
             }
           } else if (previousParent.type === ITEM_TYPE.table) {
             // Table parent: eject when center moves outside the table
@@ -1692,27 +1683,13 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
           ingestedItemIds.push(movedItem.id);
         }
 
-        const ejectedPosition =
-          nextParentId === null && previousParent !== null && isFrame(previousParent)
-            ? getFrameEjectPosition(
-                {
-                  ...movedItem,
-                  width: nextWidth,
-                  height: nextHeight,
-                  x: nextX,
-                  y: nextY,
-                },
-                previousParent,
-              )
-            : null;
-
         nextItems = nextItems.map((item) =>
           item.id === movedItem.id
             ? {
                 ...item,
                 parent_item_id: nextParentId,
-                x: ejectedPosition?.x ?? nextX,
-                y: ejectedPosition?.y ?? nextY,
+                x: nextX,
+                y: nextY,
                 width: nextWidth,
                 height: nextHeight,
               }

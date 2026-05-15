@@ -27,6 +27,23 @@ const icon = (d: string) => (
   </svg>
 );
 
+const frameCollectionIcon = (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M4 5h16v14H4z" />
+    <path d="M8 9h5v4H8z" />
+    <path d="M12 12h5v4h-5z" />
+  </svg>
+);
+
 const TOOLS: ToolDef[] = [
   {
     id: 'select',
@@ -71,7 +88,7 @@ const TOOLS: ToolDef[] = [
   {
     id: 'frame',
     label: 'Frame',
-    icon: icon('M3 3h18v18H3zM9 3v18M15 3v18M3 9h18M3 15h18'),
+    icon: frameCollectionIcon,
     shortcut: 'F',
   },
   {

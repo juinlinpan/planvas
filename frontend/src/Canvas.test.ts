@@ -5,6 +5,7 @@ import { resolveSidebarNoteDragFile } from './Canvas';
 import {
   getAutoAnchors,
   getConnectorPoints,
+  getPartialFrameExitEjectPosition,
   summarizeFrameChild,
 } from './canvasHelpers';
 import { ITEM_CATEGORY, ITEM_TYPE } from './types';
@@ -153,6 +154,55 @@ describe('resolveSidebarNoteDragFile', () => {
     });
 
     expect(resolved).toBeNull();
+  });
+});
+
+describe('frame child exit placement', () => {
+  it('keeps the dragged position when a child fully leaves the frame', () => {
+    const frame = createBoardItem({
+      id: 'frame-1',
+      category: ITEM_CATEGORY.large_item,
+      type: ITEM_TYPE.frame,
+      x: 100,
+      y: 100,
+      width: 320,
+      height: 240,
+    });
+    const child = createBoardItem({
+      id: 'child-1',
+      parent_item_id: frame.id,
+      x: 480,
+      y: 180,
+      width: 120,
+      height: 80,
+    });
+
+    expect(getPartialFrameExitEjectPosition(child, frame)).toBeNull();
+  });
+
+  it('ejects a partially exited child to the nearest frame edge', () => {
+    const frame = createBoardItem({
+      id: 'frame-1',
+      category: ITEM_CATEGORY.large_item,
+      type: ITEM_TYPE.frame,
+      x: 100,
+      y: 100,
+      width: 320,
+      height: 240,
+    });
+    const child = createBoardItem({
+      id: 'child-1',
+      parent_item_id: frame.id,
+      x: 360,
+      y: 180,
+      width: 120,
+      height: 80,
+    });
+
+    expect(getPartialFrameExitEjectPosition(child, frame)).toEqual({
+      x: 444,
+      y: 180,
+    });
   });
 });
 

@@ -100,6 +100,11 @@
 - Right-clicking empty canvas space should keep a lighter canvas context menu that exposes `paste` only.
 - Context-menu actions must stay aligned with the existing keyboard shortcuts so both entry points trigger the same behavior.
 
+## Frame Exit Interaction Update Notes
+
+- Dragging a `small_item` fully outside its parent `frame` must detach it from the frame while preserving the user's dropped canvas position.
+- Dragging a `small_item` only partially out of its parent `frame` may use the frame eject behavior to place it just outside the nearest frame edge.
+
 ## Table Text Layout And Inspector Update Notes
 
 - `table` 銝?閬?喃?閫?憭＊蝷箏? ? 甈?摮?蝐扎?

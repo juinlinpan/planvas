@@ -16,7 +16,6 @@ import type { ConnectorsUpdater, ItemsUpdater } from './canvasTypes';
 import {
   buildSegmentGeometry,
   getSegmentConnections,
-  getSegmentWaypoints,
   getSegmentWorldWaypoints,
   getSegmentWorldPoints,
   hasStoredSegmentData,
@@ -116,86 +115,96 @@ export function syncSegmentConnectionsForItems(
   itemsRef: MutableRefObject<BoardItem[]>,
   setItemsAndSync: (updater: ItemsUpdater) => void,
 ): void {
-  if (changedItemIds.length === 0) {
+  const result = syncSegmentConnectionsInItems(itemsRef.current, changedItemIds);
+  if (result.updatedSegments.length === 0) {
     return;
   }
 
+  setItemsAndSync(result.items);
+
+  void Promise.all(
+    result.updatedSegments.map((item) => updateBoardItem(item.id, toPayload(item))),
+  ).catch((err) => {
+    console.error('[Canvas] Failed to sync segment connections', err);
+  });
+}
+
+export function syncSegmentConnectionsInItems(
+  items: BoardItem[],
+  changedItemIds: string[],
+): { items: BoardItem[]; updatedSegments: BoardItem[] } {
+  if (changedItemIds.length === 0) {
+    return { items, updatedSegments: [] };
+  }
+
   const changedIdSet = new Set(changedItemIds);
-  const itemById = new Map(itemsRef.current.map((item) => [item.id, item]));
+  const itemById = new Map(items.map((item) => [item.id, item]));
   const segmentUpdates: BoardItem[] = [];
 
-  setItemsAndSync((current) =>
-    current.map((item) => {
-      if (item.type !== ITEM_TYPE.line && item.type !== ITEM_TYPE.arrow) {
-        return item;
+  const nextItems = items.map((item) => {
+    if (item.type !== ITEM_TYPE.line && item.type !== ITEM_TYPE.arrow) {
+      return item;
+    }
+    if (!hasStoredSegmentData(item)) {
+      return item;
+    }
+
+    const conns = getSegmentConnections(item);
+    const startTouched =
+      conns.startConnection !== null &&
+      changedIdSet.has(conns.startConnection.itemId);
+    const endTouched =
+      conns.endConnection !== null && changedIdSet.has(conns.endConnection.itemId);
+
+    if (!startTouched && !endTouched) {
+      return item;
+    }
+
+    const worldPoints = getSegmentWorldPoints(item);
+    if (!worldPoints) {
+      return item;
+    }
+
+    let newStart = worldPoints.start;
+    let newEnd = worldPoints.end;
+
+    if (startTouched && conns.startConnection) {
+      const targetItem = itemById.get(conns.startConnection.itemId);
+      if (targetItem) {
+        newStart = getAnchorPoint(
+          targetItem,
+          isAnchor(conns.startConnection.anchor)
+            ? conns.startConnection.anchor
+            : null,
+        );
       }
-      if (!hasStoredSegmentData(item)) {
-        return item;
+    }
+
+    if (endTouched && conns.endConnection) {
+      const targetItem = itemById.get(conns.endConnection.itemId);
+      if (targetItem) {
+        newEnd = getAnchorPoint(
+          targetItem,
+          isAnchor(conns.endConnection.anchor) ? conns.endConnection.anchor : null,
+        );
       }
+    }
 
-      const conns = getSegmentConnections(item);
-      const startTouched =
-        conns.startConnection !== null &&
-        changedIdSet.has(conns.startConnection.itemId);
-      const endTouched =
-        conns.endConnection !== null &&
-        changedIdSet.has(conns.endConnection.itemId);
+    const waypoints = getSegmentWorldWaypoints(item);
+    const geometry = buildSegmentGeometry(
+      newStart,
+      newEnd,
+      waypoints,
+      conns.startConnection,
+      conns.endConnection,
+    );
+    const updated = { ...item, ...geometry };
+    segmentUpdates.push(updated);
+    return updated;
+  });
 
-      if (!startTouched && !endTouched) {
-        return item;
-      }
-
-      const worldPoints = getSegmentWorldPoints(item);
-      if (!worldPoints) {
-        return item;
-      }
-
-      let newStart = worldPoints.start;
-      let newEnd = worldPoints.end;
-
-      if (startTouched && conns.startConnection) {
-        const targetItem = itemById.get(conns.startConnection.itemId);
-        if (targetItem) {
-          newStart = getAnchorPoint(
-            targetItem,
-            isAnchor(conns.startConnection.anchor)
-              ? conns.startConnection.anchor
-              : null,
-          );
-        }
-      }
-
-      if (endTouched && conns.endConnection) {
-        const targetItem = itemById.get(conns.endConnection.itemId);
-        if (targetItem) {
-          newEnd = getAnchorPoint(
-            targetItem,
-            isAnchor(conns.endConnection.anchor)
-              ? conns.endConnection.anchor
-              : null,
-          );
-        }
-      }
-
-      const waypoints = getSegmentWorldWaypoints(item);
-      const geometry = buildSegmentGeometry(
-        newStart,
-        newEnd,
-        waypoints,
-        conns.startConnection,
-        conns.endConnection,
-      );
-      const updated = { ...item, ...geometry };
-      segmentUpdates.push(updated);
-      return updated;
-    }),
-  );
-
-  if (segmentUpdates.length > 0) {
-    void Promise.all(
-      segmentUpdates.map((item) => updateBoardItem(item.id, toPayload(item))),
-    ).catch((err) => {
-      console.error('[Canvas] Failed to sync segment connections', err);
-    });
-  }
+  return {
+    items: nextItems,
+    updatedSegments: segmentUpdates,
+  };
 }

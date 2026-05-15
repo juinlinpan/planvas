@@ -106,6 +106,11 @@
 - [x] Reuse the existing clipboard/delete handlers so right-click actions match keyboard shortcuts.
 - [x] Cover the new context-menu action visibility and viewport clamping with tests.
 
+## Frame Exit Interaction Update Notes
+
+- [x] Preserve a dragged item's dropped position when it fully leaves its parent `frame`.
+- [x] Keep frame eject positioning only for partial frame exits.
+
 ## Table Text Layout And Inspector Update Notes
 
 - [x] 蝘駁 `table` ?喃?閫???? 甈?蝐日＊蝷箝?

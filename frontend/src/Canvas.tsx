@@ -378,12 +378,10 @@ export function Canvas({
   }, [activeFrameDropTargetId, activeTableDropTarget, items]);
 
   const setItemsAndSync = useCallback((updater: ItemsUpdater) => {
-    setItems((current) => {
-      const nextItems =
-        typeof updater === 'function' ? updater(current) : updater;
-      itemsRef.current = nextItems;
-      return nextItems;
-    });
+    const nextItems =
+      typeof updater === 'function' ? updater(itemsRef.current) : updater;
+    itemsRef.current = nextItems;
+    setItems(nextItems);
   }, []);
 
   const setViewportAndSync = useCallback((nextViewport: Viewport) => {
@@ -392,12 +390,10 @@ export function Canvas({
   }, []);
 
   const setConnectorsAndSync = useCallback((updater: ConnectorsUpdater) => {
-    setConnectors((current) => {
-      const nextConnectors =
-        typeof updater === 'function' ? updater(current) : updater;
-      connectorsRef.current = nextConnectors;
-      return nextConnectors;
-    });
+    const nextConnectors =
+      typeof updater === 'function' ? updater(connectorsRef.current) : updater;
+    connectorsRef.current = nextConnectors;
+    setConnectors(nextConnectors);
   }, []);
 
   const setSelection = useCallback((nextSelectedIds: string[]) => {

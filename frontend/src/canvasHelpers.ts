@@ -547,6 +547,15 @@ export function getFrameEjectPosition(
   };
 }
 
+export function getPartialFrameExitEjectPosition(
+  item: BoardItem,
+  frame: BoardItem,
+): { x: number; y: number } | null {
+  return isItemFullyOutsideFrame(item, frame)
+    ? null
+    : getFrameEjectPosition(item, frame);
+}
+
 export function getAutoAnchors(
   fromItem: BoardItem,
   toItem: BoardItem,
