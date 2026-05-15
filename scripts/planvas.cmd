@@ -3,6 +3,7 @@ setlocal
 
 set "SCRIPT_DIR=%~dp0"
 for %%I in ("%SCRIPT_DIR%..") do set "PROJECT_ROOT=%%~fI"
+for /f "usebackq delims=" %%I in (`powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$item = Get-Item -LiteralPath '%PROJECT_ROOT%'; if ($item.Target) { $target = @($item.Target)[0]; if ([System.IO.Path]::IsPathRooted($target)) { [System.IO.Path]::GetFullPath($target) } else { [System.IO.Path]::GetFullPath((Join-Path (Split-Path -Parent $item.FullName) $target)) } } else { $item.FullName }"`) do set "PROJECT_ROOT=%%I"
 
 if "%~1"=="--help" (
   echo Usage: planvas
