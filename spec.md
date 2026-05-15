@@ -100,6 +100,17 @@
 - Right-clicking empty canvas space should keep a lighter canvas context menu that exposes `paste` only.
 - Context-menu actions must stay aligned with the existing keyboard shortcuts so both entry points trigger the same behavior.
 
+## Line Text Update Notes
+
+- `line` supports an optional text label stored in the board item `content` field.
+- Double-clicking a `line` enters inline text editing for that label.
+- The right inspector must let users place `line` text at front, center, or back along the line.
+- The right inspector must let users place `line` text above, middle, or below the line.
+- The right inspector must let users choose whether `line` text stays horizontal or follows the line slope.
+- `line` text editing and all text-related settings must be grouped together in the inspector.
+- `line` text background defaults to transparent and can be changed from the inspector.
+- `line` text size and text color can be changed from the inspector.
+
 ## Frame Exit Interaction Update Notes
 
 - Dragging a `small_item` fully outside its parent `frame` must detach it from the frame while preserving the user's dropped canvas position.

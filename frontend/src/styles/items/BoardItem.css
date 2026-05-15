@@ -296,6 +296,44 @@
   opacity: 1;
 }
 
+.segment-text-label {
+  position: absolute;
+  min-width: 28px;
+  max-width: 220px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  line-height: 1.25;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-align: center;
+  pointer-events: auto;
+  user-select: text;
+}
+
+.segment-text-label.is-editing {
+  min-width: 120px;
+  min-height: 34px;
+  background: #fff !important;
+  box-shadow:
+    0 0 0 2px var(--accent-soft),
+    var(--shadow-sm);
+}
+
+.segment-text-editor {
+  display: block;
+  width: 160px;
+  min-height: 34px;
+  padding: 4px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1.25;
+  resize: both;
+  outline: none;
+}
+
 /* ?? Connector anchor indicators (draw.io style) ?? */
 
 .connector-anchor-indicator {
@@ -305,11 +343,15 @@
   border: 2px solid var(--accent);
   border-radius: 50%;
   background: var(--surface);
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.15), var(--shadow-sm);
+  box-shadow:
+    0 0 0 1px rgba(37, 99, 235, 0.15),
+    var(--shadow-sm);
   transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: 2147483646;
-  transition: transform 0.1s ease, background 0.1s ease;
+  transition:
+    transform 0.1s ease,
+    background 0.1s ease;
 }
 
 .connector-anchor-indicator.is-active {
@@ -317,7 +359,9 @@
   height: 20px;
   background: var(--accent);
   border-color: #fff;
-  box-shadow: 0 0 0 2px var(--accent), 0 0 8px rgba(37, 99, 235, 0.4);
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 8px rgba(37, 99, 235, 0.4);
   transform: translate(-50%, -50%) scale(1);
 }
 

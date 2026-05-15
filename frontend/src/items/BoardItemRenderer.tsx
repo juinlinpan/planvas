@@ -22,8 +22,14 @@ type Props = {
     e: React.MouseEvent<HTMLButtonElement>,
     endpoint: SegmentEndpoint,
   ) => void;
-  onWaypointMouseDown: (e: React.MouseEvent<HTMLButtonElement>, waypointIndex: number) => void;
-  onMidpointMouseDown: (e: React.MouseEvent<HTMLButtonElement>, segmentIndex: number) => void;
+  onWaypointMouseDown: (
+    e: React.MouseEvent<HTMLButtonElement>,
+    waypointIndex: number,
+  ) => void;
+  onMidpointMouseDown: (
+    e: React.MouseEvent<HTMLButtonElement>,
+    segmentIndex: number,
+  ) => void;
   deletingWaypointIndex?: number;
   onDoubleClick: () => void;
   onResizeMouseDown: (e: React.MouseEvent) => void;
@@ -104,12 +110,18 @@ export function BoardItemRenderer({
           <SegmentShape
             item={item}
             isSelected={isSelected}
+            isEditing={isEditing}
             canTranslate={canTranslateSegment}
-            onMouseDown={onMouseDown as (e: React.MouseEvent<SVGPathElement>) => void}
+            onMouseDown={
+              onMouseDown as (e: React.MouseEvent<SVGPathElement>) => void
+            }
             onContextMenu={onContextMenu}
+            onDoubleClick={onDoubleClick}
             onEndpointMouseDown={onEndpointMouseDown}
             onWaypointMouseDown={onWaypointMouseDown}
             onMidpointMouseDown={onMidpointMouseDown}
+            onUpdate={onUpdate}
+            onEditEnd={onEditEnd}
             deletingWaypointIndex={deletingWaypointIndex}
           />
           {resizeHandle}

@@ -6,6 +6,9 @@ export type FontWeightValue = 'normal' | 'bold';
 export type FontStyleValue = 'normal' | 'italic';
 export type StrokeStyleValue = 'solid' | 'dashed' | 'dotted';
 export type LineCornerType = 'sharp' | 'rounded';
+export type SegmentTextHorizontalPosition = 'start' | 'center' | 'end';
+export type SegmentTextVerticalPosition = 'top' | 'middle' | 'bottom';
+export type SegmentTextOrientation = 'horizontal' | 'slope';
 export type ColorOption = {
   name: string;
   value: string;
@@ -22,6 +25,9 @@ export type BoardItemStyle = {
   strokeStyle?: StrokeStyleValue;
   lineCornerType?: LineCornerType;
   arrowHeadSize?: number;
+  segmentTextHorizontalPosition?: SegmentTextHorizontalPosition;
+  segmentTextVerticalPosition?: SegmentTextVerticalPosition;
+  segmentTextOrientation?: SegmentTextOrientation;
 };
 
 export type ResolvedBoardItemStyle = {
@@ -35,17 +41,20 @@ export type ResolvedBoardItemStyle = {
   strokeStyle: StrokeStyleValue;
   lineCornerType: LineCornerType;
   arrowHeadSize: number;
+  segmentTextHorizontalPosition: SegmentTextHorizontalPosition;
+  segmentTextVerticalPosition: SegmentTextVerticalPosition;
+  segmentTextOrientation: SegmentTextOrientation;
 };
 
 export const BACKGROUND_COLOR_OPTIONS = [
-  { name: 'Pearl',       value: '#f9f8f5' },
-  { name: 'Butter',      value: '#fef5b3' },
-  { name: 'Apricot',    value: '#fdddd0' },
-  { name: 'Wheat',      value: '#f4e8d0' },
-  { name: 'Sage',       value: '#c8d9c4' },
+  { name: 'Pearl', value: '#f9f8f5' },
+  { name: 'Butter', value: '#fef5b3' },
+  { name: 'Apricot', value: '#fdddd0' },
+  { name: 'Wheat', value: '#f4e8d0' },
+  { name: 'Sage', value: '#c8d9c4' },
   { name: 'Periwinkle', value: '#d6e4fa' },
-  { name: 'Rose',       value: '#f5d8e8' },
-  { name: 'Stone',      value: '#e2e4ea' },
+  { name: 'Rose', value: '#f5d8e8' },
+  { name: 'Stone', value: '#e2e4ea' },
 ] as const satisfies readonly ColorOption[];
 
 export const TEXT_COLOR_OPTIONS = [
@@ -58,14 +67,14 @@ export const TEXT_COLOR_OPTIONS = [
 ] as const satisfies readonly ColorOption[];
 
 export const STROKE_COLOR_OPTIONS = [
-  { name: 'Black',  value: '#1f2937' },
-  { name: 'Red',    value: '#ef4444' },
+  { name: 'Black', value: '#1f2937' },
+  { name: 'Red', value: '#ef4444' },
   { name: 'Orange', value: '#f97316' },
   { name: 'Yellow', value: '#f59e0b' },
-  { name: 'Green',  value: '#22c55e' },
-  { name: 'Blue',   value: '#3b82f6' },
+  { name: 'Green', value: '#22c55e' },
+  { name: 'Blue', value: '#3b82f6' },
   { name: 'Purple', value: '#a855f7' },
-  { name: 'Pink',   value: '#ec4899' },
+  { name: 'Pink', value: '#ec4899' },
 ] as const satisfies readonly ColorOption[];
 
 const DEFAULT_BACKGROUND_COLOR = BACKGROUND_COLOR_OPTIONS[0].value;
@@ -87,6 +96,7 @@ function createPaletteLookup(
 }
 
 const BACKGROUND_COLOR_LOOKUP = createPaletteLookup(BACKGROUND_COLOR_OPTIONS, {
+  transparent: 'transparent',
   '#ffffff': DEFAULT_BACKGROUND_COLOR,
   '#fffdf7': DEFAULT_BACKGROUND_COLOR,
   '#f8fafc': DEFAULT_BACKGROUND_COLOR,
@@ -173,6 +183,28 @@ function sanitizeArrowHeadSize(value: unknown): number | undefined {
   return Math.min(40, Math.max(8, Math.round(value)));
 }
 
+function sanitizeSegmentTextHorizontalPosition(
+  value: unknown,
+): SegmentTextHorizontalPosition | undefined {
+  return value === 'start' || value === 'center' || value === 'end'
+    ? value
+    : undefined;
+}
+
+function sanitizeSegmentTextVerticalPosition(
+  value: unknown,
+): SegmentTextVerticalPosition | undefined {
+  return value === 'top' || value === 'middle' || value === 'bottom'
+    ? value
+    : undefined;
+}
+
+function sanitizeSegmentTextOrientation(
+  value: unknown,
+): SegmentTextOrientation | undefined {
+  return value === 'horizontal' || value === 'slope' ? value : undefined;
+}
+
 export function getStickyNoteColor(itemId: string): string {
   let hash = 0;
   for (let index = 0; index < itemId.length; index += 1) {
@@ -201,11 +233,22 @@ export function parseBoardItemStyle(styleJson: string | null): BoardItemStyle {
       fontSize: sanitizeFontSize(parsed.fontSize),
       fontWeight: sanitizeFontWeight(parsed.fontWeight),
       fontStyle: sanitizeFontStyle(parsed.fontStyle),
-      strokeColor: sanitizePaletteColor(parsed.strokeColor, STROKE_COLOR_LOOKUP) ?? sanitizeFreeColor(parsed.strokeColor),
+      strokeColor:
+        sanitizePaletteColor(parsed.strokeColor, STROKE_COLOR_LOOKUP) ??
+        sanitizeFreeColor(parsed.strokeColor),
       strokeWidth: sanitizeStrokeWidth(parsed.strokeWidth),
       strokeStyle: sanitizeStrokeStyle(parsed.strokeStyle),
       lineCornerType: sanitizeLineCornerType(parsed.lineCornerType),
       arrowHeadSize: sanitizeArrowHeadSize(parsed.arrowHeadSize),
+      segmentTextHorizontalPosition: sanitizeSegmentTextHorizontalPosition(
+        parsed.segmentTextHorizontalPosition,
+      ),
+      segmentTextVerticalPosition: sanitizeSegmentTextVerticalPosition(
+        parsed.segmentTextVerticalPosition,
+      ),
+      segmentTextOrientation: sanitizeSegmentTextOrientation(
+        parsed.segmentTextOrientation,
+      ),
     };
   } catch {
     return {};
@@ -222,11 +265,22 @@ export function serializeBoardItemStyle(style: BoardItemStyle): string | null {
     fontSize: sanitizeFontSize(style.fontSize),
     fontWeight: sanitizeFontWeight(style.fontWeight),
     fontStyle: sanitizeFontStyle(style.fontStyle),
-    strokeColor: sanitizePaletteColor(style.strokeColor, STROKE_COLOR_LOOKUP) ?? sanitizeFreeColor(style.strokeColor),
+    strokeColor:
+      sanitizePaletteColor(style.strokeColor, STROKE_COLOR_LOOKUP) ??
+      sanitizeFreeColor(style.strokeColor),
     strokeWidth: sanitizeStrokeWidth(style.strokeWidth),
     strokeStyle: sanitizeStrokeStyle(style.strokeStyle),
     lineCornerType: sanitizeLineCornerType(style.lineCornerType),
     arrowHeadSize: sanitizeArrowHeadSize(style.arrowHeadSize),
+    segmentTextHorizontalPosition: sanitizeSegmentTextHorizontalPosition(
+      style.segmentTextHorizontalPosition,
+    ),
+    segmentTextVerticalPosition: sanitizeSegmentTextVerticalPosition(
+      style.segmentTextVerticalPosition,
+    ),
+    segmentTextOrientation: sanitizeSegmentTextOrientation(
+      style.segmentTextOrientation,
+    ),
   };
 
   const entries = Object.entries(nextStyle).filter(
@@ -266,6 +320,10 @@ export function resolveBoardItemStyle(item: BoardItem): ResolvedBoardItemStyle {
     strokeStyle: parsed.strokeStyle ?? 'solid',
     lineCornerType: parsed.lineCornerType ?? 'sharp',
     arrowHeadSize: parsed.arrowHeadSize ?? 30,
+    segmentTextHorizontalPosition:
+      parsed.segmentTextHorizontalPosition ?? 'center',
+    segmentTextVerticalPosition: parsed.segmentTextVerticalPosition ?? 'middle',
+    segmentTextOrientation: parsed.segmentTextOrientation ?? 'horizontal',
   };
 }
 

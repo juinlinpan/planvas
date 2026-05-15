@@ -68,6 +68,19 @@ describe('itemStyles palette restrictions', () => {
     ).toBe('{"backgroundColor":"#f9f8f5","textColor":"#1f2937","fontSize":16}');
   });
 
+  it('allows transparent backgrounds for line text labels', () => {
+    expect(
+      serializeBoardItemStyle({
+        backgroundColor: 'transparent',
+        segmentTextHorizontalPosition: 'end',
+        segmentTextVerticalPosition: 'top',
+        segmentTextOrientation: 'slope',
+      }),
+    ).toBe(
+      '{"backgroundColor":"transparent","segmentTextHorizontalPosition":"end","segmentTextVerticalPosition":"top","segmentTextOrientation":"slope"}',
+    );
+  });
+
   it('drops unsupported background and text colors while preserving other style fields', () => {
     expect(
       serializeBoardItemStyle({

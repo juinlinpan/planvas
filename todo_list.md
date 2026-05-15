@@ -106,6 +106,17 @@
 - [x] Reuse the existing clipboard/delete handlers so right-click actions match keyboard shortcuts.
 - [x] Cover the new context-menu action visibility and viewport clamping with tests.
 
+## Line Text Update Notes
+
+- [x] Let `line` store an optional text label in `content`.
+- [x] Let users double-click a `line` to edit its text label inline.
+- [x] Add right-inspector controls for `line` text front / center / back placement.
+- [x] Add right-inspector controls for `line` text top / middle / bottom placement.
+- [x] Add right-inspector controls for horizontal or slope-following `line` text direction.
+- [x] Group `line` text editing and text-related settings together in the inspector.
+- [x] Add right-inspector controls for `line` text background, text color, and font size.
+- [x] Keep the default `line` text background transparent.
+
 ## Frame Exit Interaction Update Notes
 
 - [x] Preserve a dragged item's dropped position when it fully leaves its parent `frame`.

@@ -1,4 +1,9 @@
-import type { BoardItem, BoardItemPayload, ConnectorLink, ConnectorLinkPayload } from './api';
+import type {
+  BoardItem,
+  BoardItemPayload,
+  ConnectorLink,
+  ConnectorLinkPayload,
+} from './api';
 import type { FrameSummaryEntry } from './items/Frame';
 import {
   buildSegmentGeometry,
@@ -73,7 +78,9 @@ const ALL_ANCHORS = new Set<Anchor>([
 ]);
 
 export function isAnchor(value: string | null | undefined): value is Anchor {
-  return value !== null && value !== undefined && ALL_ANCHORS.has(value as Anchor);
+  return (
+    value !== null && value !== undefined && ALL_ANCHORS.has(value as Anchor)
+  );
 }
 
 export function isHiddenByCollapsedFrame(
@@ -167,7 +174,10 @@ export function summarizeFrameChild(item: BoardItem): FrameSummaryEntry {
   };
 }
 
-export function getFrameChildren(items: BoardItem[], frameId: string): BoardItem[] {
+export function getFrameChildren(
+  items: BoardItem[],
+  frameId: string,
+): BoardItem[] {
   return items
     .filter((item) => item.parent_item_id === frameId)
     .sort((a, b) => a.y - b.y || a.x - b.x || a.z_index - b.z_index);
@@ -188,7 +198,10 @@ function getIntersectionArea(left: RectLike, right: RectLike): number {
   return overlapWidth * overlapHeight;
 }
 
-export function getFrameOverlapScore(item: BoardItem, frame: BoardItem): number {
+export function getFrameOverlapScore(
+  item: BoardItem,
+  frame: BoardItem,
+): number {
   const intersectionArea = getIntersectionArea(item, frame);
   if (intersectionArea === 0) {
     return 0;
@@ -530,20 +543,14 @@ export function getFrameEjectPosition(
 
   if (horizontalWeight >= verticalWeight) {
     return {
-      x:
-        dx >= 0
-          ? frame.x + frame.width + gap
-          : frame.x - item.width - gap,
+      x: dx >= 0 ? frame.x + frame.width + gap : frame.x - item.width - gap,
       y: item.y,
     };
   }
 
   return {
     x: item.x,
-    y:
-      dy >= 0
-        ? frame.y + frame.height + gap
-        : frame.y - item.height - gap,
+    y: dy >= 0 ? frame.y + frame.height + gap : frame.y - item.height - gap,
   };
 }
 
@@ -791,7 +798,9 @@ export function toPayload(item: BoardItem): BoardItemPayload {
   };
 }
 
-export function toConnectorPayload(connector: ConnectorLink): ConnectorLinkPayload {
+export function toConnectorPayload(
+  connector: ConnectorLink,
+): ConnectorLinkPayload {
   return {
     connector_item_id: connector.connector_item_id,
     from_item_id: connector.from_item_id,
@@ -812,6 +821,7 @@ export function isLegacyConnectorArrow(item: BoardItem): boolean {
 export function isInlineEditable(item: BoardItem): boolean {
   return (
     item.type === ITEM_TYPE.table ||
+    item.type === ITEM_TYPE.line ||
     item.type === ITEM_TYPE.text_box ||
     item.type === ITEM_TYPE.sticky_note ||
     item.type === ITEM_TYPE.note_paper
@@ -834,7 +844,10 @@ export function clampItemSize(
   };
 }
 
-export function getDescendantItems(items: BoardItem[], rootId: string): BoardItem[] {
+export function getDescendantItems(
+  items: BoardItem[],
+  rootId: string,
+): BoardItem[] {
   const descendants: BoardItem[] = [];
   const pendingParentIds = [rootId];
 
@@ -944,7 +957,9 @@ export function detachDraggedSegments(
 } {
   const selectedIdSet = new Set(selectedItemIds);
   const connectorByItemId = new Map(
-    connectors.map((connector) => [connector.connector_item_id, connector] as const),
+    connectors.map(
+      (connector) => [connector.connector_item_id, connector] as const,
+    ),
   );
   const detachedItemIds: string[] = [];
   const detachedConnectorIds: string[] = [];
@@ -1003,14 +1018,20 @@ export function detachDraggedSegments(
     detachedConnectorIds.push(connector.id);
     return {
       ...item,
-      ...buildSegmentGeometry(connectorPoints.fromPoint, connectorPoints.toPoint, null),
+      ...buildSegmentGeometry(
+        connectorPoints.fromPoint,
+        connectorPoints.toPoint,
+        null,
+      ),
     };
   });
 
   const detachedConnectorIdSet = new Set(detachedConnectorIds);
   return {
     items: nextItems,
-    connectors: connectors.filter((connector) => !detachedConnectorIdSet.has(connector.id)),
+    connectors: connectors.filter(
+      (connector) => !detachedConnectorIdSet.has(connector.id),
+    ),
     detachedItemIds,
     detachedConnectorIds,
   };
@@ -1040,9 +1061,12 @@ export function getSelectionBounds(
   };
 }
 
-export function getItemMagnetBounds(
-  item: BoardItem,
-): { x: number; y: number; width: number; height: number } {
+export function getItemMagnetBounds(item: BoardItem): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
   if (item.type === ITEM_TYPE.line || item.type === ITEM_TYPE.arrow) {
     const worldPoints = getSegmentAllWorldPoints(item);
     if (worldPoints !== null && worldPoints.length > 0) {
@@ -1249,7 +1273,10 @@ export function clampItemToFrame(
   };
 }
 
-export function isItemFullyOutsideFrame(item: BoardItem, frame: BoardItem): boolean {
+export function isItemFullyOutsideFrame(
+  item: BoardItem,
+  frame: BoardItem,
+): boolean {
   const bounds = getFrameContentBounds(frame);
 
   return (
@@ -1363,7 +1390,9 @@ export function reorderItemsForLayer(
       ];
     }
   } else {
-    const firstMovingIndex = ordered.findIndex((item) => movingIds.has(item.id));
+    const firstMovingIndex = ordered.findIndex((item) =>
+      movingIds.has(item.id),
+    );
     const prevStationary = [...ordered.slice(0, firstMovingIndex)]
       .reverse()
       .find((item) => !movingIds.has(item.id));

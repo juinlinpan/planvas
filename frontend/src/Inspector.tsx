@@ -18,6 +18,11 @@ import {
 } from './tableData';
 import { ITEM_MIN_SIZE, ITEM_TYPE, ITEM_TYPE_LABEL } from './types';
 
+const SEGMENT_TEXT_BACKGROUND_OPTIONS = [
+  { name: 'Transparent', value: 'transparent' },
+  ...BACKGROUND_COLOR_OPTIONS,
+] as const;
+
 type Props = {
   item: BoardItem | null;
   connector: ConnectorLink | null;
@@ -287,6 +292,9 @@ export function Inspector({
   const supportsLineStyling = isLine || isArrow;
   const tableData = isTable ? parseTableData(selectedItem.data_json) : null;
   const resolvedStyle = resolveBoardItemStyle(selectedItem);
+  const parsedStyle = parseBoardItemStyle(selectedItem.style_json);
+  const segmentTextBackgroundColor =
+    parsedStyle.backgroundColor ?? 'transparent';
   const selectedTableCells =
     isTable && tableData !== null && selectedTableCellIds.length > 0
       ? tableData.cells
@@ -839,6 +847,101 @@ export function Inspector({
                 ? '直接拖曳畫布上的端點控制長度與方向，這裡只調整樣式。'
                 : '寬度控制線段長度，高度保留互動命中區，角度用來調整方向。'}
             </p>
+          </section>
+        ) : null}
+
+        {isLine ? (
+          <section className="inspector-section">
+            <div className="inspector-title-row">
+              <p className="meta-label">Line Text</p>
+            </div>
+            <label className="inspector-field">
+              Text
+              <textarea
+                className="inspector-textarea"
+                value={selectedItem.content ?? ''}
+                onChange={(e) => handleContentChange(e.target.value)}
+              />
+            </label>
+            <div className="inspector-grid">
+              <label className="inspector-field">
+                Horizontal
+                <select
+                  value={resolvedStyle.segmentTextHorizontalPosition}
+                  onChange={(e) =>
+                    handleStyleChange({
+                      segmentTextHorizontalPosition: e.target
+                        .value as BoardItemStyle['segmentTextHorizontalPosition'],
+                    })
+                  }
+                >
+                  <option value="start">Front</option>
+                  <option value="center">Center</option>
+                  <option value="end">Back</option>
+                </select>
+              </label>
+              <label className="inspector-field">
+                Vertical
+                <select
+                  value={resolvedStyle.segmentTextVerticalPosition}
+                  onChange={(e) =>
+                    handleStyleChange({
+                      segmentTextVerticalPosition: e.target
+                        .value as BoardItemStyle['segmentTextVerticalPosition'],
+                    })
+                  }
+                >
+                  <option value="top">Top</option>
+                  <option value="middle">Middle</option>
+                  <option value="bottom">Bottom</option>
+                </select>
+              </label>
+              <label className="inspector-field">
+                Direction
+                <select
+                  value={resolvedStyle.segmentTextOrientation}
+                  onChange={(e) =>
+                    handleStyleChange({
+                      segmentTextOrientation: e.target
+                        .value as BoardItemStyle['segmentTextOrientation'],
+                    })
+                  }
+                >
+                  <option value="horizontal">Horizontal</option>
+                  <option value="slope">Follow slope</option>
+                </select>
+              </label>
+            </div>
+            <div className="inspector-color-grid">
+              <ColorPaletteField
+                label="Background"
+                options={SEGMENT_TEXT_BACKGROUND_OPTIONS}
+                selectedValue={segmentTextBackgroundColor}
+                tone="background"
+                onSelect={(value) =>
+                  handleStyleChange({ backgroundColor: value })
+                }
+              />
+              <ColorPaletteField
+                label="Text"
+                options={TEXT_COLOR_OPTIONS}
+                selectedValue={resolvedStyle.textColor}
+                tone="text"
+                onSelect={(value) => handleStyleChange({ textColor: value })}
+              />
+            </div>
+            <div className="inspector-grid">
+              <label>
+                Font size
+                <input
+                  type="number"
+                  min={12}
+                  max={32}
+                  value={resolvedStyle.fontSize}
+                  onChange={(e) => handleFontSizeChange(e.target.value)}
+                />
+              </label>
+            </div>
           </section>
         ) : null}
 
