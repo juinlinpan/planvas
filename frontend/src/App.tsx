@@ -44,6 +44,7 @@ import {
 } from './pageTransfer';
 import { exportPageAsPng } from './pagePngExport';
 import { exportPageAsPptx } from './pagePptxExport';
+import { exportPageAsMermaidMarkdown } from './pageMermaidExport';
 import { buildAppRouteUrl, readAppRoute, type AppRoute } from './appRoute';
 import { resolveProjectEntryPageId } from './workspaceNavigation';
 import { getInlineDropPosition, type DropPosition } from './dragDrop';
@@ -1225,7 +1226,7 @@ export function App() {
     void handlePageDrop(currentDragState.itemId, targetId, position);
   }
 
-  function handleExportPageClick(format: 'json' | 'png' | 'pptx'): void {
+  function handleExportPageClick(format: 'json' | 'png' | 'pptx' | 'mermaid'): void {
     if (selectedPage === null || isMutating) {
       return;
     }
@@ -1255,6 +1256,19 @@ export function App() {
             description: 'PNG image',
             accept: {
               'image/png': ['.png'],
+            },
+          });
+          return;
+        }
+
+        if (format === 'mermaid') {
+          const markdown = exportPageAsMermaidMarkdown(boardData);
+          await saveFileWithPicker({
+            data: markdown,
+            suggestedName: `${safePageName}.md`,
+            description: 'Mermaid Markdown',
+            accept: {
+              'text/markdown': ['.md'],
             },
           });
           return;
