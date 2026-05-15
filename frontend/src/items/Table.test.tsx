@@ -2,9 +2,13 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import type { BoardItem } from '../api';
-import { createTableData, serializeTableData } from '../tableData';
+import { createTableData, mergeCells, serializeTableData } from '../tableData';
 import { ITEM_CATEGORY, ITEM_TYPE } from '../types';
-import { getMagnetSnappedTableDividerPosition, Table } from './Table';
+import {
+  buildTableGridLines,
+  getMagnetSnappedTableDividerPosition,
+  Table,
+} from './Table';
 
 const FIXTURE_TIMESTAMP = '2026-04-15T00:00:00+00:00';
 
@@ -82,5 +86,43 @@ describe('Table', () => {
       (144 - 7) / 240,
       5,
     );
+  });
+
+  it('draws grid lines from merged cell bounds without duplicated cell borders', () => {
+    const tableData = createTableData(3, 3);
+    const mergedData = mergeCells(tableData, [
+      [0, 0],
+      [0, 1],
+    ]);
+    const lines = buildTableGridLines(mergedData);
+    const lineKeys = lines.map(
+      (line) => `${line.x1},${line.y1},${line.x2},${line.y2}`,
+    );
+
+    expect(new Set(lineKeys).size).toBe(lineKeys.length);
+    expect(lines).toContainEqual({
+      key: 'v-33.33333-33.33333-100',
+      x1: 33.33333,
+      y1: 33.33333,
+      x2: 33.33333,
+      y2: 100,
+      isOuter: false,
+    });
+    expect(lines).not.toContainEqual({
+      key: 'v-33.33333-0-33.33333',
+      x1: 33.33333,
+      y1: 0,
+      x2: 33.33333,
+      y2: 33.33333,
+      isOuter: false,
+    });
+    expect(lines).toContainEqual({
+      key: 'h-0-0-100',
+      x1: 0,
+      y1: 0,
+      x2: 100,
+      y2: 0,
+      isOuter: true,
+    });
   });
 });

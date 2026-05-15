@@ -48,6 +48,113 @@ type GroupDividerDrag = {
   containerSize: number;  // container width or height in pixels
 };
 
+type TableGridLine = {
+  key: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  isOuter: boolean;
+};
+
+type AxisInterval = {
+  start: number;
+  end: number;
+};
+
+const GRID_LINE_PRECISION = 100000;
+const GRID_LINE_EPSILON = 0.00001;
+
+function normalizeGridCoord(value: number): number {
+  return Math.round(value * GRID_LINE_PRECISION) / GRID_LINE_PRECISION;
+}
+
+function addAxisInterval(
+  target: Map<number, AxisInterval[]>,
+  axis: number,
+  start: number,
+  end: number,
+) {
+  const normalizedAxis = normalizeGridCoord(axis);
+  const normalizedStart = normalizeGridCoord(Math.min(start, end));
+  const normalizedEnd = normalizeGridCoord(Math.max(start, end));
+  if (normalizedEnd - normalizedStart <= GRID_LINE_EPSILON) {
+    return;
+  }
+  const intervals = target.get(normalizedAxis) ?? [];
+  intervals.push({ start: normalizedStart, end: normalizedEnd });
+  target.set(normalizedAxis, intervals);
+}
+
+function mergeAxisIntervals(intervals: AxisInterval[]): AxisInterval[] {
+  const sorted = [...intervals].sort((a, b) => a.start - b.start || a.end - b.end);
+  const merged: AxisInterval[] = [];
+
+  for (const interval of sorted) {
+    const previous = merged[merged.length - 1];
+    if (!previous || interval.start > previous.end + GRID_LINE_EPSILON) {
+      merged.push({ ...interval });
+      continue;
+    }
+    previous.end = Math.max(previous.end, interval.end);
+  }
+
+  return merged;
+}
+
+export function buildTableGridLines(data: TableData): TableGridLine[] {
+  const horizontal = new Map<number, AxisInterval[]>();
+  const vertical = new Map<number, AxisInterval[]>();
+
+  for (let row = 0; row < data.rows; row += 1) {
+    for (let col = 0; col < data.cols; col += 1) {
+      const cell = data.cells[row]?.[col];
+      if (cell === null || cell === undefined) {
+        continue;
+      }
+
+      const bounds = getCellBounds(data, row, col, cell.colSpan, cell.rowSpan);
+      const left = bounds.left * 100;
+      const right = (bounds.left + bounds.width) * 100;
+      const top = bounds.top * 100;
+      const bottom = (bounds.top + bounds.height) * 100;
+
+      addAxisInterval(horizontal, top, left, right);
+      addAxisInterval(horizontal, bottom, left, right);
+      addAxisInterval(vertical, left, top, bottom);
+      addAxisInterval(vertical, right, top, bottom);
+    }
+  }
+
+  const lines: TableGridLine[] = [];
+  for (const [y, intervals] of [...horizontal.entries()].sort((a, b) => a[0] - b[0])) {
+    for (const interval of mergeAxisIntervals(intervals)) {
+      lines.push({
+        key: `h-${y}-${interval.start}-${interval.end}`,
+        x1: interval.start,
+        y1: y,
+        x2: interval.end,
+        y2: y,
+        isOuter: Math.abs(y) <= GRID_LINE_EPSILON || Math.abs(y - 100) <= GRID_LINE_EPSILON,
+      });
+    }
+  }
+  for (const [x, intervals] of [...vertical.entries()].sort((a, b) => a[0] - b[0])) {
+    for (const interval of mergeAxisIntervals(intervals)) {
+      lines.push({
+        key: `v-${x}-${interval.start}-${interval.end}`,
+        x1: x,
+        y1: interval.start,
+        x2: x,
+        y2: interval.end,
+        isOuter: Math.abs(x) <= GRID_LINE_EPSILON || Math.abs(x - 100) <= GRID_LINE_EPSILON,
+      });
+    }
+  }
+
+  return lines;
+}
+
 export function getMagnetSnappedTableDividerPosition(
   item: Pick<BoardItem, 'x' | 'y' | 'width' | 'height'>,
   dividerType: SegmentGroup['type'],
@@ -457,6 +564,7 @@ export function Table({
 
   const colGroups = useMemo(() => computeColSegmentGroups(tableData), [tableData]);
   const rowGroups = useMemo(() => computeRowSegmentGroups(tableData), [tableData]);
+  const gridLines = useMemo(() => buildTableGridLines(tableData), [tableData]);
 
   const containerStyle: React.CSSProperties = {
     background: resolvedStyle.backgroundColor,
@@ -592,6 +700,24 @@ export function Table({
           }),
         )}
       </div>
+
+      <svg
+        className="table-v2-grid-lines"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+        focusable="false"
+      >
+        {gridLines.filter((line) => !line.isOuter).map((line) => (
+          <line
+            key={line.key}
+            x1={line.x1}
+            y1={line.y1}
+            x2={line.x2}
+            y2={line.y2}
+          />
+        ))}
+      </svg>
 
       {/* Column divider groups */}
       {showsStructureControls &&
