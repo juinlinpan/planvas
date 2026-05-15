@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "npm run build && concurrently --kill-others -n backend-tsc,backend-node -c yellow,green \"tsc -p tsconfig.json --watch --preserveWatchOutput\" \"node --watch dist/src/server.js --host 127.0.0.1 --port 18000\"",
+    "dev": "npm run build && concurrently --kill-others -n backend-tsc,backend-node -c yellow,green \"tsc -p tsconfig.json --watch --preserveWatchOutput\" \"node --watch --watch-preserve-output dist/src/server.js --host 127.0.0.1 --port 18000\"",
     "serve": "node dist/src/server.js --host 127.0.0.1 --port 18000",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
