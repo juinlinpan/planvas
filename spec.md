@@ -549,6 +549,7 @@ Page ?臬鋆?閬?嚗?
 - Frontend dev server: `http://127.0.0.1:5173`
 - Backend dev server: `http://127.0.0.1:18000`
 - Health endpoint: `GET http://127.0.0.1:18000/healthz`
+- Source checkout launch command: `planvas` starts the unbuilt source-mode frontend and backend after dependencies are installed.
 
 ### 9.3 ??蝡航痊隞?
 

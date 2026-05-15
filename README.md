@@ -40,13 +40,26 @@ Install workspace dependencies:
 npm install
 ```
 
-Start frontend and backend together:
+For a source checkout, register the local `planvas` command once:
+
+```powershell
+npm link
+```
+
+Then start Planvas directly without building:
+
+```powershell
+planvas
+```
+
+This starts the same source-mode frontend and backend used during development.
+Open `http://127.0.0.1:5173` in your browser.
+
+You can still start frontend and backend through npm:
 
 ```powershell
 npm run dev
 ```
-
-Open `http://127.0.0.1:5173` in your browser.
 
 This mode keeps Vite on `5173` and the TypeScript backend on `18000`.
 

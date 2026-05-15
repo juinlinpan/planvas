@@ -146,6 +146,7 @@
 - [x] 撱箇? React + TypeScript + Vite ?垢撠?
 - [x] 撱箇? TypeScript + Node.js backend 撠?
 - [x] 撱箇? root scripts嚗npm run dev`?dev:frontend`?dev:backend`?build`?lint`?format`?typecheck`?check`
+- [x] Add `planvas` as a source checkout launch command that starts the unbuilt frontend and backend after dependencies are installed.
 - [x] ?箏??垢 dev port `5173` ??backend dev port `18000`
 - [x] 撱箇? `GET /healthz` ??蝡臬摨瑟炎?仿?
 - [x] 撱箇? lint / formatter / type check
