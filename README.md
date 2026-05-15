@@ -52,8 +52,16 @@ Then start Planvas directly without building:
 planvas
 ```
 
-This starts the same source-mode frontend and backend used during development.
-Open `http://127.0.0.1:5173` in your browser.
+This starts the same source-mode frontend and backend used during development
+in the background, then returns control to PowerShell. Open
+`http://127.0.0.1:5173` in your browser. Dev server output is written to
+`backend/logs/planvas-dev.log`.
+
+To watch the background dev log:
+
+```powershell
+Get-Content .\backend\logs\planvas-dev.log -Wait
+```
 
 You can still start frontend and backend through npm:
 

@@ -8,7 +8,8 @@ for /f "usebackq delims=" %%I in (`powershell.exe -NoProfile -ExecutionPolicy By
 if "%~1"=="--help" (
   echo Usage: planvas
   echo.
-  echo Starts Planvas from source without building first.
+  echo Starts Planvas from source in the background without building first.
+  echo Writes dev server output to backend\logs\planvas-dev.log.
   echo Requires npm install to have been run in the checkout.
   exit /b 0
 )
@@ -16,7 +17,8 @@ if "%~1"=="--help" (
 if "%~1"=="-h" (
   echo Usage: planvas
   echo.
-  echo Starts Planvas from source without building first.
+  echo Starts Planvas from source in the background without building first.
+  echo Writes dev server output to backend\logs\planvas-dev.log.
   echo Requires npm install to have been run in the checkout.
   exit /b 0
 )
@@ -31,10 +33,16 @@ if not exist "%PROJECT_ROOT%\node_modules" (
   exit /b 1
 )
 
-echo Starting Planvas from source...
+set "LOG_DIR=%PROJECT_ROOT%\backend\logs"
+set "LOG_FILE=%LOG_DIR%\planvas-dev.log"
+
+if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
+
+echo Starting Planvas from source in the background...
 echo Frontend: http://127.0.0.1:5173
 echo Backend:  http://127.0.0.1:18000
+echo Log:      %LOG_FILE%
+echo Stop:     npm run dev:stop
 
-cd /d "%PROJECT_ROOT%"
-npm run dev
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_ROOT%\scripts\start-dev-bg.ps1" -ProjectRoot "%PROJECT_ROOT%" -LogFile "%LOG_FILE%"
 exit /b %ERRORLEVEL%
