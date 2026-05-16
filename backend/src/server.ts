@@ -217,6 +217,12 @@ function buildRoutes(): Route[] {
       },
     },
     {
+      method: 'DELETE',
+      pattern: /^\/projects\/(?<projectId>[^/]+)\/notes\/(?<noteFile>[^/]+\.md)$/,
+      handler: ({ repository }, { params }) =>
+        repository.deleteProjectNote(params.projectId, params.noteFile),
+    },
+    {
       method: 'POST',
       pattern: /^\/projects\/(?<projectId>[^/]+)\/pages$/,
       statusCode: 201,

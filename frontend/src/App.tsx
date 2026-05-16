@@ -14,6 +14,7 @@ import {
   createProject,
   deletePage,
   deleteProject,
+  deleteProjectNote,
   getPageBoardData,
   getHealth,
   listPages,
@@ -176,6 +177,24 @@ function IconFolder() {
       aria-hidden="true"
     >
       <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function IconRefresh() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16" />
     </svg>
   );
 }
@@ -735,6 +754,25 @@ export function App() {
   async function refreshProjectNotes(projectId: string): Promise<void> {
     const nextNotes = await listProjectNotes(projectId);
     setProjectNotes(nextNotes);
+  }
+
+  async function handleDeleteNote(noteFile: string): Promise<void> {
+    if (selectedProjectId === null) return;
+    const confirmed = window.confirm(`刪除 Markdown 筆記「${noteFile}」及其在畫布上的連結？`);
+    if (!confirmed) return;
+
+    await runMutation(async () => {
+      await deleteProjectNote(selectedProjectId, noteFile);
+      closeNoteTab(noteFile);
+      await refreshProjectNotes(selectedProjectId);
+      // Refresh current page if needed
+      if (selectedPageId !== null) {
+        setPageRefreshTokenById((current) => ({
+          ...current,
+          [selectedPageId]: (current[selectedPageId] ?? 0) + 1,
+        }));
+      }
+    });
   }
 
   function toggleSidebarSection(sectionId: SidebarSectionId): void {
@@ -1507,18 +1545,40 @@ export function App() {
               expandedSidebarSections.pages ? 'is-expanded' : 'is-collapsed'
             }`}
           >
-            <button
-              type="button"
-              className="section-title-row sidebar-foldout-trigger"
-              aria-expanded={expandedSidebarSections.pages}
-              onClick={() => toggleSidebarSection('pages')}
-            >
-              <span className="sidebar-foldout-title">
-                <IconChevronDown />
-                <span className="sidebar-pages-heading">Pages</span>
-              </span>
-              <span className="count-badge">{pages.length}</span>
-            </button>
+            <div className="section-title-row">
+              <button
+                type="button"
+                className="sidebar-foldout-trigger"
+                aria-expanded={expandedSidebarSections.pages}
+                onClick={() => toggleSidebarSection('pages')}
+              >
+                <span className="sidebar-foldout-title">
+                  <IconChevronDown />
+                  <span className="sidebar-pages-heading">Pages</span>
+                </span>
+              </button>
+              <div className="sidebar-section-actions">
+                <button
+                  type="button"
+                  className="ghost-button sidebar-section-refresh"
+                  disabled={isMutating || isLoadingPages}
+                  title="Refresh pages"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (selectedProjectId) {
+                      const controller = new AbortController();
+                      setIsLoadingPages(true);
+                      listPages(selectedProjectId, controller.signal)
+                        .then(setPages)
+                        .finally(() => setIsLoadingPages(false));
+                    }
+                  }}
+                >
+                  <IconRefresh />
+                </button>
+                <span className="count-badge">{pages.length}</span>
+              </div>
+            </div>
             <div className="sidebar-section-body">
               {selectedProject === null ? (
               <p className="empty-copy">Select a project to view pages.</p>
@@ -1686,18 +1746,40 @@ export function App() {
               expandedSidebarSections.notes ? 'is-expanded' : 'is-collapsed'
             }`}
           >
-            <button
-              type="button"
-              className="section-title-row sidebar-foldout-trigger"
-              aria-expanded={expandedSidebarSections.notes}
-              onClick={() => toggleSidebarSection('notes')}
-            >
-              <span className="sidebar-foldout-title">
-                <IconChevronDown />
-                <span className="sidebar-pages-heading">Notes</span>
-              </span>
-              <span className="count-badge">{projectNotes.length}</span>
-            </button>
+            <div className="section-title-row">
+              <button
+                type="button"
+                className="sidebar-foldout-trigger"
+                aria-expanded={expandedSidebarSections.notes}
+                onClick={() => toggleSidebarSection('notes')}
+              >
+                <span className="sidebar-foldout-title">
+                  <IconChevronDown />
+                  <span className="sidebar-pages-heading">Notes</span>
+                </span>
+              </button>
+              <div className="sidebar-section-actions">
+                <button
+                  type="button"
+                  className="ghost-button sidebar-section-refresh"
+                  disabled={isMutating || isLoadingNotes}
+                  title="Refresh notes"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (selectedProjectId) {
+                      const controller = new AbortController();
+                      setIsLoadingNotes(true);
+                      listProjectNotes(selectedProjectId, controller.signal)
+                        .then(setProjectNotes)
+                        .finally(() => setIsLoadingNotes(false));
+                    }
+                  }}
+                >
+                  <IconRefresh />
+                </button>
+                <span className="count-badge">{projectNotes.length}</span>
+              </div>
+            </div>
             <div className="sidebar-section-body">
               {selectedProject === null ? (
               <p className="empty-copy">Select a project to view notes.</p>
@@ -1717,26 +1799,42 @@ export function App() {
                   const isSelectedNote = activeNoteFile === note.note_file;
 
                   return (
-                    <button
-                      key={note.note_file}
-                      type="button"
-                      className={`list-button note-list-button ${
-                        isDragging ? 'is-dragging' : ''
-                      } ${isOpenInTab ? 'is-open-tab' : ''} ${
-                        isSelectedNote ? 'is-selected' : ''
-                      }`}
-                      draggable={!isMutating}
-                      title={`Click to edit · Drag to place on a page`}
-                      aria-label={`Open note ${note.note_file} in editor`}
-                      onClick={() => openNoteTab(note.note_file)}
-                      onDragStart={(event) =>
-                        handleSidebarDragStart('notes', note.note_file, event)
-                      }
-                      onDragEnd={clearDragState}
-                    >
-                      <span>{note.note_file}</span>
-                      <small>{note.title}</small>
-                    </button>
+                    <div key={note.note_file} className="list-entry">
+                      <button
+                        type="button"
+                        className={`list-button note-list-button ${
+                          isDragging ? 'is-dragging' : ''
+                        } ${isOpenInTab ? 'is-open-tab' : ''} ${
+                          isSelectedNote ? 'is-selected' : ''
+                        }`}
+                        draggable={!isMutating}
+                        title={`Click to edit · Drag to place on a page`}
+                        aria-label={`Open note ${note.note_file} in editor`}
+                        onClick={() => openNoteTab(note.note_file)}
+                        onDragStart={(event) =>
+                          handleSidebarDragStart('notes', note.note_file, event)
+                        }
+                        onDragEnd={clearDragState}
+                      >
+                        <span>{note.note_file}</span>
+                        <small>{note.title}</small>
+                      </button>
+                      <div className="note-row-actions">
+                        <button
+                          type="button"
+                          className="ghost-button danger-button page-icon-button note-trash-button"
+                          disabled={isMutating}
+                          title={`Delete note ${note.note_file}`}
+                          aria-label={`Delete note ${note.note_file}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleDeleteNote(note.note_file);
+                          }}
+                        >
+                          <IconTrash />
+                        </button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
