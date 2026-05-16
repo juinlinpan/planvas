@@ -19,7 +19,8 @@ When the user asks to draw, place, diagram, make icons, add boxes, add arrows, a
 - If working offline, update the target page's sibling XML files under `.pv_project/`: semantic XML for objects/links and presentation XML for geometry/style.
 - Create or edit `.md` files only for `note_paper` note bodies, and only when the page XML references that markdown file through `content_ref` / `data_json.noteFile`.
 - Do not write diagram content into repo-root markdown, random documentation folders, or unrelated files unless the user explicitly asks for documentation instead of a canvas change.
-- If no target page exists, create a Page first through the API or metadata/XML pair, then place the objects on that Page.
+- `metadata.json` stores only project-level settings; discover Pages from sibling XML files and Notes from sibling `.md` files.
+- If no target page exists, create a Page first through the API or by creating the XML pair with Page identity plus viewport metadata on the XML root attributes.
 
 For visual work, create Planvas board items. Use `text_box`, `sticky_note`, or `note_paper` for text; `frame` for grouped regions; `table` for grids; `line` or `arrow` for connectors; and styled small `text_box` / `sticky_note` items for simple icon labels or diagram nodes. Keep visual geometry in presentation data, not in markdown prose.
 
@@ -52,7 +53,8 @@ Do not look for projects in any other location. The workspace root is the projec
    - For drawing or icon/diagram creation, treat this as a mutating page-data task, not as note/document generation.
 
 3. Understand pages from semantic files.
-   - Read metadata to map page ids, names, sort order, viewport, and backing filenames.
+   - Read metadata only for project-level settings.
+   - Read sibling semantic XML files to map page ids, names, sort order, and viewport.
    - Read each selected page's `.semantic.xml`.
    - For `note_paper`, follow `<content_ref type="markdown" file="...">` into `.pv_project/<file>.md`.
    - Use `links/link` as the canonical relationship graph.
@@ -69,7 +71,7 @@ Do not look for projects in any other location. The workspace root is the projec
 
 5. Validate the result.
    - Re-read the page through the API or files.
-   - Confirm semantic XML, presentation XML, metadata, and markdown note files agree.
+   - Confirm semantic XML, presentation XML, project metadata, and markdown note files agree.
    - For source-checkout changes, run the smallest relevant test/build command available.
 
 ## App Startup

@@ -148,8 +148,9 @@ Frame 收合後，其中的物件顯示如下：
 └── project_store/
     └── <project_name>/
         └── .pv_project/
-            ├── metadata.json             ← Project 基本資訊
-            ├── <page_name>.xml           ← 各 Page 的白板內容
+            ├── metadata.json             ← 只存 Project 設定
+            ├── <page_name>.semantic.xml  ← Page 語意內容與 viewport
+            ├── <page_name>.presentation.xml ← Page 幾何、樣式與 z-index
             └── <note_name>.md            ← Markdown 筆記檔
 ```
 

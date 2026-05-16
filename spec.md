@@ -10,10 +10,13 @@
 - A `Project` is a working directory that may live either under `project_store/` or at an external user-selected path.
 - Each Project directory must contain `.pv_project/` as a Planvas data directory.
 - Project metadata must live at `.pv_project/metadata.json`.
+- `.pv_project/metadata.json` must store only project-level settings and timestamps; it must not persist page lists, note lists, or per-page viewport state.
 - Each Page must be stored as two XML files inside `.pv_project/`: `<page_name>.semantic.xml` and `<page_name>.presentation.xml`.
+- Page discovery must come from the `.pv_project/` XML files, and Project note discovery must come from `.pv_project/*.md`.
 - Page XML v2 must separate AI-readable semantic data from visual presentation data at the file level.
 - Page XML v2 semantic files must describe the information inside the board and the relationships between board objects.
 - Page XML v2 presentation files must describe geometry, z-order, color, patterns, shape styling, and connector routing.
+- Page-level viewport fields such as `viewport_x`, `viewport_y`, and `zoom` must be stored on the Page XML root attributes rather than in `.pv_project/metadata.json`.
 - AI and automation workflows, including Jira ticket creation, should be able to read page meaning from the semantic file plus referenced markdown files without reading presentation data.
 - Page XML v2 semantic objects are grouped as `large_object`, `small_object`, and `link`.
 - `frame` and `table` are `large_object` types.

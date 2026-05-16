@@ -26,29 +26,17 @@ Planvas is local-first. The project is the **current workspace directory**; all 
     created_at: string;
     updated_at: string;
   };
-  pages: Array<{
-    id: string;
-    project_id: string;
-    name: string;
-    sort_order: number;
-    viewport_x: number;
-    viewport_y: number;
-    zoom: number;
-    created_at: string;
-    updated_at: string;
-    file?: string;
-  }>;
 }
 ```
 
-The `file` field is the page backing stem used to find sibling XML variants. A page stored as `roadmap.xml` is persisted as `roadmap.semantic.xml` and `roadmap.presentation.xml`.
+Pages are discovered by scanning sibling XML files. A page stored as `roadmap.xml` is persisted as `roadmap.semantic.xml` and `roadmap.presentation.xml`.
 
 ## Semantic XML
 
 The semantic file is the AI-readable source of truth for board meaning:
 
 ```xml
-<page_semantic id="..." schema_version="2">
+<page_semantic id="..." project_id="..." name="..." sort_order="0" viewport_x="0" viewport_y="0" zoom="1" created_at="..." updated_at="..." schema_version="2">
   <objects>
     <object id="..." kind="small_object" type="text_box">
       <title>...</title>
@@ -100,7 +88,7 @@ Read or update `.pv_project/note.md` for the note body. Do not persist the markd
 Read presentation only for visual tasks. It stores geometry, z-order, collapse state, styles, and connector route data:
 
 ```xml
-<page_presentation id="..." schema_version="2">
+<page_presentation id="..." project_id="..." name="..." sort_order="0" viewport_x="0" viewport_y="0" zoom="1" created_at="..." updated_at="..." schema_version="2">
   <items>
     <item ref="..." x="80" y="80" width="240" height="120" z_index="1" />
   </items>
@@ -270,7 +258,7 @@ Use direct XML/markdown edits only for offline project manipulation. When doing 
 
 - Back up or diff files first.
 - Preserve ids, timestamps, and page filename stems where possible.
-- Keep `metadata.json.pages[].file` aligned with XML filenames.
+- Keep page root attributes aligned across the semantic and presentation XML files.
 - Keep `note_paper` `content_ref` filenames aligned with existing `.md` files.
 - Keep canonical links and object connection indexes consistent.
 - Re-read the page after edits and check XML remains well-formed.

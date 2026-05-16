@@ -12,8 +12,8 @@ Project data is file based. By default the service stores projects under:
 - New project directory: `<user_home>/.planvas/project_store/<project_name>/`
 - External project directory: any user-selected writable folder registered in `project.json`
 - Project data directory: `<project_directory>/.pv_project/`
-- Project metadata: `<project_directory>/.pv_project/metadata.json`
-- Page files: `<project_directory>/.pv_project/<page_name>.xml`
+- Project metadata: `<project_directory>/.pv_project/metadata.json` for project-level settings only
+- Page files: `<project_directory>/.pv_project/<page_name>.semantic.xml` and `<project_directory>/.pv_project/<page_name>.presentation.xml`
 - Markdown note files: `<project_directory>/.pv_project/<note_name>.md`
 - Logs: `<backend_root>/logs/app.log`
 - Logs: `<backend_root>/logs/backend.log`
@@ -72,6 +72,11 @@ stores board object content, frame containment, table cell containment, markdown
 note references, canonical links, and generated per-object `connections`
 indexes. The presentation file stores item geometry, z-order, collapsed state,
 styling, and other canvas rendering details.
+
+`metadata.json` no longer stores page lists, note lists, or page viewport
+fields. The backend derives Pages from the sibling XML files, derives Project
+notes from `.pv_project/*.md`, and keeps `viewport_x`, `viewport_y`, and `zoom`
+on each Page XML root.
 
 If `frontend/dist/index.html` exists, the backend also serves the built frontend
 bundle from `/` so the app can run on a single local port after `npm run build`.

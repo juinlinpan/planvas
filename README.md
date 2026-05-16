@@ -137,7 +137,7 @@ Project content is stored as regular files. By default the backend creates:
 
 - `<user_home>/.planvas/project.json`
 - `<user_home>/.planvas/project_store/<project_name>/.pv_project/`
-- `<user_home>/.planvas/project_store/<project_name>/.pv_project/metadata.json`
+- `<user_home>/.planvas/project_store/<project_name>/.pv_project/metadata.json` containing only project-level settings
 - `<user_home>/.planvas/project_store/<project_name>/.pv_project/<page_name>.semantic.xml`
 - `<user_home>/.planvas/project_store/<project_name>/.pv_project/<page_name>.presentation.xml`
 - `<user_home>/.planvas/project_store/<project_name>/.pv_project/<note_name>.md`
@@ -147,6 +147,10 @@ Project content is stored as regular files. By default the backend creates:
 Projects opened from other folders use the same `.pv_project/` data directory
 inside the selected folder, with metadata, page XML files, and markdown note
 files under it. Their paths are tracked in `project.json`.
+
+`metadata.json` stores only project-level settings and timestamps. Page lists
+are derived from the sibling Page XML files, Project notes are derived from
+`.pv_project/*.md`, and each Page XML root stores that Page's viewport fields.
 
 Page XML uses the v2 Planvas layout. Each page is stored as a semantic XML file
 and a presentation XML file. The semantic file stores board objects, frame

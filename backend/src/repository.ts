@@ -48,6 +48,11 @@ type ProjectEntry = {
   project: Project;
 };
 
+type PageEntry = {
+  page: Page;
+  pagePath: string;
+};
+
 export function initializeStorage(settings: AppSettings): void {
   ensureDirectory(settings.backendRoot, 'Backend root');
   ensureWritableDirectory(settings.backendRoot, 'Backend root');
@@ -121,7 +126,7 @@ export class WhiteboardRepository {
       this.projectStoreDir(),
       slugify(payload.name),
     );
-    const metadata: ProjectMetadata = { project, pages: [] };
+    const metadata: ProjectMetadata = { project };
     fs.mkdirSync(projectDir, { recursive: true });
     this.writeProjectMarker(projectDir);
     writeJsonAtomic(this.metadataPath(projectDir), metadata);
@@ -261,8 +266,8 @@ export class WhiteboardRepository {
   }
 
   listPages(projectId: string): Page[] {
-    const { metadata } = this.findProjectMetadata(projectId);
-    return this.pagesFromMetadata(metadata);
+    const { projectDir } = this.findProjectMetadata(projectId);
+    return this.pagesFromProject(projectDir);
   }
 
   listProjectNotes(projectId: string): ProjectNote[] {
@@ -325,7 +330,7 @@ export class WhiteboardRepository {
   createPage(projectId: string, payload: PageCreatePayload): Page {
     const { projectDir, metadata } = this.findProjectMetadata(projectId);
     const timestamp = utcTimestamp();
-    const pages = this.pagesFromMetadata(metadata);
+    const pages = this.pagesFromProject(projectDir);
     const page: Page = {
       id: randomUUID(),
       project_id: projectId,
@@ -341,7 +346,6 @@ export class WhiteboardRepository {
       this.projectDataDir(projectDir),
       slugify(payload.name, 'page'),
     );
-    metadata.pages.push({ ...page, file: path.basename(pageFile) });
     this.touchProject(metadata, timestamp);
     writeJsonAtomic(this.metadataPath(projectDir), metadata);
     this.writePageXml(pageFile, page, [], []);
@@ -349,18 +353,17 @@ export class WhiteboardRepository {
   }
 
   updatePage(pageId: string, payload: PageUpdatePayload): Page {
-    const { projectDir, metadata, page } = this.findPageMetadata(pageId);
+    const { projectDir, metadata, page, pagePath } = this.findPageMetadata(pageId);
     const nextPage = {
       ...page,
       name: payload.name,
       updated_at: utcTimestamp(),
     };
-    this.replacePageEntry(metadata, nextPage);
     this.touchProject(metadata, nextPage.updated_at);
     writeJsonAtomic(this.metadataPath(projectDir), metadata);
     const board = this.getPageBoardData(pageId);
     this.writePageXml(
-      this.pagePath(projectDir, metadata, pageId),
+      pagePath,
       nextPage,
       board.board_items,
       board.connector_links,
@@ -369,18 +372,17 @@ export class WhiteboardRepository {
   }
 
   deletePage(pageId: string): void {
-    const { projectDir, metadata } = this.findPageMetadata(pageId);
-    const pagePath = this.pagePath(projectDir, metadata, pageId);
-    metadata.pages = metadata.pages.filter((entry) => entry.id !== pageId);
-    this.renumberPages(metadata);
+    const { projectDir, metadata, pagePath } = this.findPageMetadata(pageId);
+    deletePageXmlFiles(pagePath);
+    this.renumberProjectPages(projectDir);
     this.touchProject(metadata, utcTimestamp());
     writeJsonAtomic(this.metadataPath(projectDir), metadata);
-    deletePageXmlFiles(pagePath);
   }
 
   reorderPages(projectId: string, orderedIds: string[]): Page[] {
     const { projectDir, metadata } = this.findProjectMetadata(projectId);
-    const pages = this.pagesFromMetadata(metadata);
+    const pageEntries = this.pageEntriesFromProject(projectDir);
+    const pages = pageEntries.map((entry) => entry.page);
     this.validateReorderIds(
       pages.map((page) => page.id),
       orderedIds,
@@ -388,15 +390,32 @@ export class WhiteboardRepository {
     );
     const timestamp = utcTimestamp();
     const orderById = new Map(orderedIds.map((id, index) => [id, index]));
-    const nextPages = pages.map((page) => ({
-      ...page,
-      sort_order: orderById.get(page.id) ?? page.sort_order,
-      updated_at: timestamp,
+    const nextPages = pageEntries.map(({ page, pagePath }) => ({
+      page: {
+        ...page,
+        sort_order: orderById.get(page.id) ?? page.sort_order,
+        updated_at: timestamp,
+      },
+      pagePath,
     }));
-    for (const page of nextPages) this.replacePageEntry(metadata, page);
     this.touchProject(metadata, timestamp);
     writeJsonAtomic(this.metadataPath(projectDir), metadata);
-    return nextPages.sort((left, right) => left.sort_order - right.sort_order);
+    for (const entry of nextPages) {
+      const { boardItems, connectorLinks } = this.readPageXmlFile(
+        entry.pagePath,
+        entry.page,
+        this.projectDataDir(projectDir),
+      );
+      this.writePageXml(
+        entry.pagePath,
+        entry.page,
+        boardItems,
+        connectorLinks,
+      );
+    }
+    return nextPages
+      .map((entry) => entry.page)
+      .sort((left, right) => left.sort_order - right.sort_order);
   }
 
   duplicatePage(pageId: string): Page {
@@ -408,7 +427,7 @@ export class WhiteboardRepository {
     const sourceBoard = this.getPageBoardData(pageId);
     const timestamp = utcTimestamp();
     const existingNames = new Set(
-      this.pagesFromMetadata(metadata).map((page) => page.name),
+      this.pagesFromProject(projectDir).map((page) => page.name),
     );
     const duplicatedName = this.buildDuplicatePageName(
       existingNames,
@@ -423,12 +442,16 @@ export class WhiteboardRepository {
       updated_at: timestamp,
     };
 
-    for (const entry of metadata.pages) {
-      if (entry.sort_order > sourcePage.sort_order) {
-        entry.sort_order += 1;
-        entry.updated_at = timestamp;
-      }
-    }
+    const shiftedPages = this.pageEntriesFromProject(projectDir)
+      .filter((entry) => entry.page.sort_order > sourcePage.sort_order)
+      .map((entry) => ({
+        ...entry,
+        page: {
+          ...entry.page,
+          sort_order: entry.page.sort_order + 1,
+          updated_at: timestamp,
+        },
+      }));
 
     const duplicatedItemIdBySourceId = new Map(
       sourceBoard.board_items.map((item) => [item.id, randomUUID()]),
@@ -468,9 +491,21 @@ export class WhiteboardRepository {
       this.projectDataDir(projectDir),
       slugify(duplicatedName, 'page'),
     );
-    metadata.pages.push({ ...duplicatedPage, file: path.basename(pageFile) });
     this.touchProject(metadata, timestamp);
     writeJsonAtomic(this.metadataPath(projectDir), metadata);
+    for (const shiftedPage of shiftedPages) {
+      const { boardItems, connectorLinks } = this.readPageXmlFile(
+        shiftedPage.pagePath,
+        shiftedPage.page,
+        this.projectDataDir(projectDir),
+      );
+      this.writePageXml(
+        shiftedPage.pagePath,
+        shiftedPage.page,
+        boardItems,
+        connectorLinks,
+      );
+    }
     this.writePageXml(
       pageFile,
       duplicatedPage,
@@ -481,7 +516,7 @@ export class WhiteboardRepository {
   }
 
   updatePageViewport(pageId: string, payload: PageViewportPayload): Page {
-    const { projectDir, metadata, page } = this.findPageMetadata(pageId);
+    const { projectDir, metadata, page, pagePath } = this.findPageMetadata(pageId);
     const nextPage = {
       ...page,
       viewport_x: payload.viewport_x,
@@ -490,11 +525,10 @@ export class WhiteboardRepository {
       updated_at: utcTimestamp(),
     };
     const board = this.getPageBoardData(pageId);
-    this.replacePageEntry(metadata, nextPage);
     this.touchProject(metadata, nextPage.updated_at);
     writeJsonAtomic(this.metadataPath(projectDir), metadata);
     this.writePageXml(
-      this.pagePath(projectDir, metadata, pageId),
+      pagePath,
       nextPage,
       board.board_items,
       board.connector_links,
@@ -579,7 +613,7 @@ export class WhiteboardRepository {
         ? this.noteFileFromDataJson(nextItem.data_json)
         : null;
     if (previousNoteFile && nextNoteFile && previousNoteFile !== nextNoteFile) {
-      this.renameProjectNoteFile(projectDir, metadata, previousNoteFile, nextNoteFile);
+      this.renameProjectNoteFile(projectDir, previousNoteFile, nextNoteFile);
     }
     return nextItem;
   }
@@ -799,8 +833,8 @@ export class WhiteboardRepository {
       changed = true;
     }
 
-    if (!Array.isArray(metadata.pages)) {
-      metadata.pages = [];
+    if ('pages' in metadata) {
+      delete (metadata as Record<string, unknown>).pages;
       changed = true;
     }
 
@@ -986,21 +1020,27 @@ export class WhiteboardRepository {
     projectDir: string;
     metadata: ProjectMetadata;
     page: Page;
+    pagePath: string;
   } {
     for (const entry of this.iterProjectMetadata()) {
       if (!entry.metadata) continue;
-      const page = this.pagesFromMetadata(entry.metadata).find(
-        (candidate) => candidate.id === pageId,
+      const pageEntry = this.pageEntriesFromProject(entry.projectDir).find(
+        (candidate) => candidate.page.id === pageId,
       );
-      if (page)
-        return { projectDir: entry.projectDir, metadata: entry.metadata, page };
+      if (pageEntry)
+        return {
+          projectDir: entry.projectDir,
+          metadata: entry.metadata,
+          page: pageEntry.page,
+          pagePath: pageEntry.pagePath,
+        };
     }
     throw new HttpError(404, `Page '${pageId}' was not found.`);
   }
 
   private allPages(): Page[] {
     return this.iterProjectMetadata().flatMap((entry) =>
-      entry.metadata ? this.pagesFromMetadata(entry.metadata) : [],
+      entry.metadata ? this.pagesFromProject(entry.projectDir) : [],
     );
   }
 
@@ -1025,39 +1065,66 @@ export class WhiteboardRepository {
     return project;
   }
 
-  private pagesFromMetadata(metadata: ProjectMetadata): Page[] {
-    if (!Array.isArray(metadata.pages))
-      throw new HttpError(500, 'Project metadata pages data is invalid.');
-    return metadata.pages.map(stripPageFile).sort((left, right) => {
+  private pagesFromProject(projectDir: string): Page[] {
+    return this.pageEntriesFromProject(projectDir).map((entry) => entry.page);
+  }
+
+  private pageEntriesFromProject(projectDir: string): PageEntry[] {
+    const projectDataDir = this.projectDataDir(projectDir);
+    if (!fs.existsSync(projectDataDir)) return [];
+    return fs
+      .readdirSync(projectDataDir, { withFileTypes: true })
+      .filter(
+        (entry) =>
+          entry.isFile() &&
+          entry.name.toLowerCase().endsWith('.semantic.xml'),
+      )
+      .map((entry) => {
+        const semanticPath = path.join(projectDataDir, entry.name);
+        return {
+          page: readPageRecordFromSemanticXml(semanticPath),
+          pagePath: stemPathFromVariantPath(semanticPath, 'semantic'),
+        };
+      })
+      .sort((left, right) => {
+        if (left.page.sort_order !== right.page.sort_order)
+          return left.page.sort_order - right.page.sort_order;
+        return left.page.created_at.localeCompare(right.page.created_at);
+      });
+  }
+
+  private replaceStoredPage(
+    projectDir: string,
+    pagePath: string,
+    page: Page,
+  ): void {
+    const { boardItems, connectorLinks } = this.readPageXmlFile(
+      pagePath,
+      page,
+      this.projectDataDir(projectDir),
+    );
+    this.writePageXml(pagePath, page, boardItems, connectorLinks);
+  }
+
+  private renumberProjectPages(projectDir: string): void {
+    const timestamp = utcTimestamp();
+    for (const [sortOrder, entry] of this.pageEntriesFromProject(
+      projectDir,
+    ).entries()) {
+      this.replaceStoredPage(projectDir, entry.pagePath, {
+        ...entry.page,
+        sort_order: sortOrder,
+        updated_at: timestamp,
+      });
+    }
+  }
+
+  private sortedPages(pages: Page[]): Page[] {
+    return pages.sort((left, right) => {
       if (left.sort_order !== right.sort_order)
         return left.sort_order - right.sort_order;
       return left.created_at.localeCompare(right.created_at);
     });
-  }
-
-  private replacePageEntry(metadata: ProjectMetadata, page: Page): void {
-    const entry = metadata.pages.find((candidate) => candidate.id === page.id);
-    if (!entry) throw new HttpError(404, `Page '${page.id}' was not found.`);
-    const file = entry.file;
-    Object.assign(entry, page);
-    if (file) entry.file = file;
-  }
-
-  private pagePath(
-    projectDir: string,
-    metadata: ProjectMetadata,
-    pageId: string,
-  ): string {
-    const entry = metadata.pages.find((candidate) => candidate.id === pageId);
-    if (!entry) throw new HttpError(404, `Page '${pageId}' was not found.`);
-    if (entry.file) {
-      const pagePath = path.join(this.projectDataDir(projectDir), entry.file);
-      const legacyPagePath = path.join(projectDir, entry.file);
-      if (!fs.existsSync(pagePath) && fs.existsSync(legacyPagePath))
-        return legacyPagePath;
-      return pagePath;
-    }
-    return path.join(this.projectDataDir(projectDir), `${pageId}.xml`);
   }
 
   private touchProject(metadata: ProjectMetadata, timestamp: string): void {
@@ -1065,19 +1132,6 @@ export class WhiteboardRepository {
       ...this.projectFromMetadata(metadata),
       updated_at: timestamp,
     };
-  }
-
-  private renumberPages(metadata: ProjectMetadata): void {
-    const timestamp = utcTimestamp();
-    for (const [sortOrder, page] of this.pagesFromMetadata(
-      metadata,
-    ).entries()) {
-      this.replacePageEntry(metadata, {
-        ...page,
-        sort_order: sortOrder,
-        updated_at: timestamp,
-      });
-    }
   }
 
   private persistPageBoard(
@@ -1089,26 +1143,21 @@ export class WhiteboardRepository {
       projectDir,
       metadata,
       page: currentPage,
+      pagePath,
     } = this.findPageMetadata(page.id);
     const nextPage = { ...currentPage, updated_at: utcTimestamp() };
-    this.replacePageEntry(metadata, nextPage);
     this.touchProject(metadata, nextPage.updated_at);
     writeJsonAtomic(this.metadataPath(projectDir), metadata);
-    this.writePageXml(
-      this.pagePath(projectDir, metadata, page.id),
-      nextPage,
-      boardItems,
-      connectorLinks,
-    );
+    this.writePageXml(pagePath, nextPage, boardItems, connectorLinks);
   }
 
   private readPageXml(pageId: string): {
     boardItems: BoardItem[];
     connectorLinks: ConnectorLink[];
   } {
-    const { projectDir, metadata, page } = this.findPageMetadata(pageId);
+    const { projectDir, page, pagePath } = this.findPageMetadata(pageId);
     return this.readPageXmlFile(
-      this.pagePath(projectDir, metadata, pageId),
+      pagePath,
       page,
       this.projectDataDir(projectDir),
     );
@@ -1379,8 +1428,7 @@ export class WhiteboardRepository {
     }
 
     // Cleanup all note_paper items pointing to this file across all pages of the project
-    const { metadata } = this.findProjectMetadata(projectId);
-    const pages = this.pagesFromMetadata(metadata);
+    const pages = this.pagesFromProject(projectDir);
     for (const page of pages) {
       const { boardItems, connectorLinks } = this.readPageXml(page.id);
       const originalCount = boardItems.length;
@@ -1436,10 +1484,10 @@ export class WhiteboardRepository {
 
   private renameProjectNoteFile(
     projectDir: string,
-    metadata: ProjectMetadata,
     previousNoteFile: string,
     nextNoteFile: string,
   ): void {
+    const metadata = this.ensureProjectMetadata(projectDir, utcTimestamp());
     const projectDataDir = this.projectDataDir(projectDir);
     const previousPath = this.notePath(projectDataDir, previousNoteFile);
     const nextPath = this.notePath(projectDataDir, nextNoteFile);
@@ -1453,11 +1501,11 @@ export class WhiteboardRepository {
     fs.mkdirSync(projectDataDir, { recursive: true });
     fs.writeFileSync(nextPath, content, 'utf8');
 
-    const pages = this.pagesFromMetadata(metadata);
+    const pages = this.pagesFromProject(projectDir);
     const timestamp = utcTimestamp();
     let changed = false;
     for (const page of pages) {
-      const pagePath = this.pagePath(projectDir, metadata, page.id);
+      const pagePath = this.findPageMetadata(page.id).pagePath;
       const { boardItems } = this.readPageXmlFile(
         pagePath,
         page,
@@ -1488,7 +1536,6 @@ export class WhiteboardRepository {
         projectDataDir,
       );
       const nextPage = { ...page, updated_at: timestamp };
-      this.replacePageEntry(metadata, nextPage);
       this.writePageXml(pagePath, nextPage, nextBoardItems, connectorLinks);
     }
 
@@ -1999,6 +2046,44 @@ function pageVariantPath(pagePath: string, variant: string): string {
   const parsed = path.parse(pagePath);
   const baseName = parsed.ext ? parsed.name : parsed.base;
   return path.join(parsed.dir, `${baseName}.${variant}.xml`);
+}
+
+function stemPathFromVariantPath(
+  variantPath: string,
+  variant: 'semantic' | 'presentation',
+): string {
+  const suffix = `.${variant}.xml`;
+  if (!variantPath.toLowerCase().endsWith(suffix)) {
+    throw new HttpError(500, `Unexpected page XML path '${variantPath}'.`);
+  }
+  return `${variantPath.slice(0, -suffix.length)}.xml`;
+}
+
+function readPageRecordFromSemanticXml(semanticPath: string): Page {
+  let semanticXml: string;
+  try {
+    semanticXml = fs.readFileSync(semanticPath, 'utf8');
+  } catch {
+    throw new HttpError(500, `Page XML '${semanticPath}' could not be read.`);
+  }
+
+  const match = semanticXml.match(/<page_semantic\s+([^>]*)>/);
+  if (!match) {
+    throw new HttpError(500, `Page XML '${semanticPath}' is missing page metadata.`);
+  }
+
+  const attributes = parseAttributes(match[1]);
+  return {
+    id: requiredAttribute(attributes, 'id'),
+    project_id: requiredAttribute(attributes, 'project_id'),
+    name: requiredAttribute(attributes, 'name'),
+    sort_order: integerAttribute(attributes, 'sort_order'),
+    viewport_x: numberAttribute(attributes, 'viewport_x'),
+    viewport_y: numberAttribute(attributes, 'viewport_y'),
+    zoom: numberAttribute(attributes, 'zoom'),
+    created_at: requiredAttribute(attributes, 'created_at'),
+    updated_at: requiredAttribute(attributes, 'updated_at'),
+  };
 }
 
 function writeXmlLinesAtomic(targetPath: string, lines: string[]): void {

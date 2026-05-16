@@ -128,7 +128,6 @@ export type PageBoardStatePayload = {
 
 export type ProjectMetadata = {
   project: Project;
-  pages: Array<Page & { file?: string }>;
 };
 
 export type ProjectIndexEntry = {

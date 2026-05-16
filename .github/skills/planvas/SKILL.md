@@ -19,7 +19,8 @@ When adding or changing what appears on a Planvas page:
 - Write to `.pv_project/<stem>.presentation.xml` for positions, sizes, colors, and z-order.
 - Do not create standalone `.md` files as the result of a canvas change.
 - Create or edit `.md` files only for `note_paper` note bodies referenced by `<content_ref type="markdown" file="...">`.
-- If no target page exists, add a page entry to `metadata.json` and create both XML files.
+- `metadata.json` stores only project-level settings; discover Pages from sibling XML files and Notes from sibling `.md` files.
+- If no target page exists, create both XML files and place the Page identity plus viewport metadata on the XML root attributes.
 
 For visual work, use these item types: `text_box` / `sticky_note` / `note_paper` for text; `frame` for grouped regions; `table` for grids; `arrow` or `line` for connectors.
 
@@ -38,10 +39,10 @@ The project is the **current workspace directory**. All project data lives under
 
 ## Workflow
 
-1. **Read `metadata.json`** to find the target page.
-   - Match by page name in `pages[]`.
-   - The `file` field is the backing stem: `roadmap` -> `roadmap.semantic.xml` + `roadmap.presentation.xml`.
-   - If the page does not exist, add an entry to `pages[]` and choose a new file stem.
+1. **Read `metadata.json`** for project-level settings only.
+  - Find Pages by scanning `.pv_project/*.semantic.xml`.
+  - The XML stem is the backing page stem: `roadmap` -> `roadmap.semantic.xml` + `roadmap.presentation.xml`.
+  - If the page does not exist, choose a new file stem and create both XML files.
 
 2. **Read existing XML** before writing anything.
    - Read `<stem>.semantic.xml` to know current objects and links.
@@ -130,25 +131,9 @@ Arrow `meaning` values: `dependency`, `blocked_by`, `workflow_transition`, `refe
 
 ## Adding a New Page
 
-1. Read `metadata.json`.
-2. Append to `pages[]`:
-
-```json
-{
-  "id": "page-<slug>",
-  "project_id": "<project_id>",
-  "name": "My New Page",
-  "sort_order": 10,
-  "viewport_x": 0,
-  "viewport_y": 0,
-  "zoom": 1,
-  "created_at": "<iso_timestamp>",
-  "updated_at": "<iso_timestamp>",
-  "file": "my-new-page"
-}
-```
-
-3. Create `my-new-page.semantic.xml` and `my-new-page.presentation.xml` in `.pv_project/`.
+1. Read `metadata.json` to get the project id and project-level settings.
+2. Create `my-new-page.semantic.xml` and `my-new-page.presentation.xml` in `.pv_project/`.
+3. Put the Page metadata on the root attributes of both XML files, including `id`, `project_id`, `name`, `sort_order`, `viewport_x`, `viewport_y`, `zoom`, `created_at`, and `updated_at`.
 
 ## References
 

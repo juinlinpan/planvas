@@ -190,6 +190,29 @@ const tests: TestCase[] = [
         ),
         true,
       );
+      const metadataPath = path.join(
+        settings.planvasRoot,
+        'project_store',
+        'Roadmap-2026',
+        '.pv_project',
+        'metadata.json',
+      );
+      const semanticPath = path.join(
+        settings.planvasRoot,
+        'project_store',
+        'Roadmap-2026',
+        '.pv_project',
+        'Quarter-Planning.semantic.xml',
+      );
+      const metadataPayload = JSON.parse(
+        fs.readFileSync(metadataPath, 'utf8'),
+      ) as { project?: unknown; pages?: unknown };
+      assert.equal('project' in metadataPayload, true);
+      assert.equal('pages' in metadataPayload, false);
+      const semanticXml = fs.readFileSync(semanticPath, 'utf8');
+      assert.match(semanticXml, /viewport_x="240"/);
+      assert.match(semanticXml, /viewport_y="160"/);
+      assert.match(semanticXml, /zoom="1"/);
 
       const renamedPage = await requestJson<Page>(
         baseUrl,

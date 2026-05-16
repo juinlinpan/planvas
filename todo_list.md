@@ -186,7 +186,8 @@
 ### 3. Planvas File Storage
 
 - [x] Store Project records in `<project_name>/.pv_project/metadata.json`.
-- [x] Store Page records in the Project metadata page list.
+- [x] Keep `.pv_project/metadata.json` limited to project-level settings and derive Pages / Notes live from `.pv_project/` contents.
+- [x] Store each Page's `viewport_x`, `viewport_y`, and `zoom` on that Page XML root instead of `metadata.json`.
 - [x] Store board item semantic and presentation data inside each Page's two XML files.
 - [x] Store `note_paper` bodies in sibling markdown files and keep only `data_json.noteFile` references in Page XML.
 - [x] Store connector links inside each Page semantic XML file.
