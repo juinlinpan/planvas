@@ -516,13 +516,13 @@ const tests: TestCase[] = [
       assert.match(
         semanticXml,
         new RegExp(
-          `<object id="${frame.id}"[^>]*kind="large_object"[^>]*type="frame"[\\s\\S]*<contains>[\\s\\S]*<item ref="${note.id}" />`,
+          `<object id="${frame.id}"[^>]*type="frame"[\\s\\S]*<contains>[\\s\\S]*<item ref="${note.id}" />`,
         ),
       );
       assert.match(
         semanticXml,
         new RegExp(
-          `<object id="${table.id}"[^>]*kind="large_object"[^>]*type="table"[\\s\\S]*<cell id="cell-ticket"[^>]*>[\\s\\S]*<item ref="${tableChild.id}" />`,
+          `<object id="${table.id}"[^>]*type="table"[\\s\\S]*<cell id="cell-ticket"[^>]*>[\\s\\S]*<item ref="${tableChild.id}" />`,
         ),
       );
       assert.match(

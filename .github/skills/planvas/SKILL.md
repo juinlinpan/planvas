@@ -1,140 +1,158 @@
 ﻿---
 name: planvas
-description: Work with local-first Planvas whiteboard projects and page files. Use when reading or writing Planvas pages, placing items, drawing diagrams, adding arrows, or summarizing page content.
+description: Work with local-first Planvas whiteboard projects and page files. Use when Codex needs to create or open Planvas projects, start the Planvas app, inspect AI-readable Page XML semantic files, read markdown-backed note_paper notes, edit page content through the local API or project files, draw diagrams/icons on Planvas pages, summarize/planning from pages, or export/share Planvas project information.
 ---
 
 # Planvas
 
 ## Core Rule
 
-Edit Planvas pages by reading and writing XML files directly. Do not call the HTTP API. The semantic XML (`<page>.semantic.xml`) is the source of truth for board content; the presentation XML (`<page>.presentation.xml`) stores geometry and style.
+Prefer the Planvas semantic layer for AI work. Read `<project>/.pv_project/<page>.semantic.xml` and referenced `.md` notes first. Read `<page>.presentation.xml` only when the user asks about visual layout, geometry, colors, z-order, connector routes, or canvas placement.
 
-When making code or project changes inside a Planvas source checkout, also follow the repository's `AGENTS.md`, `spec.md`, and `todo_list.md`.
+When making code or project changes inside a Planvas source checkout, follow that repository's `AGENTS.md`, `spec.md`, and `todo_list.md` before editing.
 
 ## Canvas Write Contract
 
-When adding or changing what appears on a Planvas page:
+When the user asks to draw, place, diagram, make icons, add boxes, add arrows, adjust a page visually, or otherwise change what appears on a Planvas canvas, do not create a standalone `.md` explanation file as the output. The output must be a Planvas page change:
 
-- Write to `.pv_project/<stem>.semantic.xml` for objects and links.
-- Write to `.pv_project/<stem>.presentation.xml` for positions, sizes, colors, and z-order.
-- Do not create standalone `.md` files as the result of a canvas change.
-- Create or edit `.md` files only for `note_paper` note bodies referenced by `<content_ref type="markdown" file="...">`.
-- `metadata.json` stores only project-level settings; discover Pages from sibling XML files and Notes from sibling `.md` files.
-- If no target page exists, create both XML files and place the Page identity plus viewport metadata on the XML root attributes.
+- Prefer the runtime API and write a complete board state with `PUT /pages/{page_id}/board-state`.
+- If working offline, update the target page's sibling XML files under `.pv_project/`: semantic XML for objects/links and presentation XML for geometry/style.
+- Create or edit `.md` files only for `note_paper` note bodies, and only when the page XML references that markdown file through `content_ref` / `data_json.noteFile`.
+- Do not write diagram content into repo-root markdown, random documentation folders, or unrelated files unless the user explicitly asks for documentation instead of a canvas change.
+- If no target page exists, create a Page first through the API or metadata/XML pair, then place the objects on that Page.
 
-For visual work, use these item types: `text_box` / `sticky_note` / `note_paper` for text; `frame` for grouped regions; `table` for grids; `arrow` or `line` for connectors.
+For visual work, create Planvas board items. Use `text_box`, `sticky_note`, or `note_paper` for text; `frame` for grouped regions; `table` for grids; `line` or `arrow` for connectors; and styled small `text_box` / `sticky_note` items for simple icon labels or diagram nodes. Keep visual geometry in presentation data, not in markdown prose.
 
-## Project Location
+## Project Locations
 
-The project is the **current workspace directory**. All project data lives under `.pv_project/`:
+Default Planvas root:
 
 ```text
-<workspace_root>/
-  .pv_project/
-    metadata.json
-    <page_name>.semantic.xml
-    <page_name>.presentation.xml
-    <note_name>.md
+<user_home>/.planvas/
 ```
+
+Default project store:
+
+```text
+<user_home>/.planvas/project_store/<project_name>/
+```
+
+Each project directory contains:
+
+```text
+.pv_project/
+  metadata.json
+  <page_name>.semantic.xml
+  <page_name>.presentation.xml
+  <note_name>.md
+```
+
+`<user_home>/.planvas/project.json` is the common-project index. External projects may live outside `project_store`, but still use the same `.pv_project/` data directory.
 
 ## Workflow
 
-1. **Read `metadata.json`** for project-level settings only.
-  - Find Pages by scanning `.pv_project/*.semantic.xml`.
-  - The XML stem is the backing page stem: `roadmap` -> `roadmap.semantic.xml` + `roadmap.presentation.xml`.
-  - If the page does not exist, choose a new file stem and create both XML files.
+1. Locate the project directory.
+   - If the user gives a path, use it directly.
+   - If not, inspect `<user_home>/.planvas/project.json` and `project_store/`.
+   - Verify `.pv_project/metadata.json` exists before treating a folder as a Planvas project.
 
-2. **Read existing XML** before writing anything.
-   - Read `<stem>.semantic.xml` to know current objects and links.
-   - Read `<stem>.presentation.xml` to know current geometry.
-   - Preserve all existing `id` values; do not remove or reassign them.
+2. Select the right access mode.
+   - Use the HTTP API when the Planvas backend is running and the task mutates project/page data.
+   - Use direct file reads for summaries, audits, planning, or offline inspection.
+   - Use direct file edits only when the backend is unavailable or the user explicitly wants offline edits; preserve XML structure and stable ids.
+   - For drawing or icon/diagram creation, treat this as a mutating page-data task, not as note/document generation.
 
-3. **Write `<stem>.semantic.xml`**.
-   - Keep all existing `<object>` and `<link>` elements.
-   - Append or update only the new or changed entries.
-   - Assign a stable unique `id` to every new object (e.g. `obj-setup-1`, `con-1`).
-   - Express directional relationships as `<link>` elements with a `meaning` attribute.
+3. Understand pages from semantic files.
+   - Read metadata to map page ids, names, sort order, viewport, and backing filenames.
+   - Read each selected page's `.semantic.xml`.
+   - For `note_paper`, follow `<content_ref type="markdown" file="...">` into `.pv_project/<file>.md`.
+   - Use `links/link` as the canonical relationship graph.
+   - Treat object-level `connections` as derived indexes.
 
-4. **Write `<stem>.presentation.xml`**.
-   - Every `<object>` in the semantic file must have a matching `<item ref="...">` entry.
-   - Set `x`, `y`, `width`, `height`, `z_index` for each item.
-   - Keep connector items minimal (`width="0" height="0"`) with `style_json` for stroke and head size.
+4. Edit carefully.
+   - Prefer `PUT /pages/{page_id}/board-state` for full board updates.
+   - A board-state write must include all existing `board_items` and `connector_links`, not just the new objects.
+   - Keep ids stable unless creating genuinely new objects.
+   - Keep semantic relationships in `links/link`; do not invent relationships only in `connections`.
+   - For `note_paper`, update the `.md` file body; Page XML stores the note reference, not the markdown body.
+   - For AI-generated `arrow` items, keep arrow heads compact unless the user asks otherwise; prefer `style_json` with `arrowHeadSize` around `14` and normal `strokeWidth` around `3`.
+   - If visual placement changes, update the presentation file/API fields as well as semantic content.
 
-5. **Validate**.
-   - Re-read both files and confirm they are well-formed XML.
-   - Confirm every semantic object `id` has a matching `ref` in the presentation file.
-   - Report the count of objects and links written.
+5. Validate the result.
+   - Re-read the page through the API or files.
+   - Confirm semantic XML, presentation XML, metadata, and markdown note files agree.
+   - For source-checkout changes, run the smallest relevant test/build command available.
 
-## XML Format
+## App Startup
 
-### semantic.xml
+In a Planvas source checkout with dependencies installed:
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<page_semantic id="<page_id>" schema_version="2">
-  <objects>
-    <object id="obj-setup-1" kind="small_object" type="text_box">
-      <title>System Requirements</title>
-      <content>Node 18+, npm 9+</content>
-    </object>
-    <object id="obj-frame-1" kind="large_object" type="frame">
-      <title>Setup</title>
-      <contains>
-        <item ref="obj-setup-1"/>
-      </contains>
-    </object>
-    <object id="obj-note-1" kind="small_object" type="note_paper">
-      <title>Release Notes</title>
-      <content_ref type="markdown" file="release-notes.md" />
-    </object>
-  </objects>
-  <links>
-    <link id="lnk-1" type="arrow" connector_item_id="con-1" from="obj-setup-1" to="obj-install-1">
-      <label>then</label>
-      <meaning>workflow_transition</meaning>
-    </link>
-  </links>
-</page_semantic>
+```powershell
+planvas
 ```
 
-### presentation.xml
+This starts the frontend at `http://127.0.0.1:5173` and backend at `http://127.0.0.1:18000`.
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<page_presentation id="<page_id>" schema_version="2">
-  <items>
-    <item ref="obj-frame-1"  x="40"  y="40"  width="400" height="300" z_index="1"
-          is_collapsed="false"
-          style_json="{&quot;backgroundColor&quot;:&quot;#e8f4f8&quot;}" />
-    <item ref="obj-setup-1" x="80"  y="100" width="200" height="80"  z_index="2"
-          style_json="{&quot;backgroundColor&quot;:&quot;#d6e4fa&quot;,&quot;textColor&quot;:&quot;#1f2937&quot;}" />
-    <item ref="obj-note-1"  x="320" y="100" width="200" height="120" z_index="3" />
-    <item ref="con-1"       x="0"   y="0"   width="0"   height="0"   z_index="10"
-          style_json="{&quot;strokeWidth&quot;:3,&quot;arrowHeadSize&quot;:14}" />
-  </items>
-</page_presentation>
+Useful checks:
+
+```powershell
+GET http://127.0.0.1:18000/healthz
+GET http://127.0.0.1:18000/projects
 ```
 
-## Object Types
+If the `planvas` command is unavailable in a source checkout, use `npm run dev` or register it with `npm link`.
 
-| kind | type | Use for |
-|---|---|---|
-| `small_object` | `text_box` | Labels, diagram nodes, short text |
-| `small_object` | `sticky_note` | Callout notes |
-| `small_object` | `note_paper` | Long markdown notes (body in `.md` file) |
-| `large_object` | `frame` | Grouped regions, swim lanes |
-| `large_object` | `table` | Grids |
-| `connector` | `arrow` | Directional relationships |
-| `connector` | `line` | Decorative or non-directional |
+## Common Tasks
 
-Arrow `meaning` values: `dependency`, `blocked_by`, `workflow_transition`, `reference`, `related`.
+Create a project:
 
-## Adding a New Page
+```http
+POST /projects
+{ "name": "Roadmap", "theme_color": "default" }
+```
 
-1. Read `metadata.json` to get the project id and project-level settings.
-2. Create `my-new-page.semantic.xml` and `my-new-page.presentation.xml` in `.pv_project/`.
-3. Put the Page metadata on the root attributes of both XML files, including `id`, `project_id`, `name`, `sort_order`, `viewport_x`, `viewport_y`, `zoom`, `created_at`, and `updated_at`.
+Open/register an existing folder:
+
+```http
+POST /projects/open-path
+{ "path": "C:\\path\\to\\project" }
+```
+
+Read page board data:
+
+```http
+GET /pages/{page_id}/board-data
+```
+
+Replace a page board state:
+
+```http
+PUT /pages/{page_id}/board-state
+{ "board_items": [...], "connector_links": [...] }
+```
+
+Add canvas content, icons, or diagrams:
+
+```text
+1. GET /pages/{page_id}/board-data
+2. Append/update board_items and connector_links in memory.
+3. PUT /pages/{page_id}/board-state with the full updated arrays.
+4. Re-read board-data or XML to verify the Page changed.
+```
+
+List project notes:
+
+```http
+GET /projects/{project_id}/notes
+```
+
+Update a markdown-backed note:
+
+```http
+PATCH /projects/{project_id}/notes/{note_file}.md
+{ "content": "# Heading\n\nBody" }
+```
 
 ## References
 
-Read `references/storage-and-api.md` for exact field definitions and XML schema details.
+Read `references/storage-and-api.md` when you need exact storage fields, item categories, XML semantics, or endpoint details.

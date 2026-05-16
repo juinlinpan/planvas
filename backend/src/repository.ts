@@ -1243,8 +1243,11 @@ export class WhiteboardRepository {
       '  <objects>',
     ];
     for (const persistedItem of persistedItems) {
+      const parentAttr = persistedItem.parent_item_id
+        ? ` parent_item_id="${escapeAttribute(persistedItem.parent_item_id)}"`
+        : '';
       semanticLines.push(
-        `    <object id="${escapeAttribute(persistedItem.id)}" page_id="${escapeAttribute(persistedItem.page_id)}" parent_item_id="${escapeAttribute(persistedItem.parent_item_id ?? '')}" kind="${semanticKindForItem(persistedItem)}" category="${escapeAttribute(persistedItem.category)}" type="${escapeAttribute(persistedItem.type)}" created_at="${escapeAttribute(persistedItem.created_at)}" updated_at="${escapeAttribute(persistedItem.updated_at)}">`,
+        `    <object id="${escapeAttribute(persistedItem.id)}"${parentAttr} type="${escapeAttribute(persistedItem.type)}">`,
       );
       for (const fieldName of [
         'title',
@@ -1374,12 +1377,14 @@ export class WhiteboardRepository {
         `Page XML presentation is missing item '${id}'.`,
       );
     }
+    const type = requiredAttribute(semanticAttributes, 'type');
+    const now = new Date().toISOString();
     const item: BoardItem = {
       id,
       page_id: semanticAttributes.page_id ?? pageId,
       parent_item_id: blankToNull(semanticAttributes.parent_item_id),
-      category: requiredAttribute(semanticAttributes, 'category'),
-      type: requiredAttribute(semanticAttributes, 'type'),
+      category: semanticAttributes.category ?? categoryForType(type),
+      type,
       title: childText(body, 'title'),
       content: childText(body, 'content'),
       content_format: childText(body, 'content_format'),
@@ -1392,8 +1397,8 @@ export class WhiteboardRepository {
       is_collapsed: presentation.attributes.is_collapsed === 'true',
       style_json: childText(presentation.body, 'style_json'),
       data_json: childText(body, 'data_json'),
-      created_at: requiredAttribute(semanticAttributes, 'created_at'),
-      updated_at: requiredAttribute(semanticAttributes, 'updated_at'),
+      created_at: semanticAttributes.created_at ?? now,
+      updated_at: semanticAttributes.updated_at ?? now,
     };
     return this.readMarkdownBackedNote(projectDataDir, item);
   }
@@ -1929,6 +1934,13 @@ function semanticKindForItem(item: BoardItem): string {
   if (item.type === 'frame' || item.type === 'table') return 'large_object';
   if (item.type === 'line' || item.type === 'arrow') return 'link';
   return 'small_object';
+}
+
+function categoryForType(type: string): string {
+  if (type === 'frame') return 'large_item';
+  if (type === 'line' || type === 'table') return 'shape';
+  if (type === 'arrow') return 'connector';
+  return 'small_item'; // text_box, sticky_note, note_paper
 }
 
 type ConnectionIndexEntry = {
