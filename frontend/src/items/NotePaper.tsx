@@ -3,6 +3,7 @@ import { type BoardItem } from '../api';
 import { getFirstNonEmptyLine, getMarkdownH1 } from '../canvasHelpers';
 import {
   getBoardItemTypographyStyle,
+  type ProjectDefaultStyle,
   resolveBoardItemStyle,
 } from '../itemStyles';
 import { MarkdownPreview } from '../markdownPreview';
@@ -12,13 +13,23 @@ type Props = {
   isEditing: boolean;
   onUpdate: (item: BoardItem) => void;
   onEditEnd: () => void;
+  projectDefaultStyle?: ProjectDefaultStyle;
 };
 
-export function NotePaper({ item, isEditing, onUpdate, onEditEnd }: Props) {
+export function NotePaper({
+  item,
+  isEditing,
+  onUpdate,
+  onEditEnd,
+  projectDefaultStyle,
+}: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const title = item.title ?? getMarkdownH1(item.content) ?? getFirstNonEmptyLine(item.content);
-  const resolvedStyle = resolveBoardItemStyle(item);
-  const typographyStyle = getBoardItemTypographyStyle(item);
+  const resolvedStyle = resolveBoardItemStyle(item, projectDefaultStyle);
+  const typographyStyle = getBoardItemTypographyStyle(
+    item,
+    projectDefaultStyle,
+  );
   const cardStyle = {
     background: resolvedStyle.backgroundColor,
     ...typographyStyle,

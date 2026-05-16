@@ -6,8 +6,10 @@ import {
   TEXT_COLOR_OPTIONS,
   getStickyNoteColor,
   parseBoardItemStyle,
+  parseProjectDefaultStyle,
   resolveBoardItemStyle,
   serializeBoardItemStyle,
+  serializeProjectDefaultStyle,
 } from './itemStyles';
 import { ITEM_CATEGORY, ITEM_TYPE } from './types';
 
@@ -108,5 +110,40 @@ describe('itemStyles palette restrictions', () => {
     );
 
     expect(stickyPalette).toContain(getStickyNoteColor('sticky-1'));
+  });
+
+  it('resolves project-level defaults for object and link styles', () => {
+    const projectStyle = parseProjectDefaultStyle(
+      serializeProjectDefaultStyle({
+        textColor: TEXT_COLOR_OPTIONS[1].value,
+        smallItemBackgroundColor: BACKGROUND_COLOR_OPTIONS[2].value,
+        largeObjectBackgroundColor: BACKGROUND_COLOR_OPTIONS[5].value,
+        linkColor: '#ef4444',
+        linkTextColor: TEXT_COLOR_OPTIONS[3].value,
+      }),
+    );
+
+    const textBox = resolveBoardItemStyle(createBoardItem(), projectStyle);
+    const frame = resolveBoardItemStyle(
+      createBoardItem({
+        category: ITEM_CATEGORY.large_item,
+        type: ITEM_TYPE.frame,
+      }),
+      projectStyle,
+    );
+    const arrow = resolveBoardItemStyle(
+      createBoardItem({
+        category: ITEM_CATEGORY.connector,
+        type: ITEM_TYPE.arrow,
+      }),
+      projectStyle,
+    );
+
+    expect(textBox.backgroundColor).toBe(BACKGROUND_COLOR_OPTIONS[2].value);
+    expect(textBox.textColor).toBe(TEXT_COLOR_OPTIONS[1].value);
+    expect(frame.backgroundColor).toBe(BACKGROUND_COLOR_OPTIONS[5].value);
+    expect(arrow.strokeColor).toBe('#ef4444');
+    expect(arrow.textColor).toBe(TEXT_COLOR_OPTIONS[3].value);
+    expect(arrow.backgroundColor).toBe('transparent');
   });
 });

@@ -1,5 +1,8 @@
 import { type BoardItem, type ConnectorLink } from '../api';
-import { resolveBoardItemStyle } from '../itemStyles';
+import {
+  type ProjectDefaultStyle,
+  resolveBoardItemStyle,
+} from '../itemStyles';
 
 type Point = {
   x: number;
@@ -18,6 +21,7 @@ type Props = {
   onUpdate?: (item: BoardItem) => void;
   onEditEnd?: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
+  projectDefaultStyle?: ProjectDefaultStyle;
 };
 
 const PADDING = 20;
@@ -53,6 +57,7 @@ export function ArrowConnector({
   onUpdate,
   onEditEnd,
   onContextMenu,
+  projectDefaultStyle,
 }: Props) {
   const bounds = getBounds(fromPoint, toPoint);
   const start = {
@@ -64,7 +69,7 @@ export function ArrowConnector({
     y: toPoint.y - bounds.top,
   };
   const markerId = `arrow-head-${connector.id}`;
-  const resolvedStyle = resolveBoardItemStyle(item);
+  const resolvedStyle = resolveBoardItemStyle(item, projectDefaultStyle);
 
   const midPoint = {
     x: (start.x + end.x) / 2,
@@ -201,4 +206,3 @@ export function ArrowConnector({
     </div>
   );
 }
-

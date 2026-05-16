@@ -57,12 +57,26 @@ export function validateProjectUpdate(value: unknown): ProjectUpdatePayload {
       collectValidation(error, details);
     }
   }
+  if ('default_style_json' in body) {
+    try {
+      payload.default_style_json = optionalString(body.default_style_json, [
+        'body',
+        'default_style_json',
+      ]);
+    } catch (error) {
+      collectValidation(error, details);
+    }
+  }
   if (details.length > 0) throw validationError(details);
-  if (payload.name === undefined && payload.theme_color === undefined) {
+  if (
+    payload.name === undefined &&
+    payload.theme_color === undefined &&
+    payload.default_style_json === undefined
+  ) {
     throw validationError([
       {
         loc: ['body'],
-        msg: 'Project update requires a name or theme color.',
+        msg: 'Project update requires a name, theme color, or default style.',
         type: 'value_error',
       },
     ]);

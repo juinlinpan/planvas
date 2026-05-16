@@ -112,6 +112,7 @@ export class WhiteboardRepository {
       id: randomUUID(),
       name: payload.name,
       theme_color: payload.theme_color,
+      default_style_json: null,
       sort_order: this.listProjects().length,
       created_at: timestamp,
       updated_at: timestamp,
@@ -166,11 +167,16 @@ export class WhiteboardRepository {
     const project = this.projectFromMetadata(metadata);
     const nextName = payload.name ?? project.name;
     const nextThemeColor = payload.theme_color ?? project.theme_color;
+    const nextDefaultStyleJson =
+      payload.default_style_json === undefined
+        ? project.default_style_json
+        : payload.default_style_json;
     const timestamp = utcTimestamp();
     const nextProject: Project = {
       ...project,
       name: nextName,
       theme_color: nextThemeColor,
+      default_style_json: nextDefaultStyleJson,
       updated_at: timestamp,
     };
     metadata.project = nextProject;
@@ -778,6 +784,7 @@ export class WhiteboardRepository {
         id: randomUUID(),
         name: path.basename(projectDir) || 'Untitled Project',
         theme_color: 'default',
+        default_style_json: null,
         sort_order: this.listProjects().length,
         created_at: timestamp,
         updated_at: timestamp,
@@ -785,6 +792,10 @@ export class WhiteboardRepository {
       changed = true;
     } else if (!projectThemeColors.includes(metadata.project.theme_color)) {
       metadata.project.theme_color = 'default';
+      changed = true;
+    }
+    if (metadata.project.default_style_json === undefined) {
+      metadata.project.default_style_json = null;
       changed = true;
     }
 
@@ -945,6 +956,7 @@ export class WhiteboardRepository {
             id: entry.project_id,
             name: path.basename(projectDir) || 'Missing Project',
             theme_color: 'default',
+            default_style_json: null,
             sort_order: entry.sort_order,
             created_at: entry.added_at,
             updated_at: entry.added_at,
@@ -1004,6 +1016,7 @@ export class WhiteboardRepository {
     const project = { ...metadata.project };
     if (!projectThemeColors.includes(project.theme_color))
       project.theme_color = 'default';
+    if (project.default_style_json === undefined) project.default_style_json = null;
     if (projectDir) {
       project.path = projectDir;
       project.storage_kind = storageKind ?? this.storageKindForPath(projectDir);
@@ -1832,6 +1845,9 @@ function isProject(value: unknown): value is Project {
     typeof candidate.id === 'string' &&
     typeof candidate.name === 'string' &&
     typeof candidate.theme_color === 'string' &&
+    (candidate.default_style_json === undefined ||
+      candidate.default_style_json === null ||
+      typeof candidate.default_style_json === 'string') &&
     typeof candidate.sort_order === 'number' &&
     typeof candidate.created_at === 'string' &&
     typeof candidate.updated_at === 'string'

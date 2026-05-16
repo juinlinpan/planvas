@@ -54,6 +54,7 @@
 - [x] Refresh the page delete button beside each page row with a cleaner icon treatment.
 - [x] Project delete now appears under the project name controls and requires typing `delete {project_name}` before returning to the home screen.
 - [x] Added a project-level `Change theme color` dropdown above `Delete project`, with `default`, `sage`, `sunset`, and `ocean` themes persisted on each project.
+- [x] Added Project Settings defaults for object text color, small-object fill color, large-object fill color, link stroke color, and link text color.
 - [x] Remove the old inline `Manage` panel from the left sidebar after moving project controls into the modal.
 - [x] Treat browser file picker cancellation during Project / Page export as a normal cancel without showing an error banner.
 - [x] Keep duplicate out of the left sidebar while allowing page rename and delete icon buttons there.

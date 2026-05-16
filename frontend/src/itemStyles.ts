@@ -30,6 +30,17 @@ export type BoardItemStyle = {
   segmentTextOrientation?: SegmentTextOrientation;
 };
 
+export type ProjectDefaultStyle = {
+  textColor?: string;
+  smallItemBackgroundColor?: string;
+  largeObjectBackgroundColor?: string;
+  linkColor?: string;
+  linkTextColor?: string;
+  fontSize?: number;
+  strokeWidth?: number;
+  segmentTextVerticalPosition?: SegmentTextVerticalPosition;
+};
+
 export type ResolvedBoardItemStyle = {
   backgroundColor: string;
   textColor: string;
@@ -293,42 +304,156 @@ export function serializeBoardItemStyle(style: BoardItemStyle): string | null {
   return JSON.stringify(Object.fromEntries(entries));
 }
 
-function getDefaultBackgroundColor(item: BoardItem): string {
+export function parseProjectDefaultStyle(
+  styleJson: string | null,
+): ProjectDefaultStyle {
+  if (styleJson === null || styleJson.trim().length === 0) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(styleJson) as Record<string, unknown>;
+    return {
+      textColor: sanitizePaletteColor(parsed.textColor, TEXT_COLOR_LOOKUP),
+      smallItemBackgroundColor: sanitizePaletteColor(
+        parsed.smallItemBackgroundColor,
+        BACKGROUND_COLOR_LOOKUP,
+      ),
+      largeObjectBackgroundColor: sanitizePaletteColor(
+        parsed.largeObjectBackgroundColor,
+        BACKGROUND_COLOR_LOOKUP,
+      ),
+      linkColor:
+        sanitizePaletteColor(parsed.linkColor, STROKE_COLOR_LOOKUP) ??
+        sanitizeFreeColor(parsed.linkColor),
+      linkTextColor: sanitizePaletteColor(
+        parsed.linkTextColor,
+        TEXT_COLOR_LOOKUP,
+      ),
+      fontSize: sanitizeFontSize(parsed.fontSize),
+      strokeWidth: sanitizeStrokeWidth(parsed.strokeWidth),
+      segmentTextVerticalPosition: sanitizeSegmentTextVerticalPosition(
+        parsed.segmentTextVerticalPosition,
+      ),
+    };
+  } catch {
+    return {};
+  }
+}
+
+export function serializeProjectDefaultStyle(
+  style: ProjectDefaultStyle,
+): string | null {
+  const nextStyle: ProjectDefaultStyle = {
+    textColor: sanitizePaletteColor(style.textColor, TEXT_COLOR_LOOKUP),
+    smallItemBackgroundColor: sanitizePaletteColor(
+      style.smallItemBackgroundColor,
+      BACKGROUND_COLOR_LOOKUP,
+    ),
+    largeObjectBackgroundColor: sanitizePaletteColor(
+      style.largeObjectBackgroundColor,
+      BACKGROUND_COLOR_LOOKUP,
+    ),
+    linkColor:
+      sanitizePaletteColor(style.linkColor, STROKE_COLOR_LOOKUP) ??
+      sanitizeFreeColor(style.linkColor),
+    linkTextColor: sanitizePaletteColor(style.linkTextColor, TEXT_COLOR_LOOKUP),
+    fontSize: sanitizeFontSize(style.fontSize),
+    strokeWidth: sanitizeStrokeWidth(style.strokeWidth),
+    segmentTextVerticalPosition: sanitizeSegmentTextVerticalPosition(
+      style.segmentTextVerticalPosition,
+    ),
+  };
+
+  const entries = Object.entries(nextStyle).filter(
+    ([, value]) => value !== undefined,
+  );
+  if (entries.length === 0) {
+    return null;
+  }
+
+  return JSON.stringify(Object.fromEntries(entries));
+}
+
+function getDefaultBackgroundColor(
+  item: BoardItem,
+  projectDefaultStyle: ProjectDefaultStyle = {},
+): string {
+  if (item.type === ITEM_TYPE.line || item.type === ITEM_TYPE.arrow) {
+    return 'transparent';
+  }
+
+  if (item.type === ITEM_TYPE.frame || item.type === ITEM_TYPE.table) {
+    return (
+      projectDefaultStyle.largeObjectBackgroundColor ??
+      (item.type === ITEM_TYPE.frame
+        ? DEFAULT_FRAME_BACKGROUND_COLOR
+        : DEFAULT_BACKGROUND_COLOR)
+    );
+  }
+
+  if (
+    item.type === ITEM_TYPE.text_box ||
+    item.type === ITEM_TYPE.sticky_note ||
+    item.type === ITEM_TYPE.note_paper
+  ) {
+    return (
+      projectDefaultStyle.smallItemBackgroundColor ??
+      (item.type === ITEM_TYPE.sticky_note
+        ? getStickyNoteColor(item.id)
+        : DEFAULT_BACKGROUND_COLOR)
+    );
+  }
+
   switch (item.type) {
-    case ITEM_TYPE.sticky_note:
-      return getStickyNoteColor(item.id);
-    case ITEM_TYPE.note_paper:
-      return DEFAULT_BACKGROUND_COLOR;
-    case ITEM_TYPE.frame:
-      return DEFAULT_FRAME_BACKGROUND_COLOR;
     case ITEM_TYPE.text_box:
     default:
       return DEFAULT_BACKGROUND_COLOR;
   }
 }
 
-export function resolveBoardItemStyle(item: BoardItem): ResolvedBoardItemStyle {
+export function resolveBoardItemStyle(
+  item: BoardItem,
+  projectDefaultStyle: ProjectDefaultStyle = {},
+): ResolvedBoardItemStyle {
   const parsed = parseBoardItemStyle(item.style_json);
+  const isLink = item.type === ITEM_TYPE.line || item.type === ITEM_TYPE.arrow;
   return {
-    backgroundColor: parsed.backgroundColor ?? getDefaultBackgroundColor(item),
-    textColor: parsed.textColor ?? DEFAULT_TEXT_COLOR,
-    fontSize: parsed.fontSize ?? 14,
+    backgroundColor:
+      parsed.backgroundColor ??
+      getDefaultBackgroundColor(item, projectDefaultStyle),
+    textColor:
+      parsed.textColor ??
+      (isLink
+        ? (projectDefaultStyle.linkTextColor ??
+          projectDefaultStyle.textColor ??
+          DEFAULT_TEXT_COLOR)
+        : (projectDefaultStyle.textColor ?? DEFAULT_TEXT_COLOR)),
+    fontSize: parsed.fontSize ?? projectDefaultStyle.fontSize ?? 14,
     fontWeight: parsed.fontWeight ?? 'normal',
     fontStyle: parsed.fontStyle ?? 'normal',
-    strokeColor: parsed.strokeColor ?? DEFAULT_STROKE_COLOR,
-    strokeWidth: parsed.strokeWidth ?? 3,
+    strokeColor:
+      parsed.strokeColor ??
+      (isLink ? (projectDefaultStyle.linkColor ?? DEFAULT_STROKE_COLOR) : DEFAULT_STROKE_COLOR),
+    strokeWidth: parsed.strokeWidth ?? projectDefaultStyle.strokeWidth ?? 3,
     strokeStyle: parsed.strokeStyle ?? 'solid',
     lineCornerType: parsed.lineCornerType ?? 'sharp',
     arrowHeadSize: parsed.arrowHeadSize ?? 30,
     segmentTextHorizontalPosition:
       parsed.segmentTextHorizontalPosition ?? 'center',
-    segmentTextVerticalPosition: parsed.segmentTextVerticalPosition ?? 'middle',
+    segmentTextVerticalPosition:
+      parsed.segmentTextVerticalPosition ??
+      projectDefaultStyle.segmentTextVerticalPosition ??
+      'middle',
     segmentTextOrientation: parsed.segmentTextOrientation ?? 'horizontal',
   };
 }
 
-export function getBoardItemTypographyStyle(item: BoardItem): CSSProperties {
-  const style = resolveBoardItemStyle(item);
+export function getBoardItemTypographyStyle(
+  item: BoardItem,
+  projectDefaultStyle: ProjectDefaultStyle = {},
+): CSSProperties {
+  const style = resolveBoardItemStyle(item, projectDefaultStyle);
   return {
     color: style.textColor,
     fontSize: `${style.fontSize}px`,

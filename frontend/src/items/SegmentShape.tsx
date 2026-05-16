@@ -1,5 +1,9 @@
 import { type BoardItem } from '../api';
-import { parseBoardItemStyle, resolveBoardItemStyle } from '../itemStyles';
+import {
+  parseBoardItemStyle,
+  type ProjectDefaultStyle,
+  resolveBoardItemStyle,
+} from '../itemStyles';
 import {
   getSegmentLocalPoints,
   getSegmentWaypoints,
@@ -31,6 +35,7 @@ type Props = {
   onUpdate?: (item: BoardItem) => void;
   onEditEnd?: () => void;
   deletingWaypointIndex?: number;
+  projectDefaultStyle?: ProjectDefaultStyle;
 };
 
 function getStrokeDasharray(
@@ -219,10 +224,11 @@ export function SegmentShape({
   onUpdate,
   onEditEnd,
   deletingWaypointIndex,
+  projectDefaultStyle,
 }: Props) {
   const points = getSegmentLocalPoints(item);
   const localWaypoints = getSegmentWaypoints(item);
-  const resolvedStyle = resolveBoardItemStyle(item);
+  const resolvedStyle = resolveBoardItemStyle(item, projectDefaultStyle);
   const parsedStyle = parseBoardItemStyle(item.style_json);
   const markerId = `segment-arrow-head-${item.id}`;
   // Calculate arrow head dimensions based on size preference

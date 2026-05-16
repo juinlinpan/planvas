@@ -122,7 +122,10 @@ import {
   getResetZoom,
   zoomViewportAroundPoint,
 } from './viewport';
-import { resolveBoardItemStyle } from './itemStyles';
+import {
+  parseProjectDefaultStyle,
+  resolveBoardItemStyle,
+} from './itemStyles';
 import { getMinimapLayout, worldToMinimap } from './minimap';
 
 type Props = {
@@ -135,6 +138,7 @@ type Props = {
   onImportPage: () => void;
   onExportPage: (format: 'json' | 'png' | 'pptx' | 'mermaid') => void;
   importExportDisabled: boolean;
+  projectDefaultStyleJson?: string | null;
 };
 type UtilityMenuId = 'file' | 'edit' | null;
 
@@ -214,6 +218,7 @@ export function Canvas({
   onImportPage,
   onExportPage,
   importExportDisabled,
+  projectDefaultStyleJson = null,
 }: Props) {
   const [viewport, setViewport] = useState<Viewport>({
     x: page.viewport_x,
@@ -262,6 +267,10 @@ export function Canvas({
   const [utilityMenuOpen, setUtilityMenuOpen] = useState<UtilityMenuId>(null);
   const [isExportSubmenuOpen, setIsExportSubmenuOpen] = useState(false);
   const [isResetZoomPanelOpen, setIsResetZoomPanelOpen] = useState(false);
+  const projectDefaultStyle = useMemo(
+    () => parseProjectDefaultStyle(projectDefaultStyleJson),
+    [projectDefaultStyleJson],
+  );
 
   const viewportRef = useRef<Viewport>(viewport);
   const itemsRef = useRef<BoardItem[]>(items);
@@ -1813,7 +1822,10 @@ export function Canvas({
                 {items
                   .filter((item) => item.type !== ITEM_TYPE.arrow && item.type !== ITEM_TYPE.line)
                   .map((item) => {
-                    const style = resolveBoardItemStyle(item);
+                    const style = resolveBoardItemStyle(
+                      item,
+                      projectDefaultStyle,
+                    );
                     const point = worldToMinimap(
                       item.x + item.width / 2,
                       item.y + item.height / 2,
@@ -1970,9 +1982,10 @@ export function Canvas({
                       isEditing={item.id === editingId}
                       onMouseDown={(e) => handleArrowMouseDown(e, item.id)}
                       onDoubleClick={() => handleItemDoubleClick(item)}
-                      onUpdate={setItemsAndSync}
+                      onUpdate={handleItemUpdate}
                       onEditEnd={() => setEditingId(null)}
                       onContextMenu={(e) => handleItemContextMenu(e, item.id)}
+                      projectDefaultStyle={projectDefaultStyle}
                     />
                   );
                 }
@@ -2037,6 +2050,7 @@ export function Canvas({
                       tableDropTargetCellId={
                         isTableDropTarget ? activeTableDropTarget?.cellId ?? null : null
                       }
+                      projectDefaultStyle={projectDefaultStyle}
                     />
                 );
               })}
@@ -2061,6 +2075,7 @@ export function Canvas({
                     onEndpointMouseDown={() => {}}
                     onWaypointMouseDown={() => {}}
                     onMidpointMouseDown={() => {}}
+                    projectDefaultStyle={projectDefaultStyle}
                   />
                 </div>
               ) : null}
@@ -2113,6 +2128,7 @@ export function Canvas({
           connector={selectedConnector}
           selectionCount={selectedIds.length}
           childCount={selectedChildCount}
+          projectDefaultStyle={projectDefaultStyle}
           selectedTableCellIds={
             selectedItem?.type === ITEM_TYPE.table &&
             tableInspectorSelection?.tableId === selectedItem.id

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { type BoardItem } from '../api';
 import {
   getBoardItemTypographyStyle,
+  type ProjectDefaultStyle,
   resolveBoardItemStyle,
 } from '../itemStyles';
 
@@ -10,12 +11,22 @@ type Props = {
   isEditing: boolean;
   onUpdate: (item: BoardItem) => void;
   onEditEnd: () => void;
+  projectDefaultStyle?: ProjectDefaultStyle;
 };
 
-export function StickyNote({ item, isEditing, onUpdate, onEditEnd }: Props) {
+export function StickyNote({
+  item,
+  isEditing,
+  onUpdate,
+  onEditEnd,
+  projectDefaultStyle,
+}: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const resolvedStyle = resolveBoardItemStyle(item);
-  const typographyStyle = getBoardItemTypographyStyle(item);
+  const resolvedStyle = resolveBoardItemStyle(item, projectDefaultStyle);
+  const typographyStyle = getBoardItemTypographyStyle(
+    item,
+    projectDefaultStyle,
+  );
   const cardStyle = {
     background: resolvedStyle.backgroundColor,
     ...typographyStyle,

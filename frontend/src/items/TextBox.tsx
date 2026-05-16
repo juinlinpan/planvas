@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { type BoardItem } from '../api';
 import {
   getBoardItemTypographyStyle,
+  type ProjectDefaultStyle,
   resolveBoardItemStyle,
 } from '../itemStyles';
 
@@ -10,14 +11,21 @@ type Props = {
   isEditing: boolean;
   onUpdate: (item: BoardItem) => void;
   onEditEnd: () => void;
+  projectDefaultStyle?: ProjectDefaultStyle;
 };
 
-export function TextBox({ item, isEditing, onUpdate, onEditEnd }: Props) {
+export function TextBox({
+  item,
+  isEditing,
+  onUpdate,
+  onEditEnd,
+  projectDefaultStyle,
+}: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const resolvedStyle = resolveBoardItemStyle(item);
+  const resolvedStyle = resolveBoardItemStyle(item, projectDefaultStyle);
   const contentStyle = {
     background: resolvedStyle.backgroundColor,
-    ...getBoardItemTypographyStyle(item),
+    ...getBoardItemTypographyStyle(item, projectDefaultStyle),
   };
 
   useEffect(() => {

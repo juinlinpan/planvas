@@ -112,6 +112,7 @@ const tests: TestCase[] = [
       });
       assert.equal(created.status, 201);
       assert.equal(created.data.theme_color, 'default');
+      assert.equal(created.data.default_style_json, null);
 
       const projects = await requestJson<Project[]>(baseUrl, '/projects');
       assert.deepEqual(projects.data, [created.data]);
@@ -135,6 +136,22 @@ const tests: TestCase[] = [
         },
       );
       assert.equal(themed.data.theme_color, 'sunset');
+
+      const styled = await requestJson<Project>(
+        baseUrl,
+        `/projects/${created.data.id}`,
+        {
+          method: 'PATCH',
+          ...jsonBody({
+            default_style_json:
+              '{"textColor":"#1d4ed8","linkColor":"#ef4444"}',
+          }),
+        },
+      );
+      assert.equal(
+        styled.data.default_style_json,
+        '{"textColor":"#1d4ed8","linkColor":"#ef4444"}',
+      );
 
       const pageResponse = await requestJson<Page>(
         baseUrl,

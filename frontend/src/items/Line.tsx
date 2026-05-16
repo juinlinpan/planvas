@@ -1,8 +1,12 @@
 import { type BoardItem } from '../api';
-import { resolveBoardItemStyle } from '../itemStyles';
+import {
+  type ProjectDefaultStyle,
+  resolveBoardItemStyle,
+} from '../itemStyles';
 
 type Props = {
   item: BoardItem;
+  projectDefaultStyle?: ProjectDefaultStyle;
 };
 
 function getStrokeDasharray(style: 'solid' | 'dashed' | 'dotted'): string | undefined {
@@ -16,8 +20,8 @@ function getStrokeDasharray(style: 'solid' | 'dashed' | 'dotted'): string | unde
   }
 }
 
-export function Line({ item }: Props) {
-  const resolvedStyle = resolveBoardItemStyle(item);
+export function Line({ item, projectDefaultStyle }: Props) {
+  const resolvedStyle = resolveBoardItemStyle(item, projectDefaultStyle);
   const width = Math.max(item.width, 1);
   const height = Math.max(item.height, 1);
   const inset = Math.max(resolvedStyle.strokeWidth / 2 + 2, 4);

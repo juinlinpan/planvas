@@ -76,6 +76,27 @@ function IconTrash() {
   );
 }
 
+function IconRefresh() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 2v6h-6" />
+      <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+      <path d="M3 22v-6h6" />
+      <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+    </svg>
+  );
+}
+
 function IconSpark() {
   return (
     <svg
@@ -239,6 +260,7 @@ export function HomeView({
             disabled={isBusy || isLoading}
             onClick={onRefreshProjects}
           >
+            <IconRefresh />
             Refresh
           </button>
         </div>

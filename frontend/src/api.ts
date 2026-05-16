@@ -10,6 +10,7 @@ export type Project = {
   id: string;
   name: string;
   theme_color: ProjectThemeColor;
+  default_style_json: string | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -140,7 +141,11 @@ export async function listDirs(dirPath?: string): Promise<DirListing> {
 
 export async function updateProject(
   id: string,
-  payload: { name?: string; theme_color?: ProjectThemeColor },
+  payload: {
+    name?: string;
+    theme_color?: ProjectThemeColor;
+    default_style_json?: string | null;
+  },
 ): Promise<Project> {
   return requestJson<Project>(`/projects/${id}`, {
     method: 'PATCH',

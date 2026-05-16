@@ -1,4 +1,5 @@
 import { type BoardItem } from '../api';
+import type { ProjectDefaultStyle } from '../itemStyles';
 import type { SegmentEndpoint } from '../segmentData';
 import { Frame, type FrameSummaryEntry } from './Frame';
 import { NotePaper } from './NotePaper';
@@ -40,6 +41,7 @@ type Props = {
   onTableSelectedCellsChange?: (cellIds: string[]) => void;
   tableDropTargetCellId?: string | null;
   magnetEnabled?: boolean;
+  projectDefaultStyle?: ProjectDefaultStyle;
 };
 
 export function BoardItemRenderer({
@@ -66,6 +68,7 @@ export function BoardItemRenderer({
   onTableSelectedCellsChange,
   tableDropTargetCellId,
   magnetEnabled,
+  projectDefaultStyle,
 }: Props) {
   const isSegmentItem = item.type === 'line' || item.type === 'arrow';
   const isStatic = renderMode === 'static';
@@ -123,6 +126,7 @@ export function BoardItemRenderer({
             onUpdate={onUpdate}
             onEditEnd={onEditEnd}
             deletingWaypointIndex={deletingWaypointIndex}
+            projectDefaultStyle={projectDefaultStyle}
           />
           {resizeHandle}
         </div>
@@ -143,6 +147,7 @@ export function BoardItemRenderer({
             isEditing={isEditing}
             onUpdate={onUpdate}
             onEditEnd={onEditEnd}
+            projectDefaultStyle={projectDefaultStyle}
           />
           {resizeHandle}
         </div>
@@ -167,6 +172,7 @@ export function BoardItemRenderer({
             onSelectedCellsChange={onTableSelectedCellsChange}
             dropTargetCellId={tableDropTargetCellId}
             magnetEnabled={magnetEnabled}
+            projectDefaultStyle={projectDefaultStyle}
           />
           {isStatic ? null : (
             <>
@@ -223,6 +229,7 @@ export function BoardItemRenderer({
             isEditing={isEditing}
             onUpdate={onUpdate}
             onEditEnd={onEditEnd}
+            projectDefaultStyle={projectDefaultStyle}
           />
           {resizeHandle}
         </div>
@@ -243,6 +250,7 @@ export function BoardItemRenderer({
             isEditing={isEditing}
             onUpdate={onUpdate}
             onEditEnd={onEditEnd}
+            projectDefaultStyle={projectDefaultStyle}
           />
           {resizeHandle}
         </div>
@@ -264,6 +272,7 @@ export function BoardItemRenderer({
             childSummaries={childSummaries}
             onToggleCollapse={onToggleCollapse}
             showToggle={!isStatic}
+            projectDefaultStyle={projectDefaultStyle}
           />
           {resizeHandle}
         </div>

@@ -33,6 +33,7 @@ import {
   type ProjectThemeColor,
 } from './api';
 import { Canvas } from './Canvas';
+import { ColorPaletteField } from './Inspector';
 import { FolderPickerModal } from './FolderPickerModal';
 import { HomeView } from './HomeView';
 import { MarkdownEditor } from './MarkdownEditor';
@@ -49,6 +50,14 @@ import { exportPageAsMermaidMarkdown } from './pageMermaidExport';
 import { buildAppRouteUrl, readAppRoute, type AppRoute } from './appRoute';
 import { resolveProjectEntryPageId } from './workspaceNavigation';
 import { getInlineDropPosition, type DropPosition } from './dragDrop';
+import {
+  BACKGROUND_COLOR_OPTIONS,
+  STROKE_COLOR_OPTIONS,
+  TEXT_COLOR_OPTIONS,
+  parseProjectDefaultStyle,
+  serializeProjectDefaultStyle,
+  type ProjectDefaultStyle,
+} from './itemStyles';
 
 type AppView = 'home' | 'workspace';
 type LoadState = 'loading' | 'ready' | 'error';
@@ -194,7 +203,10 @@ function IconRefresh() {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16" />
+      <path d="M21 2v6h-6" />
+      <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+      <path d="M3 22v-6h6" />
+      <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
     </svg>
   );
 }
@@ -276,6 +288,7 @@ function buildProjectExportSnapshot(
     project: {
       name: project.name,
       theme_color: project.theme_color,
+      default_style_json: project.default_style_json,
       pages: boardDataByPage.map((boardData) => buildPageExportPayload(boardData)),
     },
   };
@@ -515,6 +528,10 @@ export function App() {
     selectedProject !== null &&
     projectDeleteConfirmation === projectDeletePhrase &&
     !isMutating;
+  const selectedProjectDefaultStyle = useMemo(
+    () => parseProjectDefaultStyle(selectedProject?.default_style_json ?? null),
+    [selectedProject?.default_style_json],
+  );
 
   const handlePageViewportChange = useCallback(
     (pageId: string, viewport: { x: number; y: number; zoom: number }) => {
@@ -973,6 +990,34 @@ export function App() {
     await runMutation(async () => {
       const updatedProject = await updateProject(selectedProject.id, {
         theme_color: nextThemeColor,
+      });
+      setProjects((current) =>
+        current.map((project) =>
+          project.id === updatedProject.id ? updatedProject : project,
+        ),
+      );
+    });
+  }
+
+  async function handleChangeProjectDefaultStyle(
+    patch: ProjectDefaultStyle,
+  ): Promise<void> {
+    if (selectedProject === null) {
+      return;
+    }
+
+    const nextDefaultStyleJson = serializeProjectDefaultStyle({
+      ...selectedProjectDefaultStyle,
+      ...patch,
+    });
+
+    if (nextDefaultStyleJson === selectedProject.default_style_json) {
+      return;
+    }
+
+    await runMutation(async () => {
+      const updatedProject = await updateProject(selectedProject.id, {
+        default_style_json: nextDefaultStyleJson,
       });
       setProjects((current) =>
         current.map((project) =>
@@ -1553,8 +1598,8 @@ export function App() {
                 onClick={() => toggleSidebarSection('pages')}
               >
                 <span className="sidebar-foldout-title">
-                  <IconChevronDown />
                   <span className="sidebar-pages-heading">Pages</span>
+                  <IconChevronDown />
                 </span>
               </button>
               <div className="sidebar-section-actions">
@@ -1754,8 +1799,8 @@ export function App() {
                 onClick={() => toggleSidebarSection('notes')}
               >
                 <span className="sidebar-foldout-title">
-                  <IconChevronDown />
                   <span className="sidebar-pages-heading">Notes</span>
+                  <IconChevronDown />
                 </span>
               </button>
               <div className="sidebar-section-actions">
@@ -2140,6 +2185,7 @@ export function App() {
                 onImportPage={handleImportPageButtonClick}
                 onExportPage={handleExportPageClick}
                 importExportDisabled={isMutating}
+                projectDefaultStyleJson={selectedProject.default_style_json}
                 onViewportChange={(viewport) =>
                   handlePageViewportChange(selectedPage.id, viewport)
                 }
@@ -2224,7 +2270,7 @@ export function App() {
                 </label>
               </section>
               <section className="project-settings-panel">
-                <div className="project-settings-panel-heading">Appearance</div>
+                <div className="project-settings-panel-heading">Style</div>
                 <label className="sidebar-project-theme-control">
                   <span className="sidebar-name-label">Theme</span>
                   <select
@@ -2263,6 +2309,154 @@ export function App() {
                     <IconFolder />
                     <span>Open Folder</span>
                   </button>
+                </div>
+              </section>
+              <section className="project-settings-panel">
+                <div className="project-settings-panel-heading">Components</div>
+                
+                <div className="project-settings-component-group">
+                  <div className="project-settings-dialog-kicker">Table & Frame</div>
+                  <div className="project-default-style-grid">
+                    <ColorPaletteField
+                      label="Background"
+                      options={BACKGROUND_COLOR_OPTIONS}
+                      selectedValue={
+                        selectedProjectDefaultStyle.largeObjectBackgroundColor ??
+                        BACKGROUND_COLOR_OPTIONS[5].value
+                      }
+                      tone="background"
+                      onSelect={(value) =>
+                        void handleChangeProjectDefaultStyle({
+                          largeObjectBackgroundColor: value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="project-settings-component-group">
+                  <div className="project-settings-dialog-kicker">Textbox & Sticky & Note</div>
+                  <div className="project-default-style-grid">
+                    <ColorPaletteField
+                      label="Background"
+                      options={BACKGROUND_COLOR_OPTIONS}
+                      selectedValue={
+                        selectedProjectDefaultStyle.smallItemBackgroundColor ??
+                        BACKGROUND_COLOR_OPTIONS[0].value
+                      }
+                      tone="background"
+                      onSelect={(value) =>
+                        void handleChangeProjectDefaultStyle({
+                          smallItemBackgroundColor: value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="project-settings-component-group">
+                  <div className="project-settings-dialog-kicker">Line & Arrow</div>
+                  <div className="project-default-style-grid">
+                    <ColorPaletteField
+                      label="Stroke"
+                      options={STROKE_COLOR_OPTIONS}
+                      selectedValue={
+                        selectedProjectDefaultStyle.linkColor ??
+                        STROKE_COLOR_OPTIONS[0].value
+                      }
+                      tone="background"
+                      onSelect={(value) =>
+                        void handleChangeProjectDefaultStyle({ linkColor: value })
+                      }
+                    />
+                    <ColorPaletteField
+                      label="Text color"
+                      options={TEXT_COLOR_OPTIONS}
+                      selectedValue={
+                        selectedProjectDefaultStyle.linkTextColor ??
+                        selectedProjectDefaultStyle.textColor ??
+                        TEXT_COLOR_OPTIONS[0].value
+                      }
+                      tone="text"
+                      onSelect={(value) =>
+                        void handleChangeProjectDefaultStyle({
+                          linkTextColor: value,
+                        })
+                      }
+                    />
+                    <div className="inspector-grid" style={{ marginTop: '8px' }}>
+                      <label className="sidebar-project-theme-control project-style-control">
+                        <span className="sidebar-name-label">Width</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={16}
+                          disabled={isMutating}
+                          value={selectedProjectDefaultStyle.strokeWidth ?? 3}
+                          onChange={(e) =>
+                            void handleChangeProjectDefaultStyle({
+                              strokeWidth: Number(e.target.value),
+                            })
+                          }
+                        />
+                      </label>
+                      <label className="sidebar-project-theme-control project-style-control">
+                        <span className="sidebar-name-label">Text position</span>
+                        <select
+                          disabled={isMutating}
+                          value={
+                            selectedProjectDefaultStyle.segmentTextVerticalPosition ??
+                            'middle'
+                          }
+                          onChange={(e) =>
+                            void handleChangeProjectDefaultStyle({
+                              segmentTextVerticalPosition: e.target
+                                .value as ProjectDefaultStyle['segmentTextVerticalPosition'],
+                            })
+                          }
+                        >
+                          <option value="top">Top</option>
+                          <option value="middle">Middle</option>
+                          <option value="bottom">Bottom</option>
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="project-settings-component-group">
+                  <div className="project-settings-dialog-kicker">Font</div>
+                  <div className="project-default-style-grid">
+                    <ColorPaletteField
+                      label="Text color"
+                      options={TEXT_COLOR_OPTIONS}
+                      selectedValue={
+                        selectedProjectDefaultStyle.textColor ??
+                        TEXT_COLOR_OPTIONS[0].value
+                      }
+                      tone="text"
+                      onSelect={(value) =>
+                        void handleChangeProjectDefaultStyle({ textColor: value })
+                      }
+                    />
+                    <div className="inspector-grid" style={{ marginTop: '8px' }}>
+                      <label className="sidebar-project-theme-control project-style-control">
+                        <span className="sidebar-name-label">Size</span>
+                        <input
+                          type="number"
+                          min={12}
+                          max={32}
+                          disabled={isMutating}
+                          value={selectedProjectDefaultStyle.fontSize ?? 14}
+                          onChange={(e) =>
+                            void handleChangeProjectDefaultStyle({
+                              fontSize: Number(e.target.value),
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </section>
               <section className="project-settings-panel project-settings-panel-actions">

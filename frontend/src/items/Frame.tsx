@@ -1,6 +1,7 @@
 import { type BoardItem } from '../api';
 import {
   getBoardItemTypographyStyle,
+  type ProjectDefaultStyle,
   resolveBoardItemStyle,
 } from '../itemStyles';
 import { ITEM_TYPE_LABEL } from '../types';
@@ -18,6 +19,7 @@ type Props = {
   childSummaries: FrameSummaryEntry[];
   onToggleCollapse: () => void;
   showToggle?: boolean;
+  projectDefaultStyle?: ProjectDefaultStyle;
 };
 
 export function Frame({
@@ -26,14 +28,18 @@ export function Frame({
   childSummaries,
   onToggleCollapse,
   showToggle = true,
+  projectDefaultStyle,
 }: Props) {
   const title = item.title?.trim() || 'Untitled Frame';
-  const resolvedStyle = resolveBoardItemStyle(item);
+  const resolvedStyle = resolveBoardItemStyle(item, projectDefaultStyle);
   const frameStyle = {
     background: resolvedStyle.backgroundColor,
     color: resolvedStyle.textColor,
   };
-  const typographyStyle = getBoardItemTypographyStyle(item);
+  const typographyStyle = getBoardItemTypographyStyle(
+    item,
+    projectDefaultStyle,
+  );
 
   function handleToggleClick(e: React.MouseEvent<HTMLButtonElement>) {
     e.stopPropagation();

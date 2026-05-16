@@ -8,6 +8,7 @@ import {
   serializeBoardItemStyle,
   type BoardItemStyle,
   type ColorOption,
+  type ProjectDefaultStyle,
 } from './itemStyles';
 import { hasStoredSegmentData } from './segmentData';
 import {
@@ -39,6 +40,7 @@ type Props = {
   onDelete: () => void;
   onToggleInspector: () => void;
   onToggleCollapse: () => void;
+  projectDefaultStyle?: ProjectDefaultStyle;
 };
 
 function clampDimension(
@@ -133,7 +135,7 @@ function normalizeRotation(value: number): number {
   return normalized > 180 ? normalized - 360 : normalized;
 }
 
-function ColorPaletteField({
+export function ColorPaletteField({
   label,
   options,
   selectedValue,
@@ -196,6 +198,7 @@ export function Inspector({
   onDelete,
   onToggleInspector,
   onToggleCollapse,
+  projectDefaultStyle,
 }: Props) {
   if (isCollapsed) {
     return (
@@ -291,7 +294,7 @@ export function Inspector({
   const supportsTextStyling = !isArrow && !isLine;
   const supportsLineStyling = isLine || isArrow;
   const tableData = isTable ? parseTableData(selectedItem.data_json) : null;
-  const resolvedStyle = resolveBoardItemStyle(selectedItem);
+  const resolvedStyle = resolveBoardItemStyle(selectedItem, projectDefaultStyle);
   const parsedStyle = parseBoardItemStyle(selectedItem.style_json);
   const segmentTextBackgroundColor =
     parsedStyle.backgroundColor ?? 'transparent';

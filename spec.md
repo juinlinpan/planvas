@@ -255,6 +255,7 @@ Project ?喳??嚗?
 - `id`
 - `name`
 - `theme_color`
+- `default_style_json`
 - `created_at`
 - `updated_at`
 - `sort_order`
@@ -265,6 +266,15 @@ Project theme color rules:
 - Supported values are `default`, `sage`, `sunset`, and `ocean`.
 - The theme applies to workspace chrome outside the canvas, including the sidebar, workspace header, toolbar, and inspector surfaces.
 - Canvas content, canvas item styling, and canvas grid/background controls remain independent from project theme color.
+
+Project default item style rules:
+
+- `default_style_json` stores Project-level defaults for canvas item styling. Missing or empty values use app defaults.
+- Project settings must let users change defaults for all object text color, small-object fill color, large-object fill color, link stroke color, and link text color.
+- `text_box`, `sticky_note`, and `note_paper` use the small-object fill default when the item has no item-level fill override.
+- `frame` and `table` use the large-object fill default when the item has no item-level fill override.
+- `line` and `arrow` use the link stroke default and link text default when the item has no item-level style override.
+- Item-level style settings remain more specific than Project defaults; clearing an item style returns that item to the Project defaults.
 
 Project ?臬閬?嚗?
 
@@ -490,6 +500,7 @@ Page ?臬鋆?閬?嚗?
 - `id`
 - `name`
 - `theme_color`
+- `default_style_json`
 - `sort_order`
 - `created_at`
 - `updated_at`

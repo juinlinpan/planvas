@@ -7,7 +7,10 @@ import {
 } from 'react';
 import { type BoardItem } from '../api';
 import { CANVAS_GRID_SIZE } from '../canvasConstants';
-import { resolveBoardItemStyle } from '../itemStyles';
+import {
+  type ProjectDefaultStyle,
+  resolveBoardItemStyle,
+} from '../itemStyles';
 import { snapValueToGrid } from '../magnet';
 import {
   addCol,
@@ -186,6 +189,7 @@ type Props = {
   onSelectedCellsChange?: (cellIds: string[]) => void;
   dropTargetCellId?: string | null;
   magnetEnabled?: boolean;
+  projectDefaultStyle?: ProjectDefaultStyle;
 };
 
 // ── Component ─────────────────────────────────────────────────────────────
@@ -201,11 +205,12 @@ export function Table({
   onSelectedCellsChange,
   dropTargetCellId,
   magnetEnabled = false,
+  projectDefaultStyle,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isStatic = renderMode === 'static';
   const tableData = useMemo(() => parseTableData(item.data_json), [item.data_json]);
-  const resolvedStyle = resolveBoardItemStyle(item);
+  const resolvedStyle = resolveBoardItemStyle(item, projectDefaultStyle);
   const showsStructureControls = (isEditing || isSelected) && !isStatic;
 
   // Selected cell IDs (for merge operation)

@@ -11,6 +11,7 @@ export type Project = {
   id: string;
   name: string;
   theme_color: ProjectThemeColor;
+  default_style_json: string | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -90,6 +91,7 @@ export type ProjectCreatePayload = {
 export type ProjectUpdatePayload = {
   name?: string;
   theme_color?: ProjectThemeColor;
+  default_style_json?: string | null;
 };
 
 export type PageCreatePayload = {
