@@ -474,53 +474,6 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     };
   }
 
-  function handleArrowMouseDown(
-    e: React.MouseEvent<SVGLineElement>,
-    itemId: string,
-  ) {
-    if (startViewportPan(e)) {
-      return;
-    }
-
-    if (e.button !== 0) {
-      return;
-    }
-
-    e.stopPropagation();
-
-    if (activeTool === 'line' || activeTool === 'arrow') {
-      startSegmentDraft(activeTool, e.clientX, e.clientY);
-      return;
-    }
-
-    if (activeTool === 'table') {
-      if (toolbarTableInsertPreviewActive) {
-        return;
-      }
-      startTableInsertDraft(e.clientX, e.clientY);
-      return;
-    }
-
-    if (activeTool !== 'select') {
-      return;
-    }
-
-    const isModifierSelection = e.shiftKey || e.ctrlKey || e.metaKey;
-    const currentSelection = selectedIdsRef.current;
-    if (isModifierSelection) {
-      if (currentSelection.includes(itemId)) {
-        setSelection(currentSelection.filter((currentId) => currentId !== itemId));
-      } else {
-        setSelection([...currentSelection, itemId]);
-      }
-      setEditingId(null);
-      return;
-    }
-
-    setSelection([itemId]);
-    setEditingId(null);
-  }
-
   function handleSegmentEndpointMouseDown(
     e: React.MouseEvent<HTMLButtonElement>,
     itemId: string,
@@ -1870,7 +1823,6 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     handleToggleFrameCollapse,
     handleCanvasMouseDown,
     handleItemMouseDown,
-    handleArrowMouseDown,
     handleSegmentEndpointMouseDown,
     handleSegmentWaypointMouseDown,
     handleSegmentMidpointMouseDown,

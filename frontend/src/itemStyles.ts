@@ -92,6 +92,7 @@ const DEFAULT_BACKGROUND_COLOR = BACKGROUND_COLOR_OPTIONS[0].value;
 const DEFAULT_FRAME_BACKGROUND_COLOR = BACKGROUND_COLOR_OPTIONS[5].value;
 const DEFAULT_TEXT_COLOR = TEXT_COLOR_OPTIONS[0].value;
 const DEFAULT_STROKE_COLOR = STROKE_COLOR_OPTIONS[0].value;
+const DEFAULT_ARROW_HEAD_SIZE = 14;
 const STICKY_COLORS = BACKGROUND_COLOR_OPTIONS.slice(1).map(
   (option) => option.value,
 );
@@ -438,7 +439,7 @@ export function resolveBoardItemStyle(
     strokeWidth: parsed.strokeWidth ?? projectDefaultStyle.strokeWidth ?? 3,
     strokeStyle: parsed.strokeStyle ?? 'solid',
     lineCornerType: parsed.lineCornerType ?? 'sharp',
-    arrowHeadSize: parsed.arrowHeadSize ?? 30,
+    arrowHeadSize: parsed.arrowHeadSize ?? DEFAULT_ARROW_HEAD_SIZE,
     segmentTextHorizontalPosition:
       parsed.segmentTextHorizontalPosition ?? 'center',
     segmentTextVerticalPosition:

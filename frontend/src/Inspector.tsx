@@ -1,4 +1,4 @@
-import { type BoardItem, type ConnectorLink } from './api';
+import { type BoardItem } from './api';
 import {
   BACKGROUND_COLOR_OPTIONS,
   TEXT_COLOR_OPTIONS,
@@ -26,7 +26,6 @@ const SEGMENT_TEXT_BACKGROUND_OPTIONS = [
 
 type Props = {
   item: BoardItem | null;
-  connector: ConnectorLink | null;
   selectionCount: number;
   childCount: number;
   selectedTableCellIds: string[];
@@ -63,14 +62,14 @@ function summarizeContent(item: BoardItem): string {
   if (item.type === ITEM_TYPE.table) {
     const tableData = parseTableData(item.data_json);
     const filledCells = countFilledTableCells(tableData);
-    return `${tableData.rows} x ${tableData.cols} 表格，${filledCells} 格有內容`;
+    return `${tableData.rows} x ${tableData.cols} table, ${filledCells} filled cells`;
   }
 
   if (item.content === null || item.content.trim().length === 0) {
-    return '尚未填寫內容';
+    return 'No content';
   }
 
-  return `${item.content.trim().length} 字`;
+  return `${item.content.trim().length} characters`;
 }
 
 function isTextContentItem(item: BoardItem): boolean {
@@ -188,7 +187,6 @@ export function ColorPaletteField({
 
 export function Inspector({
   item,
-  connector,
   selectionCount,
   childCount,
   selectedTableCellIds,
@@ -235,7 +233,7 @@ export function Inspector({
               &gt;
             </button>
           </div>
-          <p>選取物件以檢視屬性</p>
+          <p>Select an item to inspect it.</p>
         </div>
       </aside>
     );
@@ -259,35 +257,29 @@ export function Inspector({
           </div>
           <div className="inspector-title-row">
             <div>
-              <h3>已選取 {selectionCount} 個物件</h3>
-              <p className="inspector-meta">
-                多選模式支援群組拖曳、複製、貼上與刪除。若要編輯屬性，請改成單選。
-              </p>
+              <h3>{selectionCount} selected</h3>
+              <p className="inspector-meta">Multi-select editing is limited to delete and layer actions.</p>
             </div>
             <button className="ghost-button danger-button" onClick={onDelete}>
-              刪除
+              Delete
             </button>
           </div>
 
           <section className="inspector-section">
             <p className="meta-label">Primary Selection</p>
             <p className="inspector-meta">
-              目前主選取物件：
-              {ITEM_TYPE_LABEL[item.type as keyof typeof ITEM_TYPE_LABEL] ??
-                item.type}
+              {ITEM_TYPE_LABEL[item.type as keyof typeof ITEM_TYPE_LABEL] ?? item.type}
             </p>
           </section>
         </div>
       </aside>
     );
   }
-
   const selectedItem = item;
   const isArrow = selectedItem.type === ITEM_TYPE.arrow;
   const isLine = selectedItem.type === ITEM_TYPE.line;
   const isSegmentItem =
     (isArrow || isLine) && hasStoredSegmentData(selectedItem);
-  const isLegacyConnectorArrow = isArrow && !isSegmentItem;
   const isTable = selectedItem.type === ITEM_TYPE.table;
   const supportsContent = isTextContentItem(selectedItem);
   const supportsTitle = selectedItem.type === ITEM_TYPE.frame;
@@ -406,12 +398,29 @@ export function Inspector({
   }
 
   function handleStrokeWidthChange(rawValue: string) {
+    if (rawValue.trim().length === 0) {
+      return;
+    }
+
     const value = Number(rawValue);
     if (Number.isNaN(value)) {
       return;
     }
 
     handleStyleChange({ strokeWidth: value });
+  }
+
+  function handleArrowHeadSizeCommit(rawValue: string) {
+    if (rawValue.trim().length === 0) {
+      return;
+    }
+
+    const value = Number(rawValue);
+    if (Number.isNaN(value)) {
+      return;
+    }
+
+    handleStyleChange({ arrowHeadSize: value });
   }
 
   return (
@@ -436,44 +445,40 @@ export function Inspector({
                 selectedItem.type as keyof typeof ITEM_TYPE_LABEL
               ] ?? selectedItem.type}
             </h3>
-            <p className="inspector-meta">
-              {isLegacyConnectorArrow
-                ? '位置與尺寸會隨連線目標自動計算'
-                : isSegmentItem
-                  ? '直接拖曳畫布上的起點與終點控制點，調整長度與方向。'
-                  : summarizeContent(selectedItem)}
+                        <p className="inspector-meta">
+              {isSegmentItem
+                ? 'Segment connector with editable endpoints and bends.'
+                : summarizeContent(selectedItem)}
             </p>
           </div>
           <button className="ghost-button danger-button" onClick={onDelete}>
-            刪除
+            ?芷
           </button>
         </div>
 
-        {!isLegacyConnectorArrow ? (
-          <section className="inspector-section">
-            <p className="meta-label">Position</p>
-            <div className="inspector-grid">
-              <label>
-                X
-                <input
-                  type="number"
-                  value={Math.round(selectedItem.x)}
-                  onChange={(e) => handleNumberChange('x', e.target.value)}
-                />
-              </label>
-              <label>
-                Y
-                <input
-                  type="number"
-                  value={Math.round(selectedItem.y)}
-                  onChange={(e) => handleNumberChange('y', e.target.value)}
-                />
-              </label>
-            </div>
-          </section>
-        ) : null}
+        <section className="inspector-section">
+          <p className="meta-label">Position</p>
+          <div className="inspector-grid">
+            <label>
+              X
+              <input
+                type="number"
+                value={Math.round(selectedItem.x)}
+                onChange={(e) => handleNumberChange('x', e.target.value)}
+              />
+            </label>
+            <label>
+              Y
+              <input
+                type="number"
+                value={Math.round(selectedItem.y)}
+                onChange={(e) => handleNumberChange('y', e.target.value)}
+              />
+            </label>
+          </div>
+        </section>
 
-        {!isLegacyConnectorArrow && !isSegmentItem ? (
+        {!isSegmentItem ? (
           <section className="inspector-section">
             <p className="meta-label">Size</p>
             <div className="inspector-grid">
@@ -496,7 +501,7 @@ export function Inspector({
             </div>
             {isLine ? (
               <label className="inspector-field">
-                角度
+                閫漲
                 <input
                   type="number"
                   min={-180}
@@ -513,30 +518,24 @@ export function Inspector({
           <section className="inspector-section">
             <p className="meta-label">Table</p>
             <p className="inspector-meta">
-              已填入 {countFilledTableCells(tableData)}/
-              {tableData.rows * tableData.cols} 格。
-            </p>
-            <p className="inspector-meta">
-              在表格內反白一格或多格後，底下 Style
-              的背景色會只套用到反白儲存格。
+              {summarizeContent(selectedItem)}
             </p>
           </section>
         ) : null}
-
         {isTable ? (
           <section className="inspector-section">
-            <p className="meta-label">文字</p>
+            <p className="meta-label">Table Cell</p>
             <label className="inspector-field">
-              儲存格文字
+              Cell text
               <textarea
                 className="inspector-textarea"
                 value={selectedTableCellTextContent}
                 disabled={selectedTableCells.length === 0}
                 placeholder={
                   selectedTableCells.length === 0
-                    ? '請先在表格中選取儲存格'
+                    ? 'Select a table cell to edit text'
                     : selectedTableCells.length > 1
-                      ? `將套用到 ${selectedTableCells.length} 個儲存格`
+                      ? `Editing ${selectedTableCells.length} selected cells`
                       : undefined
                 }
                 onChange={(e) =>
@@ -548,7 +547,7 @@ export function Inspector({
             </label>
             <div className="inspector-color-grid">
               <ColorPaletteField
-                label="文字色"
+                label="Text color"
                 options={TEXT_COLOR_OPTIONS}
                 selectedValue={resolvedStyle.textColor}
                 tone="text"
@@ -557,7 +556,7 @@ export function Inspector({
             </div>
             <div className="inspector-grid">
               <label>
-                字級
+                Font size
                 <input
                   type="number"
                   min={12}
@@ -580,7 +579,7 @@ export function Inspector({
                   })
                 }
               >
-                粗體
+                Bold
               </button>
               <button
                 type="button"
@@ -596,7 +595,7 @@ export function Inspector({
                   })
                 }
               >
-                斜體
+                Italic
               </button>
             </div>
           </section>
@@ -607,7 +606,7 @@ export function Inspector({
             <p className="meta-label">Content</p>
             {supportsTitle ? (
               <label className="inspector-field">
-                標題
+                璅?
                 <input
                   type="text"
                   value={selectedItem.title ?? ''}
@@ -619,7 +618,7 @@ export function Inspector({
               <label className="inspector-field">
                 {selectedItem.type === ITEM_TYPE.note_paper
                   ? 'Markdown'
-                  : '文字內容'}
+                  : '???批捆'}
                 <textarea
                   className="inspector-textarea"
                   value={selectedItem.content ?? ''}
@@ -646,16 +645,14 @@ export function Inspector({
             ) : null}
             {selectedItem.type === ITEM_TYPE.frame ? (
               <div className="inspector-row">
-                <span>{childCount} 個內含物件</span>
+                <span>{childCount} child items</span>
                 <button className="ghost-button" onClick={onToggleCollapse}>
-                  {selectedItem.is_collapsed ? '展開內容' : '縮回摘要'}
+                  {selectedItem.is_collapsed ? 'Expand' : 'Collapse'}
                 </button>
               </div>
             ) : null}
             {selectedItem.type === ITEM_TYPE.note_paper ? (
-              <p className="inspector-meta">
-                以 Markdown 純文字儲存，右側可直接修改。
-              </p>
+              <p className="inspector-meta">Markdown-backed note</p>
             ) : null}
           </section>
         ) : null}
@@ -670,12 +667,12 @@ export function Inspector({
                 disabled={!hasCustomStyle}
                 onClick={() => onUpdate({ ...selectedItem, style_json: null })}
               >
-                重設
+                ?身
               </button>
             </div>
             <div className="inspector-color-grid">
               <ColorPaletteField
-                label="背景色"
+                label="Background color"
                 options={BACKGROUND_COLOR_OPTIONS}
                 selectedValue={
                   isTable && selectedTableCells.length > 0
@@ -697,7 +694,7 @@ export function Inspector({
               />
               {!isTable ? (
                 <ColorPaletteField
-                  label="文字色"
+                  label="Text color"
                   options={TEXT_COLOR_OPTIONS}
                   selectedValue={resolvedStyle.textColor}
                   tone="text"
@@ -709,7 +706,7 @@ export function Inspector({
               <>
                 <div className="inspector-grid">
                   <label>
-                    字級
+                    摮?
                     <input
                       type="number"
                       min={12}
@@ -734,7 +731,7 @@ export function Inspector({
                       })
                     }
                   >
-                    粗體
+                    蝎?
                   </button>
                   <button
                     type="button"
@@ -750,14 +747,15 @@ export function Inspector({
                       })
                     }
                   >
-                    斜體
+                    ??
                   </button>
                 </div>
               </>
             ) : null}
-            <p className="inspector-meta">
-              背景固定 7
-              色，文字固定高飽和色票；變更會即時套用到畫布並自動儲存。
+                        <p className="inspector-meta">
+              {isSegmentItem
+                ? 'Segment connector with editable endpoints and bends.'
+                : summarizeContent(selectedItem)}
             </p>
           </section>
         ) : null}
@@ -772,12 +770,12 @@ export function Inspector({
                 disabled={!hasCustomStyle}
                 onClick={() => onUpdate({ ...selectedItem, style_json: null })}
               >
-                重設
+                ?身
               </button>
             </div>
             <div className="inspector-field">
               <ColorPaletteField
-                label="線條顏色"
+                label="蝺?憿"
                 options={STROKE_COLOR_OPTIONS}
                 selectedValue={resolvedStyle.strokeColor}
                 tone="background"
@@ -786,7 +784,7 @@ export function Inspector({
             </div>
             <div className="inspector-grid">
               <label className="inspector-field">
-                粗細
+                蝎敦
                 <input
                   type="number"
                   min={1}
@@ -796,7 +794,7 @@ export function Inspector({
                 />
               </label>
               <label className="inspector-field">
-                線條樣式
+                蝺?璅??
                 <select
                   value={resolvedStyle.strokeStyle}
                   onChange={(e) =>
@@ -806,15 +804,15 @@ export function Inspector({
                     })
                   }
                 >
-                  <option value="solid">實線</option>
-                  <option value="dashed">虛線</option>
-                  <option value="dotted">點線</option>
+                  <option value="solid">撖衣?</option>
+                  <option value="dashed">??</option>
+                  <option value="dotted">暺?</option>
                 </select>
               </label>
             </div>
             <div className="inspector-grid">
               <label className="inspector-field">
-                轉折
+                頧?
                 <select
                   value={resolvedStyle.lineCornerType}
                   onChange={(e) =>
@@ -824,31 +822,35 @@ export function Inspector({
                     })
                   }
                 >
-                  <option value="sharp">直角</option>
-                  <option value="rounded">彎的</option>
+                  <option value="sharp">?渲?</option>
+                  <option value="rounded">敶?</option>
                 </select>
               </label>
               {isArrow ? (
                 <label className="inspector-field">
-                  箭頭大小
+                  蝞剝憭批?
                   <input
+                    key={`${selectedItem.id}-${resolvedStyle.arrowHeadSize}`}
                     type="number"
                     min={8}
                     max={40}
-                    value={resolvedStyle.arrowHeadSize}
-                    onChange={(e) =>
-                      handleStyleChange({
-                        arrowHeadSize: Number(e.target.value),
-                      })
+                    defaultValue={resolvedStyle.arrowHeadSize}
+                    onBlur={(e) =>
+                      handleArrowHeadSizeCommit(e.target.value)
                     }
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.currentTarget.blur();
+                      }
+                    }}
                   />
                 </label>
               ) : null}
             </div>
-            <p className="inspector-meta">
+                        <p className="inspector-meta">
               {isSegmentItem
-                ? '直接拖曳畫布上的端點控制長度與方向，這裡只調整樣式。'
-                : '寬度控制線段長度，高度保留互動命中區，角度用來調整方向。'}
+                ? 'Segment connector with editable endpoints and bends.'
+                : summarizeContent(selectedItem)}
             </p>
           </section>
         ) : null}
@@ -859,7 +861,7 @@ export function Inspector({
               <p className="meta-label">Label Text</p>
             </div>
             <label className="inspector-field">
-              文字
+              ??
               <textarea
                 className="inspector-textarea"
                 value={selectedItem.content ?? ''}
@@ -868,7 +870,7 @@ export function Inspector({
             </label>
             <div className="inspector-grid">
               <label className="inspector-field">
-                水平位置
+                瘞游像雿蔭
                 <select
                   value={resolvedStyle.segmentTextHorizontalPosition}
                   onChange={(e) =>
@@ -878,13 +880,13 @@ export function Inspector({
                     })
                   }
                 >
-                  <option value="start">前段</option>
-                  <option value="center">中間</option>
-                  <option value="end">後段</option>
+                  <option value="start">?挾</option>
+                  <option value="center">銝剝?</option>
+                  <option value="end">敺挾</option>
                 </select>
               </label>
               <label className="inspector-field">
-                垂直位置
+                ?雿蔭
                 <select
                   value={resolvedStyle.segmentTextVerticalPosition}
                   onChange={(e) =>
@@ -894,13 +896,13 @@ export function Inspector({
                     })
                   }
                 >
-                  <option value="top">上方</option>
-                  <option value="middle">置中</option>
-                  <option value="bottom">下方</option>
+                  <option value="top">銝</option>
+                  <option value="middle">蝵桐葉</option>
+                  <option value="bottom">銝</option>
                 </select>
               </label>
               <label className="inspector-field">
-                文字方向
+                ???孵?
                 <select
                   value={resolvedStyle.segmentTextOrientation}
                   onChange={(e) =>
@@ -910,14 +912,14 @@ export function Inspector({
                     })
                   }
                 >
-                  <option value="horizontal">水平</option>
-                  <option value="slope">跟隨線條</option>
+                  <option value="horizontal">瘞游像</option>
+                  <option value="slope">頝蝺?</option>
                 </select>
               </label>
             </div>
             <div className="inspector-color-grid">
               <ColorPaletteField
-                label="標籤背景"
+                label="璅惜?"
                 options={SEGMENT_TEXT_BACKGROUND_OPTIONS}
                 selectedValue={segmentTextBackgroundColor}
                 tone="background"
@@ -926,7 +928,7 @@ export function Inspector({
                 }
               />
               <ColorPaletteField
-                label="文字顏色"
+                label="??憿"
                 options={TEXT_COLOR_OPTIONS}
                 selectedValue={resolvedStyle.textColor}
                 tone="text"
@@ -935,7 +937,7 @@ export function Inspector({
             </div>
             <div className="inspector-grid">
               <label>
-                字級
+                摮?
                 <input
                   type="number"
                   min={12}
@@ -944,18 +946,6 @@ export function Inspector({
                   onChange={(e) => handleFontSizeChange(e.target.value)}
                 />
               </label>
-            </div>
-          </section>
-        ) : null}
-
-        {isLegacyConnectorArrow ? (
-          <section className="inspector-section">
-            <p className="meta-label">Connector</p>
-            <div className="inspector-list">
-              <p>起點 ID：{connector?.from_item_id ?? '未設定'}</p>
-              <p>終點 ID：{connector?.to_item_id ?? '未設定'}</p>
-              <p>起點錨點：{connector?.from_anchor ?? 'auto'}</p>
-              <p>終點錨點：{connector?.to_anchor ?? 'auto'}</p>
             </div>
           </section>
         ) : null}

@@ -38,7 +38,7 @@ export function persistItems(items: BoardItem[]): void {
 }
 
 /**
- * After connectable items move, update any legacy arrow-connector whose
+ * After connectable items move, update canonical connector link anchors whose
  * auto-anchors have become stale.
  */
 export function syncConnectorAnchorsForItems(

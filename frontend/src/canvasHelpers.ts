@@ -814,8 +814,78 @@ export function isFrame(item: BoardItem): boolean {
   return item.type === ITEM_TYPE.frame;
 }
 
-export function isLegacyConnectorArrow(item: BoardItem): boolean {
-  return item.type === ITEM_TYPE.arrow && !hasStoredSegmentData(item);
+export function normalizeConnectorArrowsToSegments(
+  items: BoardItem[],
+  connectors: ConnectorLink[],
+): { items: BoardItem[]; migratedIds: string[] } {
+  const connectorByItemId = new Map(
+    connectors.map(
+      (connector) => [connector.connector_item_id, connector] as const,
+    ),
+  );
+  const itemById = new Map(items.map((item) => [item.id, item]));
+  const migratedIds: string[] = [];
+
+  const nextItems = items.map((item) => {
+    if (item.type !== ITEM_TYPE.arrow || hasStoredSegmentData(item)) {
+      return item;
+    }
+
+    const connector = connectorByItemId.get(item.id);
+    if (!connector) {
+      return item;
+    }
+
+    const connectorPoints = getConnectorPoints(connector, items);
+    if (connectorPoints === null) {
+      return item;
+    }
+
+    const fromItem =
+      connector.from_item_id === null
+        ? null
+        : (itemById.get(connector.from_item_id) ?? null);
+    const toItem =
+      connector.to_item_id === null
+        ? null
+        : (itemById.get(connector.to_item_id) ?? null);
+    const autoAnchors =
+      fromItem && toItem ? getAutoAnchors(fromItem, toItem) : null;
+    const startConnection =
+      connector.from_item_id === null
+        ? null
+        : {
+            itemId: connector.from_item_id,
+            anchor:
+              connector.from_anchor ??
+              autoAnchors?.from_anchor ??
+              'right',
+          };
+    const endConnection =
+      connector.to_item_id === null
+        ? null
+        : {
+            itemId: connector.to_item_id,
+            anchor:
+              connector.to_anchor ??
+              autoAnchors?.to_anchor ??
+              'left',
+          };
+
+    migratedIds.push(item.id);
+    return {
+      ...item,
+      ...buildSegmentGeometry(
+        connectorPoints.fromPoint,
+        connectorPoints.toPoint,
+        null,
+        startConnection,
+        endConnection,
+      ),
+    };
+  });
+
+  return { items: nextItems, migratedIds };
 }
 
 export function isInlineEditable(item: BoardItem): boolean {
@@ -957,13 +1027,7 @@ export function detachDraggedSegments(
   detachedConnectorIds: string[];
 } {
   const selectedIdSet = new Set(selectedItemIds);
-  const connectorByItemId = new Map(
-    connectors.map(
-      (connector) => [connector.connector_item_id, connector] as const,
-    ),
-  );
   const detachedItemIds: string[] = [];
-  const detachedConnectorIds: string[] = [];
 
   const nextItems = items.map((item) => {
     if (!selectedIdSet.has(item.id)) {
@@ -1001,40 +1065,14 @@ export function detachDraggedSegments(
       };
     }
 
-    if (item.type !== ITEM_TYPE.arrow) {
-      return item;
-    }
-
-    const connector = connectorByItemId.get(item.id);
-    if (!connector) {
-      return item;
-    }
-
-    const connectorPoints = getConnectorPoints(connector, items);
-    if (connectorPoints === null) {
-      return item;
-    }
-
-    detachedItemIds.push(item.id);
-    detachedConnectorIds.push(connector.id);
-    return {
-      ...item,
-      ...buildSegmentGeometry(
-        connectorPoints.fromPoint,
-        connectorPoints.toPoint,
-        null,
-      ),
-    };
+    return item;
   });
 
-  const detachedConnectorIdSet = new Set(detachedConnectorIds);
   return {
     items: nextItems,
-    connectors: connectors.filter(
-      (connector) => !detachedConnectorIdSet.has(connector.id),
-    ),
+    connectors,
     detachedItemIds,
-    detachedConnectorIds,
+    detachedConnectorIds: [],
   };
 }
 

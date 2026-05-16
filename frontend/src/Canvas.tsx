@@ -13,6 +13,7 @@ import {
   type ConnectorLink,
   createBoardItem,
   getPageBoardData,
+  replacePageBoardState,
   updatePageViewport,
   type Page,
   type ProjectNote,
@@ -21,18 +22,17 @@ import {
   findFrameDropTarget,
   findNearestConnectorAnchor,
   findTableCellDropTarget,
-  getConnectorPoints,
   getFrameChildren,
   getFrameOverlapScore,
   getItemConnectorAnchors,
   getLayerBlockIds,
+  normalizeConnectorArrowsToSegments,
   getPrimarySelectionId,
   sortItemsByLayer,
   getUniqueItemIds,
   isFrame,
   isHiddenByCollapsedFrame,
   isInlineEditable,
-  isLegacyConnectorArrow,
   isSmallItem,
   summarizeFrameChild,
   type AnchorHit,
@@ -91,7 +91,6 @@ import {
   type TableInsertDirection,
 } from './tableInsertPreview';
 import { Toolbar } from './Toolbar';
-import { ArrowConnector } from './items/ArrowConnector';
 import { BoardItemRenderer } from './items/BoardItemRenderer';
 import { SegmentShape } from './items/SegmentShape';
 
@@ -699,21 +698,6 @@ export function Canvas({
     toolbarTableInsertPreview,
   ]);
 
-  const selectedConnector = useMemo(
-    () =>
-      connectors.find(
-        (connector) => connector.connector_item_id === primarySelectedId,
-      ) ?? null,
-    [connectors, primarySelectedId],
-  );
-  const connectorByItemId = useMemo(
-    () =>
-      new Map(
-        connectors.map((connector) => [connector.connector_item_id, connector]),
-      ),
-    [connectors],
-  );
-
   const selectedChildCount = useMemo(() => {
     if (selectedItem?.type !== ITEM_TYPE.frame) {
       return 0;
@@ -782,7 +766,11 @@ export function Canvas({
     async function load() {
       try {
         const data = await getPageBoardData(page.id, controller.signal);
-        setItemsAndSync(data.board_items);
+        const normalized = normalizeConnectorArrowsToSegments(
+          data.board_items,
+          data.connector_links,
+        );
+        setItemsAndSync(normalized.items);
         setConnectorsAndSync(data.connector_links);
         setViewportAndSync({
           x: data.page.viewport_x,
@@ -793,6 +781,14 @@ export function Canvas({
         setEditingId(null);
         setSegmentDraft(null);
         resetHistory();
+        if (normalized.migratedIds.length > 0) {
+          void replacePageBoardState(page.id, {
+            board_items: normalized.items,
+            connector_links: data.connector_links,
+          }).catch((err) => {
+            console.error('[Canvas] Failed to migrate connector arrows', err);
+          });
+        }
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') {
           return;
@@ -1373,7 +1369,6 @@ export function Canvas({
     handleToggleFrameCollapse,
     handleCanvasMouseDown,
     handleItemMouseDown,
-    handleArrowMouseDown,
     handleSegmentEndpointMouseDown,
     handleSegmentWaypointMouseDown,
     handleSegmentMidpointMouseDown,
@@ -1960,36 +1955,6 @@ export function Canvas({
               style={{ transform: worldTransform, transformOrigin: '0 0' }}
             >
               {visibleItems.map((item) => {
-                if (isLegacyConnectorArrow(item)) {
-                  const connector = connectorByItemId.get(item.id);
-                  const connectorPoints =
-                    connector !== undefined
-                      ? getConnectorPoints(connector, items)
-                      : null;
-
-                  if (!connector || !connectorPoints) {
-                    return null;
-                  }
-
-                  return (
-                    <ArrowConnector
-                      key={item.id}
-                      item={item}
-                      connector={connector}
-                      fromPoint={connectorPoints.fromPoint}
-                      toPoint={connectorPoints.toPoint}
-                      isSelected={selectedIds.includes(item.id)}
-                      isEditing={item.id === editingId}
-                      onMouseDown={(e) => handleArrowMouseDown(e, item.id)}
-                      onDoubleClick={() => handleItemDoubleClick(item)}
-                      onUpdate={handleItemUpdate}
-                      onEditEnd={() => setEditingId(null)}
-                      onContextMenu={(e) => handleItemContextMenu(e, item.id)}
-                      projectDefaultStyle={projectDefaultStyle}
-                    />
-                  );
-                }
-
                 const childItems = isFrame(item)
                   ? getFrameChildren(items, item.id)
                   : [];
@@ -2125,7 +2090,6 @@ export function Canvas({
 
         <Inspector
           item={selectedItem}
-          connector={selectedConnector}
           selectionCount={selectedIds.length}
           childCount={selectedChildCount}
           projectDefaultStyle={projectDefaultStyle}

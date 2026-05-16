@@ -122,6 +122,9 @@
 - `line` text editing and all text-related settings must be grouped together in the inspector.
 - `line` text background defaults to transparent and can be changed from the inspector.
 - `line` text size and text color can be changed from the inspector.
+- `arrow` head size defaults to a compact `14px` so labels and nearby board content remain readable.
+- The inspector commits `arrow` head size edits after the user finishes the field instead of clamping every intermediate keystroke.
+- Legacy connector-arrow placements must be migrated into segment-arrow geometry on load; the frontend should not keep a separate legacy arrow renderer.
 
 ## Frame Exit Interaction Update Notes
 

@@ -4,17 +4,15 @@ import html2canvas from 'html2canvas';
 
 import type { BoardItem, PageBoardData } from './api';
 import {
-  getConnectorPoints,
   getFrameChildren,
   getItemMagnetBounds,
   isFrame,
   isHiddenByCollapsedFrame,
-  isLegacyConnectorArrow,
+  normalizeConnectorArrowsToSegments,
   sortItemsByLayer,
   summarizeFrameChild,
 } from './canvasHelpers';
 import { BoardItemRenderer } from './items/BoardItemRenderer';
-import { ArrowConnector } from './items/ArrowConnector';
 
 type Rect = {
   x: number;
@@ -120,10 +118,11 @@ function ExportSurface({
   boardData: PageBoardData;
   bounds: Rect;
 }) {
-  const visibleItems = getVisibleItems(boardData.board_items);
-  const connectorByItemId = new Map(
-    boardData.connector_links.map((connector) => [connector.connector_item_id, connector]),
-  );
+  const normalizedItems = normalizeConnectorArrowsToSegments(
+    boardData.board_items,
+    boardData.connector_links,
+  ).items;
+  const visibleItems = getVisibleItems(normalizedItems);
   const surfaceStyle: CSSProperties = {
     position: 'relative',
     width: bounds.width,
@@ -142,33 +141,8 @@ function ExportSurface({
     <div style={surfaceStyle}>
       <div className="canvas-world" style={worldStyle}>
         {visibleItems.map((item) => {
-          if (isLegacyConnectorArrow(item)) {
-            const connector = connectorByItemId.get(item.id);
-            const connectorPoints =
-              connector !== undefined
-                ? getConnectorPoints(connector, boardData.board_items)
-                : null;
-
-            if (!connector || !connectorPoints) {
-              return null;
-            }
-
-            return (
-              <ArrowConnector
-                key={item.id}
-                item={item}
-                connector={connector}
-                fromPoint={connectorPoints.fromPoint}
-                toPoint={connectorPoints.toPoint}
-                isSelected={false}
-                isEditing={false}
-                onMouseDown={() => {}}
-              />
-            );
-          }
-
           const childItems = isFrame(item)
-            ? getFrameChildren(boardData.board_items, item.id)
+            ? getFrameChildren(normalizedItems, item.id)
             : [];
 
           return (
@@ -223,7 +197,11 @@ async function renderExportSurfaceToBlob(
 export async function exportPageAsPng(
   boardData: PageBoardData,
 ): Promise<Blob> {
-  const bounds = getPagePngExportBounds(boardData.board_items);
+  const normalizedItems = normalizeConnectorArrowsToSegments(
+    boardData.board_items,
+    boardData.connector_links,
+  ).items;
+  const bounds = getPagePngExportBounds(normalizedItems);
   if (bounds === null) {
     throw new Error('目前 Page 沒有可匯出的物件。');
   }

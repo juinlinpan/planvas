@@ -6,6 +6,7 @@ import {
   getAutoAnchors,
   getConnectorPoints,
   getPartialFrameExitEjectPosition,
+  normalizeConnectorArrowsToSegments,
   summarizeFrameChild,
 } from './canvasHelpers';
 import { ITEM_CATEGORY, ITEM_TYPE } from './types';
@@ -349,5 +350,43 @@ describe('connector geometry helpers', () => {
     });
 
     expect(getConnectorPoints(createConnector(), [frame, child, target])).toBeNull();
+  });
+
+  it('migrates connector-link arrows into segment arrow geometry', () => {
+    const fromItem = createBoardItem({
+      id: 'from-item',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 80,
+    });
+    const toItem = createBoardItem({
+      id: 'to-item',
+      x: 300,
+      y: 20,
+      width: 120,
+      height: 100,
+    });
+    const legacyArrow = createBoardItem({
+      id: 'arrow-1',
+      category: ITEM_CATEGORY.connector,
+      type: ITEM_TYPE.arrow,
+      data_json: null,
+    });
+
+    const result = normalizeConnectorArrowsToSegments(
+      [fromItem, toItem, legacyArrow],
+      [createConnector()],
+    );
+    const migratedArrow = result.items.find((item) => item.id === 'arrow-1');
+
+    expect(result.migratedIds).toEqual(['arrow-1']);
+    expect(migratedArrow?.data_json).toContain('"kind":"segment"');
+    expect(migratedArrow?.data_json).toContain(
+      '"startConnection":{"itemId":"from-item","anchor":"right"}',
+    );
+    expect(migratedArrow?.data_json).toContain(
+      '"endConnection":{"itemId":"to-item","anchor":"left"}',
+    );
   });
 });

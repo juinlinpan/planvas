@@ -145,5 +145,25 @@ describe('itemStyles palette restrictions', () => {
     expect(arrow.strokeColor).toBe('#ef4444');
     expect(arrow.textColor).toBe(TEXT_COLOR_OPTIONS[3].value);
     expect(arrow.backgroundColor).toBe('transparent');
+    expect(arrow.arrowHeadSize).toBe(14);
+  });
+
+  it('keeps arrow heads compact by default while preserving explicit sizes', () => {
+    const defaultArrow = resolveBoardItemStyle(
+      createBoardItem({
+        category: ITEM_CATEGORY.connector,
+        type: ITEM_TYPE.arrow,
+      }),
+    );
+    const customArrow = resolveBoardItemStyle(
+      createBoardItem({
+        category: ITEM_CATEGORY.connector,
+        type: ITEM_TYPE.arrow,
+        style_json: serializeBoardItemStyle({ arrowHeadSize: 22 }),
+      }),
+    );
+
+    expect(defaultArrow.arrowHeadSize).toBe(14);
+    expect(customArrow.arrowHeadSize).toBe(22);
   });
 });

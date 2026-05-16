@@ -39,7 +39,6 @@ describe('Inspector style palette', () => {
     const markup = renderToStaticMarkup(
       <Inspector
         item={createBoardItem()}
-        connector={null}
         selectionCount={1}
         childCount={0}
         selectedTableCellIds={[]}
@@ -61,7 +60,6 @@ describe('Inspector style palette', () => {
     const markup = renderToStaticMarkup(
       <Inspector
         item={createBoardItem()}
-        connector={null}
         selectionCount={1}
         childCount={0}
         selectedTableCellIds={[]}
@@ -96,7 +94,6 @@ describe('Inspector style palette', () => {
             end: { x: 180, y: 80 },
           }),
         })}
-        connector={null}
         selectionCount={1}
         childCount={0}
         selectedTableCellIds={[]}
@@ -113,7 +110,7 @@ describe('Inspector style palette', () => {
     expect(markup).not.toContain('ID');
   });
 
-  it('routes background color changes to selected table cells instead of the whole table', () => {
+  it('renders table-cell background controls for selected table cells', () => {
     const tableData = createTableData(2, 2);
     const firstCellId = tableData.cells[0]?.[0]?.id;
     if (!firstCellId) {
@@ -131,7 +128,6 @@ describe('Inspector style palette', () => {
           content_format: null,
           data_json: serializeTableData(tableData),
         })}
-        connector={null}
         selectionCount={1}
         childCount={0}
         selectedTableCellIds={[firstCellId]}
@@ -144,11 +140,11 @@ describe('Inspector style palette', () => {
       />,
     );
 
-    expect(markup).toContain('在表格內反白一格或多格後');
-    expect(markup).toContain('aria-label="背景色');
+    expect(markup).toContain('Background color');
+    expect(markup).toContain('aria-label="Background color');
   });
 
-  it('moves table text controls into a dedicated 文字 section and hides row/col fields', () => {
+  it('moves table text controls into a dedicated Table Cell section and hides row/col fields', () => {
     const tableData = createTableData(2, 2);
     const markup = renderToStaticMarkup(
       <Inspector
@@ -161,7 +157,6 @@ describe('Inspector style palette', () => {
           content_format: null,
           data_json: serializeTableData(tableData),
         })}
-        connector={null}
         selectionCount={1}
         childCount={0}
         selectedTableCellIds={[]}
@@ -174,10 +169,10 @@ describe('Inspector style palette', () => {
       />,
     );
 
-    expect(markup).toContain('meta-label">文字<');
-    expect(markup).toContain('儲存格文字');
-    expect(markup).not.toContain('列數');
-    expect(markup).not.toContain('欄數');
+    expect(markup).toContain('meta-label">Table Cell<');
+    expect(markup).toContain('Cell text');
+    expect(markup).not.toContain('Rows');
+    expect(markup).not.toContain('Columns');
   });
   it('shows the markdown filename field for note paper items', () => {
     const markup = renderToStaticMarkup(
@@ -188,7 +183,6 @@ describe('Inspector style palette', () => {
           content_format: 'markdown',
           data_json: JSON.stringify({ noteFile: 'Sprint-note.md' }),
         })}
-        connector={null}
         selectionCount={1}
         childCount={0}
         selectedTableCellIds={[]}

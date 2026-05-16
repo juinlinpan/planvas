@@ -137,6 +137,8 @@
 - [x] Group `line` text editing and text-related settings together in the inspector.
 - [x] Add right-inspector controls for `line` text background, text color, and font size.
 - [x] Keep the default `line` text background transparent.
+- [x] Reduce default `arrow` head size to a compact `14px` and make the inspector commit arrow-head-size edits after field completion so intermediate number entry does not jump.
+- [x] Remove the separate legacy connector-arrow renderer and migrate old connector-arrow placements into segment-arrow geometry on load.
 
 ## Frame Exit Interaction Update Notes
 
