@@ -822,6 +822,7 @@ export function isInlineEditable(item: BoardItem): boolean {
   return (
     item.type === ITEM_TYPE.table ||
     item.type === ITEM_TYPE.line ||
+    item.type === ITEM_TYPE.arrow ||
     item.type === ITEM_TYPE.text_box ||
     item.type === ITEM_TYPE.sticky_note ||
     item.type === ITEM_TYPE.note_paper

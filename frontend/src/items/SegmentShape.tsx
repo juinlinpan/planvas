@@ -246,7 +246,9 @@ export function SegmentShape({
   const textAngle =
     resolvedStyle.segmentTextOrientation === 'slope' ? textPlacement.angle : 0;
   const hasText = (item.content ?? '').trim().length > 0;
-  const shouldShowText = item.type === ITEM_TYPE.line && (hasText || isEditing);
+  const shouldShowText =
+    (item.type === ITEM_TYPE.line || item.type === ITEM_TYPE.arrow) &&
+    (hasText || isEditing);
   const verticalClass =
     resolvedStyle.segmentTextVerticalPosition === 'top'
       ? 'is-above'

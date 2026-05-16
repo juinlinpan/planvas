@@ -119,7 +119,9 @@ export function exportPageAsMermaidMarkdown(boardData: PageBoardData): string {
   // Add edges from legacy connector_links (always arrows in legacy)
   for (const link of connector_links) {
     if (link.from_item_id && link.to_item_id) {
-      addEdge(link.from_item_id, link.to_item_id, true, '');
+      const arrowItem = board_items.find((i) => i.id === link.connector_item_id);
+      const label = arrowItem ? getEdgeLabel(arrowItem) : '';
+      addEdge(link.from_item_id, link.to_item_id, true, label);
     }
   }
 

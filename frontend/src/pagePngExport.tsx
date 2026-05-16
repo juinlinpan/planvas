@@ -161,6 +161,7 @@ function ExportSurface({
                 fromPoint={connectorPoints.fromPoint}
                 toPoint={connectorPoints.toPoint}
                 isSelected={false}
+                isEditing={false}
                 onMouseDown={() => {}}
               />
             );

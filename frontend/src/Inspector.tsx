@@ -850,13 +850,13 @@ export function Inspector({
           </section>
         ) : null}
 
-        {isLine ? (
+        {(isLine || isArrow) ? (
           <section className="inspector-section">
             <div className="inspector-title-row">
-              <p className="meta-label">Line Text</p>
+              <p className="meta-label">Label Text</p>
             </div>
             <label className="inspector-field">
-              Text
+              文字
               <textarea
                 className="inspector-textarea"
                 value={selectedItem.content ?? ''}
@@ -865,7 +865,7 @@ export function Inspector({
             </label>
             <div className="inspector-grid">
               <label className="inspector-field">
-                Horizontal
+                水平位置
                 <select
                   value={resolvedStyle.segmentTextHorizontalPosition}
                   onChange={(e) =>
@@ -875,13 +875,13 @@ export function Inspector({
                     })
                   }
                 >
-                  <option value="start">Front</option>
-                  <option value="center">Center</option>
-                  <option value="end">Back</option>
+                  <option value="start">前段</option>
+                  <option value="center">中間</option>
+                  <option value="end">後段</option>
                 </select>
               </label>
               <label className="inspector-field">
-                Vertical
+                垂直位置
                 <select
                   value={resolvedStyle.segmentTextVerticalPosition}
                   onChange={(e) =>
@@ -891,13 +891,13 @@ export function Inspector({
                     })
                   }
                 >
-                  <option value="top">Top</option>
-                  <option value="middle">Middle</option>
-                  <option value="bottom">Bottom</option>
+                  <option value="top">上方</option>
+                  <option value="middle">置中</option>
+                  <option value="bottom">下方</option>
                 </select>
               </label>
               <label className="inspector-field">
-                Direction
+                文字方向
                 <select
                   value={resolvedStyle.segmentTextOrientation}
                   onChange={(e) =>
@@ -907,14 +907,14 @@ export function Inspector({
                     })
                   }
                 >
-                  <option value="horizontal">Horizontal</option>
-                  <option value="slope">Follow slope</option>
+                  <option value="horizontal">水平</option>
+                  <option value="slope">跟隨線條</option>
                 </select>
               </label>
             </div>
             <div className="inspector-color-grid">
               <ColorPaletteField
-                label="Background"
+                label="標籤背景"
                 options={SEGMENT_TEXT_BACKGROUND_OPTIONS}
                 selectedValue={segmentTextBackgroundColor}
                 tone="background"
@@ -923,7 +923,7 @@ export function Inspector({
                 }
               />
               <ColorPaletteField
-                label="Text"
+                label="文字顏色"
                 options={TEXT_COLOR_OPTIONS}
                 selectedValue={resolvedStyle.textColor}
                 tone="text"
@@ -932,7 +932,7 @@ export function Inspector({
             </div>
             <div className="inspector-grid">
               <label>
-                Font size
+                字級
                 <input
                   type="number"
                   min={12}

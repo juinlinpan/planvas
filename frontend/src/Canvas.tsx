@@ -1967,7 +1967,12 @@ export function Canvas({
                       fromPoint={connectorPoints.fromPoint}
                       toPoint={connectorPoints.toPoint}
                       isSelected={selectedIds.includes(item.id)}
+                      isEditing={item.id === editingId}
                       onMouseDown={(e) => handleArrowMouseDown(e, item.id)}
+                      onDoubleClick={() => handleItemDoubleClick(item)}
+                      onUpdate={setItemsAndSync}
+                      onEditEnd={() => setEditingId(null)}
+                      onContextMenu={(e) => handleItemContextMenu(e, item.id)}
                     />
                   );
                 }
