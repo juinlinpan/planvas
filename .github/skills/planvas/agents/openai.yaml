@@ -1,0 +1,4 @@
+interface:
+  display_name: "Planvas"
+  short_description: "Manage local Planvas projects and pages."
+  default_prompt: "Use $planvas to inspect a local Planvas project and summarize the active page."
