@@ -331,10 +331,9 @@ export class WhiteboardRepository {
       created_at: timestamp,
       updated_at: timestamp,
     };
-    const pageFile = uniquePath(
+    const pageFile = uniquePagePath(
       this.projectDataDir(projectDir),
       slugify(payload.name, 'page'),
-      '.xml',
     );
     metadata.pages.push({ ...page, file: path.basename(pageFile) });
     this.touchProject(metadata, timestamp);
@@ -459,10 +458,9 @@ export class WhiteboardRepository {
       }),
     );
 
-    const pageFile = uniquePath(
+    const pageFile = uniquePagePath(
       this.projectDataDir(projectDir),
       slugify(duplicatedName, 'page'),
-      '.xml',
     );
     metadata.pages.push({ ...duplicatedPage, file: path.basename(pageFile) });
     this.touchProject(metadata, timestamp);
@@ -1740,6 +1738,24 @@ function uniquePath(parent: string, stem: string, suffix = ''): string {
   return candidate;
 }
 
+function uniquePagePath(parent: string, stem: string): string {
+  let candidate = path.join(parent, `${stem}.xml`);
+  let index = 2;
+  while (pageXmlFilesExist(candidate)) {
+    candidate = path.join(parent, `${stem}-${index}.xml`);
+    index += 1;
+  }
+  return candidate;
+}
+
+function pageXmlFilesExist(pagePath: string): boolean {
+  return (
+    fs.existsSync(pagePath) ||
+    fs.existsSync(pageSemanticPath(pagePath)) ||
+    fs.existsSync(pagePresentationPath(pagePath))
+  );
+}
+
 function writeJsonAtomic(targetPath: string, payload: unknown): void {
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   const tempPath = path.join(
@@ -1953,6 +1969,40 @@ function semanticMeaningForConnector(item: BoardItem | undefined): string | null
   if (!item?.data_json) return null;
   const data = parseJsonObject(item.data_json);
   return typeof data.meaning === 'string' ? data.meaning : null;
+}
+
+function pageSemanticPath(pagePath: string): string {
+  return pageVariantPath(pagePath, 'semantic');
+}
+
+function pagePresentationPath(pagePath: string): string {
+  return pageVariantPath(pagePath, 'presentation');
+}
+
+function pageVariantPath(pagePath: string, variant: string): string {
+  const parsed = path.parse(pagePath);
+  const baseName = parsed.ext ? parsed.name : parsed.base;
+  return path.join(parsed.dir, `${baseName}.${variant}.xml`);
+}
+
+function writeXmlLinesAtomic(targetPath: string, lines: string[]): void {
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  const tempPath = path.join(
+    path.dirname(targetPath),
+    `.tmp-${randomUUID()}.xml`,
+  );
+  fs.writeFileSync(tempPath, lines.join('\n'), 'utf8');
+  fs.renameSync(tempPath, targetPath);
+}
+
+function deletePageXmlFiles(pagePath: string): void {
+  for (const targetPath of [
+    pagePath,
+    pageSemanticPath(pagePath),
+    pagePresentationPath(pagePath),
+  ]) {
+    fs.rmSync(targetPath, { force: true });
+  }
 }
 
 function sameStringSet(left: string[], right: string[]): boolean {

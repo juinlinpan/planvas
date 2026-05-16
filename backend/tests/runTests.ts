@@ -156,7 +156,19 @@ const tests: TestCase[] = [
             'project_store',
             'Roadmap-2026',
             '.pv_project',
-            'Quarter-Planning.xml',
+            'Quarter-Planning.semantic.xml',
+          ),
+        ),
+        true,
+      );
+      assert.equal(
+        fs.existsSync(
+          path.join(
+            settings.planvasRoot,
+            'project_store',
+            'Roadmap-2026',
+            '.pv_project',
+            'Quarter-Planning.presentation.xml',
           ),
         ),
         true,
@@ -298,7 +310,7 @@ const tests: TestCase[] = [
   {
     name: 'persists board items, connectors, and board-state replacements',
     run: async () => {
-      const { baseUrl } = await createTestServer();
+      const { baseUrl, settings } = await createTestServer();
       const project = (
         await requestJson<Project>(baseUrl, '/projects', {
           method: 'POST',
@@ -378,6 +390,60 @@ const tests: TestCase[] = [
           }),
         })
       ).data;
+      const tableChild = await createBoardItem(baseUrl, {
+        page_id: page.id,
+        parent_item_id: null,
+        category: 'small_item',
+        type: 'text_box',
+        title: 'Ticket seed',
+        content: 'Create Jira ticket',
+        content_format: 'plain_text',
+        x: 520,
+        y: 132,
+        width: 160,
+        height: 120,
+        rotation: 0,
+        z_index: 3,
+        is_collapsed: false,
+        style_json: null,
+        data_json: null,
+      });
+      const tableData = {
+        rows: 1,
+        cols: 1,
+        colWidths: [1],
+        rowHeights: [1],
+        cells: [
+          [
+            {
+              id: 'cell-ticket',
+              content: 'Todo',
+              rowSpan: 1,
+              colSpan: 1,
+              isCollapsed: true,
+              childItemIds: [tableChild.id],
+            },
+          ],
+        ],
+      };
+      const table = await createBoardItem(baseUrl, {
+        page_id: page.id,
+        parent_item_id: null,
+        category: 'shape',
+        type: 'table',
+        title: 'Sprint board',
+        content: null,
+        content_format: null,
+        x: 480,
+        y: 80,
+        width: 360,
+        height: 216,
+        rotation: 0,
+        z_index: 4,
+        is_collapsed: false,
+        style_json: null,
+        data_json: JSON.stringify(tableData),
+      });
 
       const snapshot = (
         await requestJson<PageBoardData>(
@@ -385,8 +451,56 @@ const tests: TestCase[] = [
           `/pages/${page.id}/board-data`,
         )
       ).data;
-      assert.equal(snapshot.board_items.length, 3);
+      assert.equal(snapshot.board_items.length, 5);
       assert.deepEqual(snapshot.connector_links, [connector]);
+
+      const projectDataDir = path.join(
+        settings.planvasRoot,
+        'project_store',
+        'Execution',
+        '.pv_project',
+      );
+      const semanticXml = fs.readFileSync(
+        path.join(projectDataDir, 'Main-Board.semantic.xml'),
+        'utf8',
+      );
+      const presentationXml = fs.readFileSync(
+        path.join(projectDataDir, 'Main-Board.presentation.xml'),
+        'utf8',
+      );
+      assert.match(semanticXml, /<page_semantic schema_version="2"/);
+      assert.match(semanticXml, /<objects>/);
+      assert.match(semanticXml, /<links>/);
+      assert.match(presentationXml, /<page_presentation schema_version="2"/);
+      assert.match(presentationXml, /<items>/);
+      assert.match(
+        semanticXml,
+        new RegExp(
+          `<object id="${frame.id}"[^>]*kind="large_object"[^>]*type="frame"[\\s\\S]*<contains>[\\s\\S]*<item ref="${note.id}" />`,
+        ),
+      );
+      assert.match(
+        semanticXml,
+        new RegExp(
+          `<object id="${table.id}"[^>]*kind="large_object"[^>]*type="table"[\\s\\S]*<cell id="cell-ticket"[^>]*>[\\s\\S]*<item ref="${tableChild.id}" />`,
+        ),
+      );
+      assert.match(
+        semanticXml,
+        new RegExp(
+          `<link id="${connector.id}"[^>]*connector_item_id="${arrow.id}"[^>]*from="${note.id}"[^>]*to="${frame.id}"`,
+        ),
+      );
+      assert.match(
+        semanticXml,
+        new RegExp(
+          `<object id="${note.id}"[\\s\\S]*<connections>[\\s\\S]*<connection to="${frame.id}" by="${connector.id}" role="outgoing" />`,
+        ),
+      );
+      assert.match(
+        presentationXml,
+        new RegExp(`<item ref="${note.id}"[^>]*x="${note.x}"[^>]*y="${note.y}"`),
+      );
 
       const stray = await createBoardItem(baseUrl, {
         page_id: page.id,
@@ -401,7 +515,7 @@ const tests: TestCase[] = [
         width: 160,
         height: 160,
         rotation: 0,
-        z_index: 3,
+        z_index: 5,
         is_collapsed: false,
         style_json: null,
         data_json: null,
@@ -422,7 +536,7 @@ const tests: TestCase[] = [
 
       assert.deepEqual(
         replace.data.board_items.map((item) => item.id).sort(),
-        [frame.id, note.id, arrow.id].sort(),
+        [frame.id, note.id, arrow.id, tableChild.id, table.id].sort(),
       );
       assert.equal(
         replace.data.board_items.some((item) => item.id === stray.id),
@@ -490,7 +604,7 @@ const tests: TestCase[] = [
         '# Created note\n\nBody text',
       );
       const pageXml = fs.readFileSync(
-        path.join(projectDataDir, 'Main.xml'),
+        path.join(projectDataDir, 'Main.semantic.xml'),
         'utf8',
       );
       assert.doesNotMatch(pageXml, /# Created note/);

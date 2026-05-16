@@ -65,6 +65,14 @@ note files are not deleted by Page item deletion. If a placement renames its
 `data_json.noteFile`, the repository moves the backing file and updates all
 Page placements that referenced the previous filename.
 
+Page XML is written in the Planvas v2 layout. The repository keeps the HTTP API
+shape stable, but persists each page as two sibling files:
+`<page_name>.semantic.xml` and `<page_name>.presentation.xml`. The semantic file
+stores board object content, frame containment, table cell containment, markdown
+note references, canonical links, and generated per-object `connections`
+indexes. The presentation file stores item geometry, z-order, collapsed state,
+styling, and other canvas rendering details.
+
 If `frontend/dist/index.html` exists, the backend also serves the built frontend
 bundle from `/` so the app can run on a single local port after `npm run build`.
 

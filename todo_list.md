@@ -4,7 +4,7 @@
 
 - [x] Replace SQLite-backed repository persistence with file-based Planvas project storage.
 - [x] Add default Planvas root resolution at `<user_home>/.planvas/`, with `WHITEBOARD_PLANVAS_ROOT` override.
-- [x] Store each Project as a working directory containing `.pv_project/metadata.json` and one XML file per Page under `.pv_project/`.
+- [x] Store each Project as a working directory containing `.pv_project/metadata.json` and two XML files per Page under `.pv_project/`.
 - [x] Treat `.pv_project/*.md` files as project note files and surface them as `note_paper` notes.
 - [x] Store `note_paper` markdown bodies in `.pv_project/*.md` files while keeping Page XML limited to placement data and a markdown file reference.
 - [x] Add a left-sidebar Notes box that lists all project markdown notes.
@@ -22,6 +22,26 @@
 - [x] Preserve existing backend HTTP API shapes while replacing the underlying storage engine.
 - [x] Update backend tests for Planvas storage initialization and restart persistence.
 - [x] Replace DB access with a filesystem repository.
+
+## Page XML v2 Semantic Storage Notes
+
+- [x] Define the Page XML v2 schema with separate `<page_name>.semantic.xml` and `<page_name>.presentation.xml` files.
+- [x] Move AI-readable board meaning into the semantic file, including object content, frame containment, table cell containment, and canonical links.
+- [x] Keep geometry, z-order, colors, fill patterns, shape details, and connector route points in the presentation file.
+- [x] Model semantic object kinds as `large_object`, `small_object`, and semantic `link`.
+- [x] Treat `frame` and `table` as `large_object` types.
+- [x] Treat `text_box`, `sticky_note`, and `note_paper` as `small_object` types.
+- [x] Treat `line` and `arrow` as semantic `link` records when they express a relationship.
+- [ ] Optionally keep decorative lines presentation-only in a later cleanup.
+- [x] Add semantic `frame` containment for direct `small_object` children.
+- [x] Add stable `table_cell` ids and semantic table cell containment for `small_object` children.
+- [x] Make semantic `links/link` records the canonical source of truth for relationships between objects or table cells.
+- [x] Generate or validate object-level `connections` indexes from canonical links so AI can quickly inspect incoming and outgoing relations.
+- [x] Preserve markdown-backed `note_paper` behavior by storing semantic note content as `content_ref type="markdown"` with the `.md` filename.
+- [x] Write new Page XML as v2 only; legacy v1 Page XML migration is intentionally out of scope for this change.
+- [x] Implement Page XML v2 writer output and reader round-trip for the existing HTTP API shape.
+- [x] Add tests for frame containment, table cell containment, semantic link canonical data, derived object connections, presentation-only lines, and markdown content references.
+- [ ] Update JSON export / import and future AI-readable snapshots to prefer the semantic layer while preserving current API compatibility.
 
 ## Navigation Update Notes
 
@@ -164,9 +184,9 @@
 
 - [x] Store Project records in `<project_name>/.pv_project/metadata.json`.
 - [x] Store Page records in the Project metadata page list.
-- [x] Store board items inside each Page XML file.
+- [x] Store board item semantic and presentation data inside each Page's two XML files.
 - [x] Store `note_paper` bodies in sibling markdown files and keep only `data_json.noteFile` references in Page XML.
-- [x] Store connector links inside each Page XML file.
+- [x] Store connector links inside each Page semantic XML file.
 - [x] Keep page / item / connector ids stable inside metadata and XML files.
 - [x] Replace DB access with a filesystem repository.
 - [x] 鋆??甈??揣撘?`project_id`?page_id`?parent_item_id`

@@ -5,6 +5,10 @@
 - `.pv_project` is a directory, not a file.
 - Project metadata lives at `<project_dir>/.pv_project/metadata.json`.
 - Page XML files live under `<project_dir>/.pv_project/`.
+- Each Page is stored as two Page XML v2 files: `<page_name>.semantic.xml` and `<page_name>.presentation.xml`.
+- Page XML v2 `semantic` files describe board objects, frame containment, table cell containment, and canonical links.
+- Page XML v2 `presentation` files describe geometry, z-order, colors, patterns, shape styling, and connector routing.
+- AI and automation workflows should read only the Page XML v2 `semantic` file plus referenced markdown files unless they need visual layout details.
 - Markdown note files live under `<project_dir>/.pv_project/` and are treated as `note_paper` notes.
 - `note_paper` body text is stored in `.md` files; Page XML stores a reference to the markdown file instead of the note body.
 - The workspace left sidebar has a Notes box listing `.pv_project/*.md` project notes.

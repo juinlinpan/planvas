@@ -138,7 +138,8 @@ Project content is stored as regular files. By default the backend creates:
 - `<user_home>/.planvas/project.json`
 - `<user_home>/.planvas/project_store/<project_name>/.pv_project/`
 - `<user_home>/.planvas/project_store/<project_name>/.pv_project/metadata.json`
-- `<user_home>/.planvas/project_store/<project_name>/.pv_project/<page_name>.xml`
+- `<user_home>/.planvas/project_store/<project_name>/.pv_project/<page_name>.semantic.xml`
+- `<user_home>/.planvas/project_store/<project_name>/.pv_project/<page_name>.presentation.xml`
 - `<user_home>/.planvas/project_store/<project_name>/.pv_project/<note_name>.md`
 - `backend/logs/app.log`
 - `backend/logs/backend.log`
@@ -147,10 +148,17 @@ Projects opened from other folders use the same `.pv_project/` data directory
 inside the selected folder, with metadata, page XML files, and markdown note
 files under it. Their paths are tracked in `project.json`.
 
+Page XML uses the v2 Planvas layout. Each page is stored as a semantic XML file
+and a presentation XML file. The semantic file stores board objects, frame
+containment, table cell containment, markdown note references, canonical links,
+and derived object connection indexes. AI and automation should read this file
+plus referenced markdown files. The presentation file stores geometry, z-order,
+collapsed state, styles, and visual routing data needed to restore the canvas.
+
 Markdown files placed directly in `.pv_project/` are treated as `note_paper`
 notes. Creating or editing a `note_paper` still uses the normal app UI and API,
 but the backend stores the markdown body in a sibling `.md` file; Page XML keeps
-the board placement plus a reference to that markdown file. Select a
+the semantic note reference plus the visual board placement. Select a
 `note_paper` and use the right inspector's `Markdown file` field to rename the
 backing `.md` file. The workspace sidebar lists those project notes and supports
 dragging a note onto any Page row to add a placement that references the same

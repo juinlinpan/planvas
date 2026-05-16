@@ -10,7 +10,19 @@
 - A `Project` is a working directory that may live either under `project_store/` or at an external user-selected path.
 - Each Project directory must contain `.pv_project/` as a Planvas data directory.
 - Project metadata must live at `.pv_project/metadata.json`.
-- Each Page must be stored as an XML file inside `.pv_project/`.
+- Each Page must be stored as two XML files inside `.pv_project/`: `<page_name>.semantic.xml` and `<page_name>.presentation.xml`.
+- Page XML v2 must separate AI-readable semantic data from visual presentation data at the file level.
+- Page XML v2 semantic files must describe the information inside the board and the relationships between board objects.
+- Page XML v2 presentation files must describe geometry, z-order, color, patterns, shape styling, and connector routing.
+- AI and automation workflows, including Jira ticket creation, should be able to read page meaning from the semantic file plus referenced markdown files without reading presentation data.
+- Page XML v2 semantic objects are grouped as `large_object`, `small_object`, and `link`.
+- `frame` and `table` are `large_object` types.
+- `text_box`, `sticky_note`, and `note_paper` are `small_object` types.
+- `line` and `arrow` are `link` types only when they express a relationship; purely decorative lines may remain presentation-only.
+- `frame` can contain `small_object` children directly through semantic containment.
+- `table` is a `large_object`, but each `table_cell` is the semantic container that can contain `small_object` children.
+- Semantic links are the canonical source of truth for object-to-object relationships.
+- Object-level `connections` entries may exist as AI-friendly indexes, but they must be generated from or validated against canonical semantic links.
 - Markdown files placed directly under `.pv_project/` are project note files and must be represented as `note_paper` notes by the system.
 - `note_paper` body content must be stored in `.md` files under `.pv_project/`; Page XML stores only the board item placement and a markdown file reference.
 - Creating a `note_paper` on a Page must create a corresponding `.md` file under `.pv_project/`.
@@ -654,3 +666,85 @@ MVP ?喳??嚗?
 5. ?拐辣??郊鋆?
 6. magnet ???
 7. Planvas file storage ????撽皜祈岫
+
+## 15. Page XML v2 Semantic Storage
+
+Page XML v2 must split each page into two sibling files:
+
+- `<page_name>.semantic.xml`: AI-readable board meaning, including object content, containment, table cell structure, and canonical links.
+- `<page_name>.presentation.xml`: visual rendering data, including position, size, rotation, z-order, colors, fill patterns, shape details, and connector routes.
+
+The semantic file is the preferred source for AI, automation, Jira ticket generation, summaries, and project reasoning. Those workflows should not need to read the presentation file unless they are answering a visual layout question.
+
+Semantic object kinds:
+
+- `large_object`: `frame`, `table`
+- `small_object`: `text_box`, `sticky_note`, `note_paper`
+- `link`: `line`, `arrow` when the connector expresses a semantic relationship
+
+Containment rules:
+
+- `frame` may contain `small_object` children directly.
+- `table` is a `large_object`; its cells are nested semantic containers.
+- `table_cell` may contain `small_object` children.
+- A `table_cell` should have a stable id so semantic links and presentation layout can reference the cell.
+- MVP table cells should contain only `small_object` children. Allowing nested `large_object` children may be considered later.
+
+Relationship rules:
+
+- `links/link` in the semantic file is the canonical source of truth for relationships between objects or cells.
+- Each link must have a stable `id`, `type`, `from`, and `to`.
+- Links may include `label` and `meaning`; `meaning` should use explicit values such as `dependency`, `blocked_by`, `workflow_transition`, `reference`, or `related`.
+- `line` records without object endpoints, labels, or explicit semantic meaning may stay presentation-only.
+- Objects and cells may include `connections` entries such as `<connection to="item-b" by="link-a" role="outgoing" />` as AI-friendly indexes.
+- Object-level `connections` must be derived from or validated against canonical links so the same relationship does not drift between two sources.
+
+Example target semantic file:
+
+```xml
+<page_semantic id="page-1" schema_version="2">
+  <objects>
+    <object id="frame-1" kind="large_object" type="frame">
+      <title>Sprint 12</title>
+      <contains>
+        <item ref="note-1" />
+        <item ref="note-2" />
+      </contains>
+      <connections>
+        <connection to="table-1" by="link-a" role="outgoing" />
+      </connections>
+    </object>
+
+    <object id="table-1" kind="large_object" type="table">
+      <title>Sprint board</title>
+      <table>
+        <row id="row-1" index="0">
+          <cell id="cell-1" row="0" column="0">
+            <text>Todo</text>
+            <contains>
+              <item ref="note-3" />
+            </contains>
+          </cell>
+        </row>
+      </table>
+    </object>
+  </objects>
+
+  <links>
+    <link id="link-a" type="arrow" from="frame-1" to="table-1">
+      <label>feeds into</label>
+      <meaning>dependency</meaning>
+    </link>
+  </links>
+</page_semantic>
+```
+
+Example target presentation file:
+
+```xml
+<page_presentation id="page-1" schema_version="2">
+  <items>
+    <item ref="frame-1" x="80" y="80" width="640" height="420" z_index="1" />
+  </items>
+</page_presentation>
+```
