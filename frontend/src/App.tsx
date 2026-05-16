@@ -47,6 +47,8 @@ import {
 import { exportPageAsPng } from './pagePngExport';
 import { exportPageAsPptx } from './pagePptxExport';
 import { exportPageAsMermaidMarkdown } from './pageMermaidExport';
+import { parseMermaidToBoardData } from './mermaidImport';
+import { MermaidImportModal } from './MermaidImportModal';
 import { buildAppRouteUrl, readAppRoute, type AppRoute } from './appRoute';
 import { resolveProjectEntryPageId } from './workspaceNavigation';
 import { getInlineDropPosition, type DropPosition } from './dragDrop';
@@ -481,6 +483,7 @@ export function App() {
   const [dragState, setDragState] = useState<SidebarDragState | null>(null);
   const [dropState, setDropState] = useState<SidebarDropState | null>(null);
   const [projectDeleteDialogOpen, setProjectDeleteDialogOpen] = useState(false);
+  const [mermaidImportDialogOpen, setMermaidImportDialogOpen] = useState(false);
   const [projectDeleteConfirmation, setProjectDeleteConfirmation] = useState('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() =>
     readStoredBoolean(SIDEBAR_COLLAPSED_STORAGE_KEY, false),
@@ -1378,12 +1381,16 @@ export function App() {
     });
   }
 
-  function handleImportPageButtonClick(): void {
+  function handleImportPageButtonClick(format: 'json' | 'mermaid'): void {
     if (selectedPage === null || isMutating) {
       return;
     }
 
-    pageImportInputRef.current?.click();
+    if (format === 'json') {
+      pageImportInputRef.current?.click();
+    } else if (format === 'mermaid') {
+      setMermaidImportDialogOpen(true);
+    }
   }
 
   async function handleImportPageInputChange(
@@ -1410,6 +1417,37 @@ export function App() {
         ...current,
         [selectedPage.id]: (current[selectedPage.id] ?? 0) + 1,
       }));
+    });
+  }
+
+  async function handleMermaidImportConfirm(
+    title: string,
+    code: string,
+  ): Promise<void> {
+    if (selectedProjectId === null) {
+      return;
+    }
+
+    await runMutation(async () => {
+      const page = await createPage(selectedProjectId, title);
+      setPages((current) => [...current, page]);
+
+      const parsedData = parseMermaidToBoardData(code);
+
+      const boardState: PageBoardData = {
+        board_items: parsedData.board_items.map((item) => ({
+          ...item,
+          page_id: page.id,
+        })),
+        connector_links: parsedData.connector_links.map((link) => ({
+          ...link,
+          page_id: page.id,
+        })),
+      };
+
+      await replacePageBoardState(page.id, boardState);
+      setSelectedPageId(page.id);
+      setMermaidImportDialogOpen(false);
     });
   }
 
@@ -2486,6 +2524,13 @@ export function App() {
             </div>
           </section>
         </div>
+      ) : null}
+      {mermaidImportDialogOpen ? (
+        <MermaidImportModal
+          isBusy={isMutating}
+          onConfirm={(title, code) => void handleMermaidImportConfirm(title, code)}
+          onCancel={() => setMermaidImportDialogOpen(false)}
+        />
       ) : null}
       {projectDeleteDialogOpen && selectedProject !== null ? (
         <div

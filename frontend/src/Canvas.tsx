@@ -134,7 +134,7 @@ type Props = {
   onViewportChange?: (viewport: Viewport) => void;
   onProjectNotesChanged?: () => void;
   onOpenNote?: (noteFile: string) => void;
-  onImportPage: () => void;
+  onImportPage: (format: 'json' | 'mermaid') => void;
   onExportPage: (format: 'json' | 'png' | 'pptx' | 'mermaid') => void;
   importExportDisabled: boolean;
   projectDefaultStyleJson?: string | null;
@@ -265,6 +265,7 @@ export function Canvas({
   const [contextMenu, setContextMenu] = useState<CanvasContextMenuState | null>(null);
   const [utilityMenuOpen, setUtilityMenuOpen] = useState<UtilityMenuId>(null);
   const [isExportSubmenuOpen, setIsExportSubmenuOpen] = useState(false);
+  const [isImportSubmenuOpen, setIsImportSubmenuOpen] = useState(false);
   const [isResetZoomPanelOpen, setIsResetZoomPanelOpen] = useState(false);
   const projectDefaultStyle = useMemo(
     () => parseProjectDefaultStyle(projectDefaultStyleJson),
@@ -593,6 +594,7 @@ export function Canvas({
       if (!utilityMenuRef.current?.contains(event.target as Node)) {
         setUtilityMenuOpen(null);
         setIsExportSubmenuOpen(false);
+        setIsImportSubmenuOpen(false);
       }
       if (!resetZoomPanelRef.current?.contains(event.target as Node)) {
         setIsResetZoomPanelOpen(false);
@@ -603,6 +605,7 @@ export function Canvas({
       if (event.key === 'Escape') {
         setUtilityMenuOpen(null);
         setIsExportSubmenuOpen(false);
+        setIsImportSubmenuOpen(false);
         setIsResetZoomPanelOpen(false);
       }
     }
@@ -1491,19 +1494,67 @@ export function Canvas({
             </button>
             {utilityMenuOpen === 'file' ? (
               <div className="toolbar-dropdown-panel" role="menu" aria-label="File menu">
-                <button
-                  type="button"
-                  className="toolbar-dropdown-item"
-                  role="menuitem"
-                  disabled={importExportDisabled}
-                  onMouseEnter={() => setIsExportSubmenuOpen(false)}
-                  onClick={() => {
-                    onImportPage();
-                    setUtilityMenuOpen(null);
+                <div
+                  className="toolbar-dropdown-item-submenu"
+                  onMouseEnter={() => {
+                    if (!importExportDisabled) {
+                      setIsImportSubmenuOpen(true);
+                    }
                   }}
+                  onMouseLeave={() => setIsImportSubmenuOpen(false)}
                 >
-                  Import
-                </button>
+                  <button
+                    type="button"
+                    className="toolbar-dropdown-item toolbar-dropdown-item-submenu-trigger"
+                    role="menuitem"
+                    disabled={importExportDisabled}
+                    aria-haspopup="menu"
+                    aria-expanded={isImportSubmenuOpen}
+                    onFocus={() => {
+                      if (!importExportDisabled) {
+                        setIsImportSubmenuOpen(true);
+                      }
+                    }}
+                    onClick={() => {
+                      if (!importExportDisabled) {
+                        setIsImportSubmenuOpen((current) => !current);
+                      }
+                    }}
+                  >
+                    <span>Import</span>
+                    <span className="toolbar-submenu-chevron">&gt;</span>
+                  </button>
+                  {isImportSubmenuOpen ? (
+                    <div className="toolbar-submenu-panel" role="menu" aria-label="Import formats">
+                      <button
+                        type="button"
+                        className="toolbar-dropdown-item"
+                        role="menuitem"
+                        disabled={importExportDisabled}
+                        onClick={() => {
+                          onImportPage('json');
+                          setUtilityMenuOpen(null);
+                          setIsImportSubmenuOpen(false);
+                        }}
+                      >
+                        JSON (.json)
+                      </button>
+                      <button
+                        type="button"
+                        className="toolbar-dropdown-item"
+                        role="menuitem"
+                        disabled={importExportDisabled}
+                        onClick={() => {
+                          onImportPage('mermaid');
+                          setUtilityMenuOpen(null);
+                          setIsImportSubmenuOpen(false);
+                        }}
+                      >
+                        Mermaid (.md)
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
                 <div
                   className="toolbar-dropdown-item-submenu"
                   onMouseEnter={() => {
