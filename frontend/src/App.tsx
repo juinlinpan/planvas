@@ -714,6 +714,21 @@ export function App() {
     );
   }, [isSidebarCollapsed]);
 
+  // When the user switches back to this tab, reload the current page so
+  // external changes (e.g. an AI agent writing board state) appear immediately.
+  useEffect(() => {
+    function handleVisibilityChange(): void {
+      if (document.visibilityState === 'visible' && selectedPageId !== null) {
+        setPageRefreshTokenById((current) => ({
+          ...current,
+          [selectedPageId]: (current[selectedPageId] ?? 0) + 1,
+        }));
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [selectedPageId]);
+
   useEffect(() => {
     if (selectedProjectId === null) {
       setPages([]);
