@@ -56,7 +56,7 @@ function waitForNextFrame(): Promise<void> {
   });
 }
 
-async function waitForExportLayout(): Promise<void> {
+export async function waitForExportLayout(): Promise<void> {
   if ('fonts' in document) {
     await document.fonts.ready;
   }
@@ -99,7 +99,7 @@ async function renderCanvasToPngBlob(
   return blob;
 }
 
-function createExportHost(width: number, height: number): HTMLDivElement {
+export function createExportHost(width: number, height: number): HTMLDivElement {
   const host = document.createElement('div');
   host.style.position = 'fixed';
   host.style.left = '-100000px';
@@ -113,7 +113,7 @@ function createExportHost(width: number, height: number): HTMLDivElement {
   return host;
 }
 
-function ExportSurface({
+export function ExportSurface({
   boardData,
   bounds,
 }: {

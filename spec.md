@@ -51,7 +51,9 @@
 - The top toolbar should follow an Office-like menu pattern where `瑼?` and `蝺刻摩` open dropdown menus after clicking the menu name.
 - `瑼?` dropdown should contain `import` and `export` entries instead of direct always-visible buttons.
 - `export` should open a right-side submenu on hover so future formats can be extended without changing menu hierarchy.
-- The `export` submenu should be planned around multiple targets: existing `JSON`, quick-share `PNG`, presentation-oriented `PPTX`, and a read-only `Viewer` deliverable.
+- The `export` submenu should be planned around multiple targets: existing `JSON`, quick-share `PNG`, presentation-oriented `PPTX`, a Mermaid markdown `Mermaid`, and a read-only `Viewer` deliverable.
+- The `Viewer (.html)` export produces a single self-contained HTML file: board items are rendered to static HTML via React DOM, all app CSS is inlined, and a vanilla JS layer supports mouse-drag pan, scroll-wheel zoom, and touch pinch-zoom; recipients can open the file in any browser without the app or backend.
+- The `Viewer` export is page-scoped and read-only; users cannot edit items or navigate to other pages from the viewer.
 - New export targets should reuse a shared snapshot source so format-specific output does not diverge from the persisted page / project model.
 - Canvas utility controls must live in the expandable canvas header ribbon, not in a separate right-upper floating strip.
 - The expanded header ribbon groups `瑼?`, `蝺刻摩`, and `瑼Ｚ?`; `瑼Ｚ?` contains `magnet`, `zoom`, and `?` controls.

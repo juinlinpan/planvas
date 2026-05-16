@@ -45,6 +45,7 @@ import {
 import { exportPageAsPng } from './pagePngExport';
 import { exportPageAsPptx } from './pagePptxExport';
 import { exportPageAsMermaidMarkdown } from './pageMermaidExport';
+import { exportPageAsViewer } from './pageViewerExport';
 import { buildAppRouteUrl, readAppRoute, type AppRoute } from './appRoute';
 import { resolveProjectEntryPageId } from './workspaceNavigation';
 import { getInlineDropPosition, type DropPosition } from './dragDrop';
@@ -1226,7 +1227,7 @@ export function App() {
     void handlePageDrop(currentDragState.itemId, targetId, position);
   }
 
-  function handleExportPageClick(format: 'json' | 'png' | 'pptx' | 'mermaid'): void {
+  function handleExportPageClick(format: 'json' | 'png' | 'pptx' | 'mermaid' | 'viewer'): void {
     if (selectedPage === null || isMutating) {
       return;
     }
@@ -1269,6 +1270,19 @@ export function App() {
             description: 'Mermaid Markdown',
             accept: {
               'text/markdown': ['.md'],
+            },
+          });
+          return;
+        }
+
+        if (format === 'viewer') {
+          const viewerBlob = await exportPageAsViewer(boardData, selectedPage.name);
+          await saveFileWithPicker({
+            data: viewerBlob,
+            suggestedName: `${safePageName}.html`,
+            description: 'Static HTML Viewer',
+            accept: {
+              'text/html': ['.html'],
             },
           });
           return;

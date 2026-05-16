@@ -133,7 +133,7 @@ type Props = {
   onProjectNotesChanged?: () => void;
   onOpenNote?: (noteFile: string) => void;
   onImportPage: () => void;
-  onExportPage: (format: 'json' | 'png' | 'pptx' | 'mermaid') => void;
+  onExportPage: (format: 'json' | 'png' | 'pptx' | 'mermaid' | 'viewer') => void;
   importExportDisabled: boolean;
 };
 type UtilityMenuId = 'file' | 'edit' | null;
@@ -1583,6 +1583,19 @@ export function Canvas({
                         }}
                       >
                         Mermaid (.md)
+                      </button>
+                      <button
+                        type="button"
+                        className="toolbar-dropdown-item"
+                        role="menuitem"
+                        disabled={importExportDisabled}
+                        onClick={() => {
+                          onExportPage('viewer');
+                          setUtilityMenuOpen(null);
+                          setIsExportSubmenuOpen(false);
+                        }}
+                      >
+                        Viewer (.html)
                       </button>
                     </div>
                   ) : null}
