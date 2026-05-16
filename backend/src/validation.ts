@@ -176,16 +176,24 @@ export function validateOrderedIds(value: unknown): OrderedIdsPayload {
   return { ordered_ids: orderedIds };
 }
 
+function categoryForType(type: string): string {
+  if (type === 'frame') return 'large_item';
+  if (type === 'line' || type === 'table') return 'shape';
+  if (type === 'arrow') return 'connector';
+  return 'small_item';
+}
+
 export function validateBoardItemPayload(value: unknown): BoardItemBase {
   const body = asRecord(value);
+  const type = requireString(body.type, ['body', 'type']);
   return {
     page_id: requireString(body.page_id, ['body', 'page_id']),
     parent_item_id: optionalString(body.parent_item_id, [
       'body',
       'parent_item_id',
     ]),
-    category: requireString(body.category, ['body', 'category']),
-    type: requireString(body.type, ['body', 'type']),
+    category: typeof body.category === 'string' && body.category ? body.category : categoryForType(type),
+    type,
     title: optionalString(body.title, ['body', 'title']),
     content: optionalString(body.content, ['body', 'content']),
     content_format: optionalString(body.content_format, [
@@ -204,7 +212,10 @@ export function validateBoardItemPayload(value: unknown): BoardItemBase {
   };
 }
 
-export function validateBoardStatePayload(value: unknown): {
+export function validateBoardStatePayload(
+  value: unknown,
+  pageId = '',
+): {
   board_items: BoardItem[];
   connector_links: ConnectorLink[];
 } {
@@ -229,11 +240,42 @@ export function validateBoardStatePayload(value: unknown): {
   }
   return {
     board_items: body.board_items.map((item, index) =>
-      validateBoardItem(item, ['body', 'board_items', index]),
+      validateBoardItemForBoardState(item, ['body', 'board_items', index], pageId),
     ),
     connector_links: body.connector_links.map((item, index) =>
       validateConnectorLink(item, ['body', 'connector_links', index]),
     ),
+  };
+}
+
+function validateBoardItemForBoardState(
+  value: unknown,
+  loc: Array<string | number>,
+  pageId: string,
+): BoardItem {
+  const body = asRecord(value);
+  const type = requireString(body.type, [...loc, 'type']);
+  const now = new Date().toISOString();
+  return {
+    id: requireString(body.id, [...loc, 'id']),
+    page_id: typeof body.page_id === 'string' && body.page_id ? body.page_id : pageId,
+    parent_item_id: optionalString(body.parent_item_id, [...loc, 'parent_item_id']),
+    category: typeof body.category === 'string' && body.category ? body.category : categoryForType(type),
+    type,
+    title: optionalString(body.title, [...loc, 'title']),
+    content: optionalString(body.content, [...loc, 'content']),
+    content_format: optionalString(body.content_format, [...loc, 'content_format']),
+    x: requireNumber(body.x, [...loc, 'x']),
+    y: requireNumber(body.y, [...loc, 'y']),
+    width: requireNumber(body.width, [...loc, 'width']),
+    height: requireNumber(body.height, [...loc, 'height']),
+    rotation: requireNumber(body.rotation, [...loc, 'rotation']),
+    z_index: requireInteger(body.z_index, [...loc, 'z_index']),
+    is_collapsed: typeof body.is_collapsed === 'boolean' ? body.is_collapsed : false,
+    style_json: optionalString(body.style_json, [...loc, 'style_json']),
+    data_json: optionalString(body.data_json, [...loc, 'data_json']),
+    created_at: typeof body.created_at === 'string' && body.created_at ? body.created_at : now,
+    updated_at: typeof body.updated_at === 'string' && body.updated_at ? body.updated_at : now,
   };
 }
 

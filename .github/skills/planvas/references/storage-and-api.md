@@ -54,69 +54,66 @@ The `file` field is the page backing stem used to find sibling XML variants. A p
 
 The semantic file is the AI-readable source of truth for board meaning.
 
-### Required `<object>` attributes
+### `<object>` required attributes
 
-Every `<object>` in the semantic file **must** carry all of these attributes — omitting any one causes a 500 error when the backend parses the file:
+Only two attributes are required when writing XML directly:
 
 | Attribute | Required | Notes |
 |-----------|----------|-------|
 | `id` | ✓ | stable unique id |
-| `page_id` | ✓ | the page's uuid |
-| `parent_item_id` | ✓ | `""` when top-level, frame id when contained |
-| `kind` | ✓ | `small_object`, `large_object`, or `link` |
-| `category` | ✓ | `small_item`, `large_item`, `shape`, or `connector` |
 | `type` | ✓ | `text_box`, `sticky_note`, `note_paper`, `frame`, `table`, `line`, `arrow` |
-| `created_at` | ✓ | ISO-8601 with timezone, e.g. `2026-01-01T00:00:00+00:00` |
-| `updated_at` | ✓ | ISO-8601 with timezone |
+| `parent_item_id` | only when inside a frame | the frame's id |
 
-`category` must be consistent with `type`:
-- `shape`: `line`, `table`
-- `small_item`: `text_box`, `sticky_note`, `note_paper`
-- `large_item`: `frame`
-- `connector`: `arrow`
+Everything else (`page_id`, `kind`, `category`, `created_at`, `updated_at`) is **auto-derived by the backend** and must not be specified to keep XML minimal. The backend rejects nothing by omission for these fields.
 
 ### Connector items belong in `<objects>` too
 
-`arrow` connectors appear **both** in `<objects>` (as a regular object with `kind="link"`, `category="connector"`, `type="arrow"`) **and** as a `<link>` inside `<links>`. Putting them only in `<links>` and omitting them from `<objects>` will cause the board to load with 0 connector items even though the link records exist.
+`arrow` connectors appear **both** in `<objects>` (as `<object id="..." type="arrow">`) **and** as a `<link>` inside `<links>`. Putting them only in `<links>` causes the board to load with 0 visible connectors.
 
-### Full semantic XML example
+### Minimal semantic XML
 
 ```xml
-<page_semantic id="{page_id}" schema_version="2">
+<?xml version="1.0" encoding="utf-8"?>
+<page_semantic schema_version="2" id="{page_id}" ...>
   <objects>
-    <!-- regular node -->
-    <object id="node-1" page_id="{page_id}" parent_item_id=""
-            kind="small_object" category="small_item" type="text_box"
-            created_at="2026-01-01T00:00:00+00:00" updated_at="2026-01-01T00:00:00+00:00">
+    <object id="node-1" type="text_box">
       <title>Step A</title>
       <content>Do something</content>
       <content_format />
       <data_json />
     </object>
-    <!-- arrow connector — must also appear in <objects> -->
-    <object id="con-1" page_id="{page_id}" parent_item_id=""
-            kind="link" category="connector" type="arrow"
-            created_at="2026-01-01T00:00:00+00:00" updated_at="2026-01-01T00:00:00+00:00">
-      <title />
+    <!-- frame with children -->
+    <object id="grp-1" type="frame">
+      <title>Group</title>
       <content />
+      <content_format />
+      <data_json />
+      <contains>
+        <item ref="child-1" />
+      </contains>
+    </object>
+    <object id="child-1" parent_item_id="grp-1" type="text_box">
+      <title>Inside frame</title>
+      <content />
+      <content_format />
+      <data_json />
+    </object>
+    <!-- arrow — must appear here AND in <links> -->
+    <object id="con-1" type="arrow">
+      <title />
+      <content>label</content>
       <content_format />
       <data_json />
     </object>
   </objects>
   <links>
-    <link id="lnk-1" type="arrow" connector_item_id="con-1" from="node-1" to="node-2">
-      <label />
-      <meaning>dependency</meaning>
+    <link id="lnk-1" type="arrow" connector_item_id="con-1"
+          from="node-1" to="grp-1" from_anchor="" to_anchor="">
+      <label>label</label>
     </link>
   </links>
 </page_semantic>
 ```
-
-Object kinds:
-
-- `large_object`: `frame`, `table`
-- `small_object`: `text_box`, `sticky_note`, `note_paper`
-- `link`: `line`, `arrow` when they express a relationship
 
 Containment:
 
@@ -129,13 +126,12 @@ Relationships:
 
 - `links/link` is canonical.
 - `connection` elements on objects are AI-friendly derived indexes and must match canonical links.
-- Common `meaning` values include `dependency`, `blocked_by`, `workflow_transition`, `reference`, and `related`.
-- Decorative lines with no endpoint, label, or semantic meaning may be presentation-only.
+- Common `meaning` values: `dependency`, `blocked_by`, `workflow_transition`, `reference`, `related`.
 
 Markdown notes:
 
 ```xml
-<object id="..." kind="small_object" type="note_paper">
+<object id="..." type="note_paper">
   <title>...</title>
   <content_ref type="markdown" file="note.md" />
 </object>
@@ -147,9 +143,7 @@ Read or update `.pv_project/note.md` for the note body. Do not persist the markd
 
 Read presentation only for visual tasks. It stores geometry, z-order, collapse state, styles, and connector route data.
 
-### Required `<item>` attributes and children
-
-Every `<item>` **must** have these attributes — omitting `rotation` causes a 500 error:
+### `<item>` required attributes and children
 
 | Attribute | Required | Notes |
 |-----------|----------|-------|
@@ -158,11 +152,11 @@ Every `<item>` **must** have these attributes — omitting `rotation` causes a 5
 | `y` | ✓ | canvas y position in px |
 | `width` | ✓ | px |
 | `height` | ✓ | px |
-| `rotation` | ✓ | degrees, use `0` when not rotated |
+| `rotation` | ✓ | degrees; use `0` when not rotated |
 | `z_index` | ✓ | integer stacking order |
 | `is_collapsed` | — | `false` by default |
 
-`style_json` is a **child element**, not an attribute. Do not write it as `style_json="{...}"` — the backend ignores attribute-form style_json and the item renders with no style:
+`style_json` must be a **child element**, not an attribute:
 
 ```xml
 <!-- correct -->
@@ -170,7 +164,7 @@ Every `<item>` **must** have these attributes — omitting `rotation` causes a 5
   <style_json>{"backgroundColor":"#d6e4fa","textColor":"#1f2937"}</style_json>
 </item>
 
-<!-- WRONG — style is silently ignored -->
+<!-- WRONG — style silently ignored -->
 <item ref="node-1" x="80" y="80" width="240" height="120" rotation="0" z_index="1"
       style_json="{&quot;backgroundColor&quot;:&quot;#d6e4fa&quot;}" />
 ```
@@ -224,9 +218,9 @@ Board item fields:
 ```ts
 {
   id: string;
-  page_id: string;
+  page_id: string;          // auto-filled from URL if omitted
   parent_item_id: string | null;
-  category: string;
+  category: string;         // auto-derived from type if omitted
   type: string;
   title: string | null;
   content: string | null;
@@ -237,20 +231,21 @@ Board item fields:
   height: number;
   rotation: number;
   z_index: number;
-  is_collapsed: boolean;
+  is_collapsed: boolean;    // defaults to false if omitted
   style_json: string | null;
   data_json: string | null;
-  created_at: string;
-  updated_at: string;
+  created_at: string;       // defaults to now if omitted
+  updated_at: string;       // defaults to now if omitted
 }
 ```
 
-Common categories and types:
+Item types and what they are:
 
-- `shape`: `line`, `table`
-- `small_item`: `text_box`, `sticky_note`, `note_paper`
-- `large_item`: `frame`
-- `connector`: `arrow`
+- `text_box`, `sticky_note`, `note_paper` — text content nodes
+- `frame` — collapsible group container
+- `table` — grid
+- `arrow` — directional connector (also needs a `connector_link` entry)
+- `line` — decorative non-directional line
 
 ## Creating Canvas Diagrams And Icons
 
@@ -263,38 +258,39 @@ GET /pages/{page_id}/board-data
 PUT /pages/{page_id}/board-state
 ```
 
-The `PUT` payload must include every current board item and connector link, plus the new/updated objects:
+The `PUT` payload must include every current board item and connector link, plus the new/updated objects. Minimal required fields for each item:
 
 ```json
 {
   "board_items": [
     {
-      "id": "node-frontend",
-      "page_id": "page-1",
-      "parent_item_id": null,
-      "category": "small_item",
+      "id": "node-1",
       "type": "text_box",
       "title": "Frontend",
       "content": "React UI",
-      "content_format": "plain_text",
-      "x": 120,
-      "y": 120,
-      "width": 180,
-      "height": 80,
-      "rotation": 0,
-      "z_index": 10,
-      "is_collapsed": false,
-      "style_json": "{\"backgroundColor\":\"#d6e4fa\",\"textColor\":\"#1f2937\"}",
-      "data_json": null,
-      "created_at": "2026-01-01T00:00:00+00:00",
-      "updated_at": "2026-01-01T00:00:00+00:00"
+      "x": 120, "y": 120, "width": 180, "height": 80,
+      "rotation": 0, "z_index": 10,
+      "style_json": "{\"backgroundColor\":\"#d6e4fa\"}"
+    },
+    {
+      "id": "con-1",
+      "type": "arrow",
+      "x": 0, "y": 0, "width": 0, "height": 0,
+      "rotation": 0, "z_index": 1
     }
   ],
-  "connector_links": []
+  "connector_links": [
+    {
+      "id": "lnk-1",
+      "connector_item_id": "con-1",
+      "from_item_id": "node-1",
+      "to_item_id": "node-2"
+    }
+  ]
 }
 ```
 
-Use existing ids and timestamps for unchanged items. Generate stable unique ids for new items. Put visual coordinates, size, z-order, collapse state, and style in the board item/presentation data. Put meaning, labels, containment, and relationships in semantic XML or connector links.
+Omitted fields are auto-filled: `page_id` from the URL, `category` from `type`, `is_collapsed` → `false`, `created_at`/`updated_at` → current time.
 
 For simple icons, prefer Planvas-native objects instead of external image files:
 

@@ -280,7 +280,7 @@ function buildRoutes(): Route[] {
       method: 'PUT',
       pattern: /^\/pages\/(?<pageId>[^/]+)\/board-state$/,
       handler: ({ repository, body }, { params }) => {
-        const payload = validateBoardStatePayload(body);
+        const payload = validateBoardStatePayload(body, params.pageId);
         return repository.replacePageBoardState(
           params.pageId,
           payload.board_items,
