@@ -1,31 +1,71 @@
 import { type BoardItem, type ConnectorLink } from './api';
 import { ITEM_TYPE, ITEM_CATEGORY_FOR_TYPE, ITEM_DEFAULT_SIZE } from './types';
+import { buildSegmentGeometry } from './segmentData';
 
 /**
  * Parses a simple Mermaid flowchart string into board items and connector links.
  * Supports:
  * - Nodes: id, id[Label], id(Label), id((Label)), id{Label}, id[[Label]], id([Label])
- * - Edges: id1 --> id2, id1 -- "Label" --> id2, id1 --- id2
+ * - Edges: id1 --> id2, id1 -- "Label" --> id2, id1 --- id2, id1 -->|Label| id2
  */
 export function parseMermaidToBoardData(code: string): {
   board_items: BoardItem[];
   connector_links: ConnectorLink[];
 } {
-  const lines = code.split('\n');
+  const lines = code.split('\n').map(l => l.trim());
   const board_items: BoardItem[] = [];
   const connector_links: ConnectorLink[] = [];
   const nodeMap = new Map<string, BoardItem>();
 
+  // 1. Detect Orientation
+  let orientation = 'LR'; // Default
+  for (const line of lines) {
+    if (line.startsWith('flowchart') || line.startsWith('graph')) {
+      const parts = line.split(/\s+/);
+      if (parts.length > 1) {
+        const dir = parts[1].toUpperCase();
+        if (['TD', 'TB', 'LR', 'RL', 'BT'].includes(dir)) {
+          orientation = dir;
+          break;
+        }
+      }
+    }
+  }
+
+  // 2. Node Placement Helper
   let nodeCounter = 0;
   const getPosition = () => {
-    const col = nodeCounter % 5;
-    const row = Math.floor(nodeCounter / 5);
+    let x, y;
+    if (orientation === 'TD' || orientation === 'TB') {
+      // Flow downwards: row increases first, then col
+      const row = nodeCounter % 6;
+      const col = Math.floor(nodeCounter / 6);
+      x = col * 400 + 100;
+      y = row * 450 + 100;
+    } else if (orientation === 'BT') {
+      // Flow upwards
+      const row = nodeCounter % 6;
+      const col = Math.floor(nodeCounter / 6);
+      x = col * 400 + 100;
+      y = 1200 - row * 450;
+    } else if (orientation === 'RL') {
+      // Flow leftwards
+      const col = nodeCounter % 6;
+      const row = Math.floor(nodeCounter / 6);
+      x = 2400 - col * 450;
+      y = row * 350 + 100;
+    } else {
+      // Default LR: Flow rightwards: col increases first, then row
+      const col = nodeCounter % 6;
+      const row = Math.floor(nodeCounter / 6);
+      x = col * 450 + 100;
+      y = row * 350 + 100;
+    }
     nodeCounter++;
-    return { x: col * 350 + 100, y: row * 300 + 100 };
+    return { x, y };
   };
 
-  // Node regex: ID followed by optional [Label], (Label), etc.
-  // Group 1: ID, Group 2: Start bracket, Group 3: Label
+  // 3. Node Parsing Helper
   const nodeRegex = /^([\w-]+)\s*(?:(\[\[|\(\(|\{\{|\(\[|\[\(|\[|\(|\{)\s*"?\s*(.+?)\s*"?\s*(?:\]\]|\)\)|\}\)|\]\)|\)\]|\]|\)|\}))?$/;
 
   const ensureNode = (id: string, label?: string, startBracket?: string) => {
@@ -46,7 +86,7 @@ export function parseMermaidToBoardData(code: string): {
         category: ITEM_CATEGORY_FOR_TYPE[type],
         type: type as any,
         title: label || id,
-        content: null,
+        content: label || id,
         content_format: 'markdown',
         x: pos.x,
         y: pos.y,
@@ -65,6 +105,7 @@ export function parseMermaidToBoardData(code: string): {
     } else if (label) {
       const existing = nodeMap.get(id)!;
       existing.title = label;
+      existing.content = label;
       if (startBracket === '(' || startBracket === '((') {
         existing.type = ITEM_TYPE.sticky_note as any;
         existing.category = ITEM_CATEGORY_FOR_TYPE[ITEM_TYPE.sticky_note];
@@ -84,23 +125,22 @@ export function parseMermaidToBoardData(code: string): {
       const [, id, startBracket, label] = match;
       return ensureNode(id, label, startBracket);
     }
-    // Bare ID
     if (/^[\w-]+$/.test(trimmed)) {
       return ensureNode(trimmed);
     }
     return null;
   };
 
+  // 4. Main Parsing Loop
   for (let line of lines) {
-    line = line.trim();
     if (!line || line.startsWith('flowchart') || line.startsWith('graph')) {
       continue;
     }
 
-    // Edge patterns to split by
     const edgePatterns = [
       { regex: /\s*--\s*"?\s*(.+?)\s*"?\s*-->\s*/, hasLabel: true },
       { regex: /\s*--\s*"?\s*(.+?)\s*"?\s*---\s*/, hasLabel: true },
+      { regex: /\s*-->\s*\|(.+?)\|\s*/, hasLabel: true },
       { regex: /\s*-->\s*/, hasLabel: false },
       { regex: /\s*---\s*/, hasLabel: false },
     ];
@@ -118,7 +158,36 @@ export function parseMermaidToBoardData(code: string): {
           if (fromNode && toNode) {
             const arrowId = `edge-${Math.random().toString(36).substring(2, 11)}`;
             
-            // 1. Create the arrow BoardItem
+            let fromAnchor = 'right';
+            let toAnchor = 'left';
+
+            if (orientation === 'TD' || orientation === 'TB') {
+              fromAnchor = 'bottom';
+              toAnchor = 'top';
+            } else if (orientation === 'BT') {
+              fromAnchor = 'top';
+              toAnchor = 'bottom';
+            } else if (orientation === 'RL') {
+              fromAnchor = 'left';
+              toAnchor = 'right';
+            }
+
+            const getAnchorPoint = (node: BoardItem, anchor: string) => {
+               if (anchor === 'left') return { x: node.x, y: node.y + node.height / 2 };
+               if (anchor === 'right') return { x: node.x + node.width, y: node.y + node.height / 2 };
+               if (anchor === 'top') return { x: node.x + node.width / 2, y: node.y };
+               if (anchor === 'bottom') return { x: node.x + node.width / 2, y: node.y + node.height };
+               return { x: node.x + node.width / 2, y: node.y + node.height / 2 };
+            };
+
+            const sp = getAnchorPoint(fromNode, fromAnchor);
+            const ep = getAnchorPoint(toNode, toAnchor);
+
+            const geometry = buildSegmentGeometry(sp, ep, null, 
+              { itemId: fromNode.id, anchor: fromAnchor },
+              { itemId: toNode.id, anchor: toAnchor }
+            );
+
             const arrowItem: BoardItem = {
               id: arrowId,
               page_id: '',
@@ -128,34 +197,22 @@ export function parseMermaidToBoardData(code: string): {
               title: null,
               content: label || null,
               content_format: null,
-              x: (fromNode.x + toNode.x) / 2,
-              y: (fromNode.y + toNode.y) / 2,
-              width: ITEM_DEFAULT_SIZE[ITEM_TYPE.arrow].width,
-              height: ITEM_DEFAULT_SIZE[ITEM_TYPE.arrow].height,
-              rotation: 0,
+              ...geometry,
               z_index: 0,
               is_collapsed: false,
               style_json: null,
-              data_json: JSON.stringify({
-                kind: 'segment',
-                start: { x: fromNode.x + fromNode.width, y: fromNode.y + fromNode.height / 2 },
-                end: { x: toNode.x, y: toNode.y + toNode.height / 2 },
-                startConnection: { itemId: fromNode.id, anchor: 'right' },
-                endConnection: { itemId: toNode.id, anchor: 'left' }
-              }),
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             };
             board_items.push(arrowItem);
 
-            // 2. Create the ConnectorLink
             connector_links.push({
               id: `link-${Math.random().toString(36).substring(2, 11)}`,
               connector_item_id: arrowId,
               from_item_id: fromNode.id,
               to_item_id: toNode.id,
-              from_anchor: 'right',
-              to_anchor: 'left',
+              from_anchor: fromAnchor as any,
+              to_anchor: toAnchor as any,
             });
             edgeFound = true;
             break;

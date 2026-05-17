@@ -20,9 +20,9 @@ graph TD
     const nodes = data.board_items.filter(i => i.type !== ITEM_TYPE.arrow);
     const arrows = data.board_items.filter(i => i.type === ITEM_TYPE.arrow);
 
-    expect(nodes.find(n => n.title === 'Start')).toBeDefined();
-    expect(nodes.find(n => n.title === 'Process')).toBeDefined();
-    expect(nodes.find(n => n.title === 'End')).toBeDefined();
+    expect(nodes.find(n => n.content === 'Start')).toBeDefined();
+    expect(nodes.find(n => n.content === 'Process')).toBeDefined();
+    expect(nodes.find(n => n.content === 'End')).toBeDefined();
 
     expect(arrows.length).toBe(2);
     expect(arrows[0].content).toBe(null);
@@ -36,6 +36,10 @@ graph TD
     const arrowWithLabel = arrows.find(a => a.content === 'Success');
     expect(arrowWithLabel?.data_json).toContain('startConnection');
     expect(arrowWithLabel?.data_json).toContain('endConnection');
+    
+    // Check if geometry is using local coordinates (should be around SEGMENT_ITEM_PADDING)
+    const parsedData = JSON.parse(arrowWithLabel!.data_json!);
+    expect(parsedData.start.x).toBeLessThan(100); // Local coord, not world coord
   });
 
   it('handles node styles (bracket types)', () => {
@@ -48,12 +52,23 @@ flowchart LR
     const data = parseMermaidToBoardData(code);
     const nodes = data.board_items;
     
-    const n1 = nodes.find(n => n.title === 'Note Paper');
-    const n2 = nodes.find(n => n.title === 'Sticky Note');
-    const n3 = nodes.find(n => n.title === 'Text Box');
+    const n1 = nodes.find(n => n.content === 'Note Paper');
+    const n2 = nodes.find(n => n.content === 'Sticky Note');
+    const n3 = nodes.find(n => n.content === 'Text Box');
 
     expect(n1?.type).toBe(ITEM_TYPE.note_paper);
     expect(n2?.type).toBe(ITEM_TYPE.sticky_note);
     expect(n3?.type).toBe(ITEM_TYPE.text_box);
+  });
+
+  it('handles A -->|label| B syntax', () => {
+    const code = `
+graph LR
+  A -->|Action| B
+    `;
+    const data = parseMermaidToBoardData(code);
+    const arrows = data.board_items.filter(i => i.type === ITEM_TYPE.arrow);
+    expect(arrows.length).toBe(1);
+    expect(arrows[0].content).toBe('Action');
   });
 });

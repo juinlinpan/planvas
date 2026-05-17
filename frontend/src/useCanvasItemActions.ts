@@ -605,6 +605,41 @@ export function useCanvasItemActions({
     setEditingId(null);
   }, [editSessionRef, setEditingId]);
 
+  const handleTransformToNote = useCallback(
+    async (itemId: string) => {
+      const item = itemsRef.current.find((it) => it.id === itemId);
+      if (!item || item.type !== ITEM_TYPE.sticky_note) {
+        return;
+      }
+
+      const snapshotBeforeTransform = captureBoardSnapshot();
+      pushUndoSnapshot(snapshotBeforeTransform);
+
+      const content = item.content ?? '';
+      const hasH1 = content.trim().startsWith('#');
+      const transformedContent = hasH1 ? content : `# Untitled Note\n\n${content}`;
+
+      const updated: BoardItem = {
+        ...item,
+        type: ITEM_TYPE.note_paper,
+        content: transformedContent,
+        content_format: 'markdown',
+      };
+
+      setItemsAndSync((current) =>
+        current.map((it) => (it.id === itemId ? updated : it)),
+      );
+
+      try {
+        await updateBoardItem(updated.id, toPayload(updated));
+        onProjectNotesChanged?.();
+      } catch (err) {
+        console.error('[Canvas] Failed to transform sticky to note', err);
+      }
+    },
+    [captureBoardSnapshot, itemsRef, onProjectNotesChanged, pushUndoSnapshot, setItemsAndSync],
+  );
+
   return {
     handleCreateItem,
     handleCreateSegmentItem,
@@ -617,5 +652,6 @@ export function useCanvasItemActions({
     handleLayerChange,
     handleItemUpdate,
     handleEditEnd,
+    handleTransformToNote,
   };
 }

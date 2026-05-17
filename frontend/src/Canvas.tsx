@@ -32,7 +32,6 @@ import {
   getUniqueItemIds,
   isFrame,
   isHiddenByCollapsedFrame,
-  isInlineEditable,
   isSmallItem,
   summarizeFrameChild,
   type AnchorHit,
@@ -534,6 +533,7 @@ export function Canvas({
     handleLayerChange,
     handleItemUpdate,
     handleEditEnd,
+    handleTransformToNote,
   } = useCanvasItemActions({
     pageId: page.id,
     itemsRef,
@@ -1075,6 +1075,7 @@ export function Canvas({
         canSendBackward: false,
         canBringToFront: false,
         canSendToBack: false,
+        isStickyNoteOnly: false,
       });
     },
     [hasClipboardData],
@@ -1102,6 +1103,11 @@ export function Canvas({
       );
       const canBringForward = lastMovingIndex < ordered.length - 1;
       const canSendBackward = ordered.findIndex((item) => movingSet.has(item.id)) > 0;
+
+      const isStickyNoteOnly = isSelectedItem
+        ? selectedIdsRef.current.every(id => itemsRef.current.find(it => it.id === id)?.type === ITEM_TYPE.sticky_note)
+        : itemsRef.current.find(it => it.id === itemId)?.type === ITEM_TYPE.sticky_note;
+
       setEditingId(null);
       setContextMenu({
         clientX: event.clientX,
@@ -1113,6 +1119,7 @@ export function Canvas({
         canSendBackward,
         canBringToFront: canBringForward,
         canSendToBack: canSendBackward,
+        isStickyNoteOnly: isStickyNoteOnly ?? false,
       });
     },
     [hasClipboardData, setSelection],
@@ -1149,6 +1156,15 @@ export function Canvas({
     setContextMenu(null);
     void handleDeleteSelection();
   }, [handleDeleteSelection]);
+
+  const handleContextMenuTransformToNote = useCallback(() => {
+    const targetId = getPrimarySelectionId(selectedIdsRef.current);
+    if (targetId === null) {
+      return;
+    }
+    setContextMenu(null);
+    void handleTransformToNote(targetId);
+  }, [handleTransformToNote]);
 
   const handleContextMenuBringForward = useCallback(() => {
     handleLayerChange('bringForward');
@@ -1205,6 +1221,7 @@ export function Canvas({
       sendBackward: handleContextMenuSendBackward,
       bringToFront: handleContextMenuBringToFront,
       sendToBack: handleContextMenuSendToBack,
+      transformToNote: handleContextMenuTransformToNote,
     }),
     [
       handleContextMenuCopy,
@@ -1215,6 +1232,7 @@ export function Canvas({
       handleContextMenuPaste,
       handleContextMenuSendBackward,
       handleContextMenuSendToBack,
+      handleContextMenuTransformToNote,
     ],
   );
 
@@ -1227,6 +1245,7 @@ export function Canvas({
     sendBackward: '移下一層',
     bringToFront: '移到最頂',
     sendToBack: '移到最底',
+    transformToNote: '轉換為筆記 (Note)',
   };
 
   const contextMenuActionShortcuts: Record<CanvasContextMenuActionKey, string> = {
@@ -1238,6 +1257,7 @@ export function Canvas({
     sendBackward: '',
     bringToFront: '',
     sendToBack: '',
+    transformToNote: '',
   };
 
   const contextMenuNode =
@@ -2095,26 +2115,6 @@ export function Canvas({
                   />
                 </div>
               ) : null}
-              {/* Connector anchor indicators on nearby items */}
-              {anchorIndicatorItems.map((item) =>
-                getItemConnectorAnchors(item).map(({ anchor, point }) => {
-                  const isActive =
-                    activeAnchorHit !== null &&
-                    activeAnchorHit.itemId === item.id &&
-                    activeAnchorHit.anchor === anchor;
-                  return (
-                    <div
-                      key={`anchor-${item.id}-${anchor}`}
-                      className={`connector-anchor-indicator ${isActive ? 'is-active' : ''}`}
-                      style={{
-                        left: point.x,
-                        top: point.y,
-                      }}
-                    />
-                  );
-                }),
-              )}
-
               {/* Connector anchor indicators on nearby items */}
               {anchorIndicatorItems.map((item) =>
                 getItemConnectorAnchors(item).map(({ anchor, point }) => {

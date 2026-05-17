@@ -10,6 +10,7 @@ export type CanvasContextMenuState = {
   canSendBackward: boolean;
   canBringToFront: boolean;
   canSendToBack: boolean;
+  isStickyNoteOnly: boolean;
 };
 
 export type CanvasContextMenuActionKey =
@@ -20,7 +21,8 @@ export type CanvasContextMenuActionKey =
   | 'bringForward'
   | 'sendBackward'
   | 'bringToFront'
-  | 'sendToBack';
+  | 'sendToBack'
+  | 'transformToNote';
 
 const MENU_MARGIN = 12;
 const MENU_WIDTH = 220;
@@ -34,7 +36,7 @@ export function getCanvasContextMenuActionKeys(
   state: CanvasContextMenuState,
 ): CanvasContextMenuActionKey[] {
   if (state.scope === 'selection') {
-    return [
+    const actions: CanvasContextMenuActionKey[] = [
       'cut',
       'copy',
       'paste',
@@ -44,6 +46,12 @@ export function getCanvasContextMenuActionKeys(
       'bringToFront',
       'sendToBack',
     ];
+
+    if (state.selectionCount === 1 && state.isStickyNoteOnly) {
+      actions.push('transformToNote');
+    }
+
+    return actions;
   }
 
   return ['paste'];
@@ -68,6 +76,8 @@ export function isCanvasContextMenuActionDisabled(
       return !state.canBringToFront;
     case 'sendToBack':
       return !state.canSendToBack;
+    case 'transformToNote':
+      return state.selectionCount !== 1 || !state.isStickyNoteOnly;
     default:
       return false;
   }
