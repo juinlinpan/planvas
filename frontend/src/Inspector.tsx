@@ -1,4 +1,4 @@
-import { type BoardItem } from './api';
+﻿import { type BoardItem } from './api';
 import {
   BACKGROUND_COLOR_OPTIONS,
   TEXT_COLOR_OPTIONS,
@@ -452,7 +452,7 @@ export function Inspector({
             </p>
           </div>
           <button className="ghost-button danger-button" onClick={onDelete}>
-            ?芷
+            刪除
           </button>
         </div>
 
@@ -501,7 +501,7 @@ export function Inspector({
             </div>
             {isLine ? (
               <label className="inspector-field">
-                閫漲
+                旋轉
                 <input
                   type="number"
                   min={-180}
@@ -606,7 +606,7 @@ export function Inspector({
             <p className="meta-label">Content</p>
             {supportsTitle ? (
               <label className="inspector-field">
-                璅?
+                標題
                 <input
                   type="text"
                   value={selectedItem.title ?? ''}
@@ -618,7 +618,7 @@ export function Inspector({
               <label className="inspector-field">
                 {selectedItem.type === ITEM_TYPE.note_paper
                   ? 'Markdown'
-                  : '???批捆'}
+                  : '內文'}
                 <textarea
                   className="inspector-textarea"
                   value={selectedItem.content ?? ''}
@@ -667,7 +667,7 @@ export function Inspector({
                 disabled={!hasCustomStyle}
                 onClick={() => onUpdate({ ...selectedItem, style_json: null })}
               >
-                ?身
+                重設
               </button>
             </div>
             <div className="inspector-color-grid">
@@ -706,7 +706,7 @@ export function Inspector({
               <>
                 <div className="inspector-grid">
                   <label>
-                    摮?
+                    字級
                     <input
                       type="number"
                       min={12}
@@ -731,7 +731,7 @@ export function Inspector({
                       })
                     }
                   >
-                    蝎?
+                    粗體
                   </button>
                   <button
                     type="button"
@@ -747,7 +747,7 @@ export function Inspector({
                       })
                     }
                   >
-                    ??
+                    斜體
                   </button>
                 </div>
               </>
@@ -770,12 +770,12 @@ export function Inspector({
                 disabled={!hasCustomStyle}
                 onClick={() => onUpdate({ ...selectedItem, style_json: null })}
               >
-                ?身
+                重設
               </button>
             </div>
             <div className="inspector-field">
               <ColorPaletteField
-                label="蝺?憿"
+                label="線條色"
                 options={STROKE_COLOR_OPTIONS}
                 selectedValue={resolvedStyle.strokeColor}
                 tone="background"
@@ -784,7 +784,7 @@ export function Inspector({
             </div>
             <div className="inspector-grid">
               <label className="inspector-field">
-                蝎敦
+                粗細
                 <input
                   type="number"
                   min={1}
@@ -794,7 +794,7 @@ export function Inspector({
                 />
               </label>
               <label className="inspector-field">
-                蝺?璅??
+                線條樣式
                 <select
                   value={resolvedStyle.strokeStyle}
                   onChange={(e) =>
@@ -804,15 +804,15 @@ export function Inspector({
                     })
                   }
                 >
-                  <option value="solid">撖衣?</option>
-                  <option value="dashed">??</option>
-                  <option value="dotted">暺?</option>
+                  <option value="solid">實線</option>
+                  <option value="dashed">虛線</option>
+                  <option value="dotted">點線</option>
                 </select>
               </label>
             </div>
             <div className="inspector-grid">
               <label className="inspector-field">
-                頧?
+                轉角
                 <select
                   value={resolvedStyle.lineCornerType}
                   onChange={(e) =>
@@ -822,13 +822,13 @@ export function Inspector({
                     })
                   }
                 >
-                  <option value="sharp">?渲?</option>
-                  <option value="rounded">敶?</option>
+                  <option value="sharp">直角</option>
+                  <option value="rounded">圓角</option>
                 </select>
               </label>
               {isArrow ? (
                 <label className="inspector-field">
-                  蝞剝憭批?
+                  箭頭大小
                   <input
                     key={`${selectedItem.id}-${resolvedStyle.arrowHeadSize}`}
                     type="number"
@@ -861,7 +861,7 @@ export function Inspector({
               <p className="meta-label">Label Text</p>
             </div>
             <label className="inspector-field">
-              ??
+              文字
               <textarea
                 className="inspector-textarea"
                 value={selectedItem.content ?? ''}
@@ -870,7 +870,7 @@ export function Inspector({
             </label>
             <div className="inspector-grid">
               <label className="inspector-field">
-                瘞游像雿蔭
+                水平位置
                 <select
                   value={resolvedStyle.segmentTextHorizontalPosition}
                   onChange={(e) =>
@@ -880,13 +880,13 @@ export function Inspector({
                     })
                   }
                 >
-                  <option value="start">?挾</option>
-                  <option value="center">銝剝?</option>
-                  <option value="end">敺挾</option>
+                  <option value="start">起點</option>
+                  <option value="center">置中</option>
+                  <option value="end">終點</option>
                 </select>
               </label>
               <label className="inspector-field">
-                ?雿蔭
+                垂直位置
                 <select
                   value={resolvedStyle.segmentTextVerticalPosition}
                   onChange={(e) =>
@@ -896,13 +896,13 @@ export function Inspector({
                     })
                   }
                 >
-                  <option value="top">銝</option>
-                  <option value="middle">蝵桐葉</option>
-                  <option value="bottom">銝</option>
+                  <option value="top">上方</option>
+                  <option value="middle">中間</option>
+                  <option value="bottom">下方</option>
                 </select>
               </label>
               <label className="inspector-field">
-                ???孵?
+                文字方向
                 <select
                   value={resolvedStyle.segmentTextOrientation}
                   onChange={(e) =>
@@ -912,14 +912,14 @@ export function Inspector({
                     })
                   }
                 >
-                  <option value="horizontal">瘞游像</option>
-                  <option value="slope">頝蝺?</option>
+                  <option value="horizontal">水平</option>
+                  <option value="slope">斜向</option>
                 </select>
               </label>
             </div>
             <div className="inspector-color-grid">
               <ColorPaletteField
-                label="璅惜?"
+                label="背景色"
                 options={SEGMENT_TEXT_BACKGROUND_OPTIONS}
                 selectedValue={segmentTextBackgroundColor}
                 tone="background"
@@ -928,7 +928,7 @@ export function Inspector({
                 }
               />
               <ColorPaletteField
-                label="??憿"
+                label="文字色"
                 options={TEXT_COLOR_OPTIONS}
                 selectedValue={resolvedStyle.textColor}
                 tone="text"
@@ -937,7 +937,7 @@ export function Inspector({
             </div>
             <div className="inspector-grid">
               <label>
-                摮?
+                字級
                 <input
                   type="number"
                   min={12}
