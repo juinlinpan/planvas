@@ -222,13 +222,13 @@ export function exportPageAsMarkdown(boardData: PageBoardData): string {
   }
 
   // ── 3. Notes as plain text ─────────────────────────────────────────────────
-  // note_paper, sticky_note, text_box that are NOT inside a table
+  // note_paper, sticky_note, text_box — including those inside a table
+  // (they're excluded from the flowchart but their text still belongs here)
   const notes = board_items.filter(
     (i) =>
-      !inTableIds.has(i.id) &&
-      (i.type === ITEM_TYPE.note_paper ||
-        i.type === ITEM_TYPE.sticky_note ||
-        i.type === ITEM_TYPE.text_box),
+      i.type === ITEM_TYPE.note_paper ||
+      i.type === ITEM_TYPE.sticky_note ||
+      i.type === ITEM_TYPE.text_box,
   );
 
   for (const note of notes) {
