@@ -101,7 +101,7 @@
 - `table` must support up to `20 x 20` cells.
 - Every `table` cell must stay at least as large as the minimum `text_box` size.
 - Clicking the toolbar `table` tool opens a fixed-origin table insertion preview that expands away from the toolbar dock: down-right for top/left toolbars, up-right for bottom toolbars, and down-left for right toolbars. Clicking the `table` tool again cancels the pending table insertion.
-- The minimum `text_box` width should be reduced by two grid columns so it aligns with `sticky_note` width.
+- The minimum `text_box`, `sticky_note`, and `table` cell size should be `48 x 48`, matching two default text line-heights while staying aligned to the canvas grid.
 - Every board item minimum size, including `line`, `arrow`, and dynamic `table` minimum sizes, must stay aligned to whole canvas grid units.
 - When `magnet` is enabled, dragging internal `table` row and column divider lines must snap those divider lines to the canvas grid. Holding `Alt` temporarily disables this table-divider snapping.
 
@@ -136,8 +136,8 @@
 
 ## Table Text Layout And Inspector Update Notes
 
-- `table` 支援儲存格文字對齊設定；Inspector 顯示對應的字型大小與文字顏色控制項。
-- `text_box` 文字對齊固定為水平置中（always centered），不提供對齊調整。
+- `table` 支援儲存格文字水平對齊（左 / 中 / 右）與垂直對齊（上 / 中 / 下）設定；預設為水平置中、垂直置中；Inspector 顯示對應的對齊、字型大小與文字顏色控制項。
+- `text_box` 支援文字水平對齊（左 / 中 / 右）與垂直對齊（上 / 中 / 下）設定；預設為水平置中、垂直置中。
 - `note_paper` 內文以 Markdown 儲存；Inspector 顯示尺寸控制；在 `frame` 縮回時只顯示第一個 Markdown H1 標題。
 - 在 Inspector 中選取 `table` 時，應顯示「列 × 欄」尺寸標籤與新增/刪除列欄的操作按鈕；點擊表格儲存格文字區域時進入 inline 編輯模式，不透過 Inspector 面板介入文字輸入。
 
@@ -386,6 +386,7 @@ Page 匯出備註：
 - 表格支援列欄刪除操作。
 - Inspector 顯示選中的 row/col 的 resize 控制以及對應的文字樣式選項。
 - 儲存格支援嵌入 `small_item`：`text_box`、`sticky_note`、`note_paper`；不支援嵌入 `frame`；物件必須透過 `embed` 機制存在，不可以 item 形式直接嵌入。
+- 儲存格內多個 `small_item` 的排列方向可設定為上下分或左右分；預設為上下分。`table` 可設定整張表格的預設格內排列方向，每個儲存格也可單獨設定；當表格層級與儲存格層級都有設定時，以較晚設定者為有效設定。
 - 欄列 resize 時，若儲存格內有 `small_item` 物件，儲存格邊界隨之調整；`small_item` 的相對位置不超出 cell bounds 的情況下會隨之平移。
 - 已嵌入物件可以選取、拖拽或刪除；拖出 table 範圍後，物件脫離 embed 獨立存在於畫布上。
 - 資料序列化時，以 `string[][]` 格式輸出文字內容，供快速存取。
@@ -394,6 +395,7 @@ Page 匯出備註：
 - 分隔線機制：系統使用整數索引位置表記錄每條分隔線的絕對位置（像素值）；`colDividerBreaks` / `rowDividerBreaks` 記錄合併儲存格邊界，供合併時跳過部分分隔線使用。
 - table 的欄列數計算必須準確，不可因儲存格合併而誤算數量或錯誤渲染邊框。
 - table 的選取行為有多層級：選取整個 table、選取某行 / 列、選取某儲存格；Inspector 顯示對應層級的操作。
+- 選取 table 儲存格時，按 `Delete` / `Backspace` 或使用右鍵選單的刪除必須依選取範圍執行：若選取範圍完整覆蓋一或多個 row，刪除該 row；若完整覆蓋一或多個 column，刪除該 column；若只選取零散儲存格，則只清除已選取儲存格的內容與內嵌項目，不刪除整個 table 物件。刪除 row / column 後，未刪除儲存格的像素大小必須維持不變，table 總高度或總寬度縮減；刪除中間 row / column 後，相鄰的上下 row 或左右 column 必須接合。
 
 ### 5.7 `text_box`
 

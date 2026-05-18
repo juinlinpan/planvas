@@ -12,8 +12,10 @@ import {
   type BoardItem,
   type ConnectorLink,
   createBoardItem,
+  deleteBoardItem,
   getPageBoardData,
   replacePageBoardState,
+  updateBoardItem,
   updatePageViewport,
   type Page,
   type ProjectNote,
@@ -34,6 +36,7 @@ import {
   isHiddenByCollapsedFrame,
   isSmallItem,
   summarizeFrameChild,
+  toPayload,
   type AnchorHit,
   type TableCellHit,
 } from './canvasHelpers';
@@ -73,6 +76,12 @@ import {
 } from './segmentData';
 import {
   createTableData,
+  clearTableCells,
+  deleteCols,
+  deleteRows,
+  getChildItemIdsInCols,
+  getChildItemIdsInRows,
+  getTableCellDeleteOperation,
   parseTableData,
   serializeTableData,
   TABLE_MAX_DIMENSION,
@@ -256,6 +265,7 @@ export function Canvas({
   const [toolbarTableInsertPreview, setToolbarTableInsertPreview] = useState<TableInsertPreviewState | null>(null);
   const [tableInspectorSelection, setTableInspectorSelection] =
     useState<TableInspectorSelection | null>(null);
+  const [tableCellSelectionResetKey, setTableCellSelectionResetKey] = useState(0);
   const [marqueeSelection, setMarqueeSelection] = useState<MarqueeSelectionState | null>(null);
   const [containerSize, setContainerSize] = useState({ width: 1, height: 1 });
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(() =>
@@ -824,6 +834,106 @@ export function Canvas({
     [],
   );
 
+  const handleDeleteTableCells = useCallback(async (
+    tableId: string,
+    cellIds: string[],
+  ): Promise<boolean> => {
+    if (cellIds.length === 0) {
+      return false;
+    }
+
+    const tableItem = itemsRef.current.find(
+      (item) => item.id === tableId && item.type === ITEM_TYPE.table,
+    );
+    if (tableItem === undefined) {
+      setTableInspectorSelection(null);
+      setTableCellSelectionResetKey((current) => current + 1);
+      return false;
+    }
+
+    const tableData = parseTableData(tableItem.data_json);
+    const operation = getTableCellDeleteOperation(tableData, cellIds);
+    if (operation === null) {
+      setTableInspectorSelection(null);
+      setTableCellSelectionResetKey((current) => current + 1);
+      return false;
+    }
+
+    let nextTableData = tableData;
+    let nextWidth = tableItem.width;
+    let nextHeight = tableItem.height;
+    let clearedChildItemIds: string[] = [];
+
+    if (operation.type === 'rows') {
+      const removedFraction = operation.rowIndexes.reduce(
+        (sum, rowIndex) => sum + (tableData.rowHeights[rowIndex] ?? 0),
+        0,
+      );
+      nextTableData = deleteRows(tableData, operation.rowIndexes);
+      nextHeight = Math.max(1, tableItem.height * (1 - removedFraction));
+      clearedChildItemIds = getChildItemIdsInRows(tableData, operation.rowIndexes);
+    } else if (operation.type === 'cols') {
+      const removedFraction = operation.colIndexes.reduce(
+        (sum, colIndex) => sum + (tableData.colWidths[colIndex] ?? 0),
+        0,
+      );
+      nextTableData = deleteCols(tableData, operation.colIndexes);
+      nextWidth = Math.max(1, tableItem.width * (1 - removedFraction));
+      clearedChildItemIds = getChildItemIdsInCols(tableData, operation.colIndexes);
+    } else {
+      const clearedCells = clearTableCells(tableData, operation.cellIds);
+      nextTableData = clearedCells.data;
+      clearedChildItemIds = clearedCells.clearedChildItemIds;
+    }
+
+    const updatedTableItem = {
+      ...tableItem,
+      width: nextWidth,
+      height: nextHeight,
+      data_json: serializeTableData(nextTableData),
+    };
+    const clearedChildIdSet = new Set(clearedChildItemIds);
+    const snapshotBeforeDelete = captureBoardSnapshot();
+
+    pushUndoSnapshot(snapshotBeforeDelete);
+    setItemsAndSync((current) =>
+      current
+        .filter((item) => !clearedChildIdSet.has(item.id))
+        .map((item) => (item.id === tableItem.id ? updatedTableItem : item)),
+    );
+    setSelection([tableItem.id]);
+    setEditingId(tableItem.id);
+    setTableInspectorSelection(null);
+    setTableCellSelectionResetKey((current) => current + 1);
+
+    try {
+      await Promise.all([
+        updateBoardItem(updatedTableItem.id, toPayload(updatedTableItem)),
+        ...clearedChildItemIds.map((itemId) => deleteBoardItem(itemId)),
+      ]);
+    } catch (err) {
+      console.error('[Canvas] Failed to delete selected table cells', err);
+    }
+
+    return true;
+  }, [
+    captureBoardSnapshot,
+    itemsRef,
+    pushUndoSnapshot,
+    setEditingId,
+    setItemsAndSync,
+    setSelection,
+  ]);
+
+  const handleDeleteSelectedTableCells = useCallback(async (): Promise<boolean> => {
+    const selection = tableInspectorSelection;
+    if (selection === null) {
+      return false;
+    }
+
+    return handleDeleteTableCells(selection.tableId, selection.cellIds);
+  }, [handleDeleteTableCells, tableInspectorSelection]);
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === ' ' && !isSpaceRef.current) {
@@ -894,12 +1004,17 @@ export function Canvas({
         return;
       }
 
-      if (
-        (e.key === 'Delete' || e.key === 'Backspace') &&
-        selectedIdsRef.current.length > 0
-      ) {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
-        void handleDeleteSelection();
+        void handleDeleteSelectedTableCells()
+          .then((deletedTableCells) => {
+            if (!deletedTableCells && selectedIdsRef.current.length > 0) {
+              void handleDeleteSelection();
+            }
+          })
+          .catch((err) => {
+            console.error('[Canvas] Failed to handle delete shortcut', err);
+          });
       }
 
       if (e.key === 'Escape') {
@@ -917,6 +1032,7 @@ export function Canvas({
     clearSelection,
     handleCopySelection,
     handleCutSelection,
+    handleDeleteSelectedTableCells,
     handleDeleteSelection,
     handlePasteSelection,
     handleRedo,
@@ -1154,8 +1270,16 @@ export function Canvas({
       return;
     }
     setContextMenu(null);
-    void handleDeleteSelection();
-  }, [handleDeleteSelection]);
+    void handleDeleteSelectedTableCells()
+      .then((deletedTableCells) => {
+        if (!deletedTableCells) {
+          void handleDeleteSelection();
+        }
+      })
+      .catch((err) => {
+        console.error('[Canvas] Failed to handle context delete', err);
+      });
+  }, [handleDeleteSelectedTableCells, handleDeleteSelection]);
 
   const handleContextMenuTransformToNote = useCallback(() => {
     const targetId = getPrimarySelectionId(selectedIdsRef.current);
@@ -2082,6 +2206,16 @@ export function Canvas({
                             : { tableId: item.id, cellIds },
                         )
                       }
+                      onTableDeleteSelectedCells={(cellIds) => {
+                        setTableInspectorSelection({ tableId: item.id, cellIds });
+                        void handleDeleteTableCells(item.id, cellIds).catch((err) => {
+                          console.error(
+                            '[Canvas] Failed to handle table delete shortcut',
+                            err,
+                          );
+                        });
+                      }}
+                      tableCellSelectionResetKey={tableCellSelectionResetKey}
                       magnetEnabled={magnetEnabled}
                       tableDropTargetCellId={
                         isTableDropTarget ? activeTableDropTarget?.cellId ?? null : null

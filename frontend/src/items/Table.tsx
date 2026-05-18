@@ -18,8 +18,6 @@ import {
   type CellPosition,
   computeColSegmentGroups,
   computeRowSegmentGroups,
-  deleteCol,
-  deleteRow,
   getCellBounds,
   getEffectiveColEdge,
   getEffectiveRowEdge,
@@ -38,7 +36,6 @@ import {
   type TableCellData,
   type TableData,
   updateTableCell,
-  getRootCellAt,
 } from '../tableData';
 import { reconcileTableInteractionState } from '../tableInteractionState';
 
@@ -67,6 +64,22 @@ type AxisInterval = {
 
 const GRID_LINE_PRECISION = 100000;
 const GRID_LINE_EPSILON = 0.00001;
+
+function toJustifyContent(
+  value: TableCellData['textHorizontalAlign'],
+): React.CSSProperties['justifyContent'] {
+  if (value === 'left') return 'flex-start';
+  if (value === 'right') return 'flex-end';
+  return 'center';
+}
+
+function toAlignItems(
+  value: TableCellData['textVerticalAlign'],
+): React.CSSProperties['alignItems'] {
+  if (value === 'top') return 'flex-start';
+  if (value === 'bottom') return 'flex-end';
+  return 'center';
+}
 
 function normalizeGridCoord(value: number): number {
   return Math.round(value * GRID_LINE_PRECISION) / GRID_LINE_PRECISION;
@@ -187,6 +200,7 @@ type Props = {
   onEditEnd: () => void;
   onCellInteractionStart?: () => void;
   onSelectedCellsChange?: (cellIds: string[]) => void;
+  onDeleteSelectedCells?: (cellIds: string[]) => void;
   dropTargetCellId?: string | null;
   magnetEnabled?: boolean;
   projectDefaultStyle?: ProjectDefaultStyle;
@@ -203,6 +217,7 @@ export function Table({
   onEditEnd,
   onCellInteractionStart,
   onSelectedCellsChange,
+  onDeleteSelectedCells,
   dropTargetCellId,
   magnetEnabled = false,
   projectDefaultStyle,
@@ -346,43 +361,6 @@ export function Table({
     };
   }, [selectedCells, tableData]);
 
-  // ── Whole-row / whole-col selection detection ────────────────────────────
-
-  const selectedWholeRow = useMemo<number | null>(() => {
-    if (selectedCells.length === 0) return null;
-    for (let r = 0; r < tableData.rows; r++) {
-      const rowIds = (tableData.cells[r] ?? [])
-        .filter((cell): cell is TableCellData => cell !== null)
-        .map((cell) => cell.id);
-      if (
-        rowIds.length > 0 &&
-        rowIds.length === selectedCells.length &&
-        rowIds.every((id) => selectedCells.includes(id))
-      ) {
-        return r;
-      }
-    }
-    return null;
-  }, [selectedCells, tableData]);
-
-  const selectedWholeCol = useMemo<number | null>(() => {
-    if (selectedCells.length === 0) return null;
-    for (let c = 0; c < tableData.cols; c++) {
-      const colIds = tableData.cells
-        .map((row) => row[c])
-        .filter((cell): cell is TableCellData => cell !== null)
-        .map((cell) => cell.id);
-      if (
-        colIds.length > 0 &&
-        colIds.length === selectedCells.length &&
-        colIds.every((id) => selectedCells.includes(id))
-      ) {
-        return c;
-      }
-    }
-    return null;
-  }, [selectedCells, tableData]);
-
   // ── Merge ───────────────────────────────────────────────────────────────
 
   function handleMerge() {
@@ -392,56 +370,6 @@ export function Table({
     const nextData = mergeCells(tableData, positions);
     handleUpdate(nextData);
     setSelectedCells([]);
-  }
-
-  // ── Delete row / col ─────────────────────────────────────────────────────
-
-  function handleDeleteRow(rowIndex: number) {
-    const removedFraction = tableData.rowHeights[rowIndex] ?? 0;
-    const nextData = deleteRow(tableData, rowIndex);
-    const nextHeight =
-      nextData.rows === tableData.rows
-        ? item.height
-        : Math.max(1, item.height * (1 - removedFraction));
-    onUpdate({
-      ...item,
-      height: nextHeight,
-      data_json: serializeTableData(nextData),
-    });
-    setSelectedCells([]);
-  }
-
-  function handleDeleteCol(colIndex: number) {
-    const removedFraction = tableData.colWidths[colIndex] ?? 0;
-    const nextData = deleteCol(tableData, colIndex);
-    const nextWidth =
-      nextData.cols === tableData.cols
-        ? item.width
-        : Math.max(1, item.width * (1 - removedFraction));
-    onUpdate({
-      ...item,
-      width: nextWidth,
-      data_json: serializeTableData(nextData),
-    });
-    setSelectedCells([]);
-  }
-
-  // ── Keyboard handler ──────────────────────────────────────────────────────
-
-  function handleContainerKeyDown(e: React.KeyboardEvent) {
-    if (e.key !== 'Delete' && e.key !== 'Backspace') return;
-    if (editingCellId !== null) return; // let textarea handle it
-    if (selectedWholeRow !== null) {
-      e.preventDefault();
-      e.stopPropagation();
-      handleDeleteRow(selectedWholeRow);
-      return;
-    }
-    if (selectedWholeCol !== null) {
-      e.preventDefault();
-      e.stopPropagation();
-      handleDeleteCol(selectedWholeCol);
-    }
   }
 
   // ── Split ───────────────────────────────────────────────────────────────
@@ -458,6 +386,19 @@ export function Table({
 
   function handleCellContentChange(cellId: string, value: string) {
     handleUpdate(updateTableCell(tableData, cellId, { content: value }));
+  }
+
+  function handleContainerKeyDown(e: React.KeyboardEvent) {
+    if (e.key !== 'Delete' && e.key !== 'Backspace') {
+      return;
+    }
+    if (editingCellId !== null || selectedCells.length === 0) {
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    onDeleteSelectedCells?.(selectedCells);
   }
 
   function handleCellSelectionStart(
@@ -613,6 +554,8 @@ export function Table({
             const isCellEditing = editingCellId === cell.id;
             const isOccupied = cell.childItemIds.length > 0;
             const bounds = getCellBounds(tableData, ri, ci, cell.colSpan, cell.rowSpan);
+            const textHorizontalAlign = cell.textHorizontalAlign ?? 'center';
+            const textVerticalAlign = cell.textVerticalAlign ?? 'middle';
 
             return (
               <div
@@ -652,6 +595,7 @@ export function Table({
                   <textarea
                     className="table-v2-cell-editor"
                     value={cell.content}
+                    style={{ textAlign: textHorizontalAlign }}
                     autoFocus
                     onMouseDown={(e) => e.stopPropagation()}
                     onChange={(e) => handleCellContentChange(cell.id, e.target.value)}
@@ -662,7 +606,16 @@ export function Table({
                   />
                 ) : (
                   <div className="table-v2-cell-text">
-                    {!isOccupied && cell.content}
+                    <span
+                      className="table-v2-cell-text-content"
+                      style={{
+                        justifyContent: toJustifyContent(textHorizontalAlign),
+                        alignItems: toAlignItems(textVerticalAlign),
+                        textAlign: textHorizontalAlign,
+                      }}
+                    >
+                      {!isOccupied && cell.content}
+                    </span>
                   </div>
                 )}
 

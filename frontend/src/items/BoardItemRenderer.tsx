@@ -39,6 +39,8 @@ type Props = {
   onEditEnd: () => void;
   onTableCellInteractionStart?: () => void;
   onTableSelectedCellsChange?: (cellIds: string[]) => void;
+  onTableDeleteSelectedCells?: (cellIds: string[]) => void;
+  tableCellSelectionResetKey?: number;
   tableDropTargetCellId?: string | null;
   magnetEnabled?: boolean;
   projectDefaultStyle?: ProjectDefaultStyle;
@@ -66,6 +68,8 @@ export function BoardItemRenderer({
   onEditEnd,
   onTableCellInteractionStart,
   onTableSelectedCellsChange,
+  onTableDeleteSelectedCells,
+  tableCellSelectionResetKey,
   tableDropTargetCellId,
   magnetEnabled,
   projectDefaultStyle,
@@ -162,6 +166,7 @@ export function BoardItemRenderer({
           onContextMenu={onContextMenu}
         >
           <Table
+            key={`table-${item.id}-${tableCellSelectionResetKey ?? 0}`}
             item={item}
             isSelected={isSelected}
             isEditing={isEditing}
@@ -170,6 +175,7 @@ export function BoardItemRenderer({
             onEditEnd={onEditEnd}
             onCellInteractionStart={onTableCellInteractionStart}
             onSelectedCellsChange={onTableSelectedCellsChange}
+            onDeleteSelectedCells={onTableDeleteSelectedCells}
             dropTargetCellId={tableDropTargetCellId}
             magnetEnabled={magnetEnabled}
             projectDefaultStyle={projectDefaultStyle}

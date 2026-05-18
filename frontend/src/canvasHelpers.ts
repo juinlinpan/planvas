@@ -15,12 +15,14 @@ import {
   hasStoredSegmentData,
 } from './segmentData';
 import {
+  getEffectiveTableCellChildLayoutDirection,
   parseTableData,
   getRootCellAt,
   getEffectiveColEdge,
   getEffectiveRowEdge,
   getCellBounds as getTableCellBoundsFrac,
   getTableMinSizeFromDataJson,
+  type TableChildLayoutDirection,
 } from './tableData';
 import { ITEM_CATEGORY, ITEM_MIN_SIZE, ITEM_TYPE } from './types';
 
@@ -389,6 +391,7 @@ export function computeCellChildLayout(
   childIndex: number,
   childCount: number,
   inset: number,
+  direction: TableChildLayoutDirection = 'vertical',
 ): { x: number; y: number; width: number; height: number } {
   if (childCount <= 1) {
     return {
@@ -398,10 +401,9 @@ export function computeCellChildLayout(
       height: Math.max(1, cellBounds.height - inset * 2),
     };
   }
-  // N items (2 or 3): split evenly along the longer axis
+  // N items (2 or more): split evenly by the configured cell direction.
   const n = childCount;
-  const splitHorizontally = cellBounds.width >= cellBounds.height;
-  if (splitHorizontally) {
+  if (direction === 'horizontal') {
     const sliceW = cellBounds.width / n;
     return {
       x: cellBounds.x + sliceW * childIndex + inset,
@@ -409,15 +411,15 @@ export function computeCellChildLayout(
       width: Math.max(1, sliceW - inset * 2),
       height: Math.max(1, cellBounds.height - inset * 2),
     };
-  } else {
-    const sliceH = cellBounds.height / n;
-    return {
-      x: cellBounds.x + inset,
-      y: cellBounds.y + sliceH * childIndex + inset,
-      width: Math.max(1, cellBounds.width - inset * 2),
-      height: Math.max(1, sliceH - inset * 2),
-    };
   }
+
+  const sliceH = cellBounds.height / n;
+  return {
+    x: cellBounds.x + inset,
+    y: cellBounds.y + sliceH * childIndex + inset,
+    width: Math.max(1, cellBounds.width - inset * 2),
+    height: Math.max(1, sliceH - inset * 2),
+  };
 }
 
 const TABLE_CELL_INSET = 8;
@@ -467,6 +469,7 @@ export function relayoutTableItems(
             childIndex,
             cell.childItemIds.length,
             TABLE_CELL_INSET,
+            getEffectiveTableCellChildLayoutDirection(tableData, cell),
           );
 
           if (

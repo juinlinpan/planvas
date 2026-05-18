@@ -85,6 +85,7 @@ import {
 import {
   findCellByChildItemId,
   createTableData,
+  getEffectiveTableCellChildLayoutDirection,
   parseTableData,
   serializeTableData,
   updateTableCell,
@@ -1414,6 +1415,10 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                       idx,
                       remainingIds.length,
                       CELL_INSET,
+                      getEffectiveTableCellChildLayoutDirection(
+                        newTData,
+                        cellHit.cell,
+                      ),
                     );
                     nextItems = nextItems.map((it) =>
                       it.id === remainingId
@@ -1473,14 +1478,14 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                 hoverRoot.cell.id !== originalCellHit.cell.id;
               const canAccept = isDifferentCell;
 
-              if (canAccept && originalCellHit) {
+              if (canAccept && originalCellHit && hoverRoot) {
                 // Move item from old cell to new cell within the same table
                 const CELL_INSET = 8;
                 // Remove from old cell
                 const oldRemainingIds = originalCellHit.cell.childItemIds.filter(
                   (id) => id !== movedItem.id,
                 );
-                const newTargetIds = [...hoverRoot!.cell.childItemIds, movedItem.id];
+                const newTargetIds = [...hoverRoot.cell.childItemIds, movedItem.id];
 
                 const updatedTData = {
                   ...tData,
@@ -1489,7 +1494,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                       if (!c) return c;
                       if (c.id === originalCellHit.cell.id)
                         return { ...c, childItemIds: oldRemainingIds };
-                      if (c.id === hoverRoot!.cell.id)
+                      if (c.id === hoverRoot.cell.id)
                         return { ...c, childItemIds: newTargetIds };
                       return c;
                     }),
@@ -1507,10 +1512,10 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                 // Layout the moved item in its new cell
                 const newCellBounds = getTableCellBounds(
                   updatedTableItem,
-                  hoverRoot!.row,
-                  hoverRoot!.col,
-                  hoverRoot!.cell.rowSpan,
-                  hoverRoot!.cell.colSpan,
+                  hoverRoot.row,
+                  hoverRoot.col,
+                  hoverRoot.cell.rowSpan,
+                  hoverRoot.cell.colSpan,
                 );
                 const myIndex = newTargetIds.indexOf(movedItem.id);
                 const myLayout = computeCellChildLayout(
@@ -1518,6 +1523,10 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                   myIndex,
                   newTargetIds.length,
                   CELL_INSET,
+                  getEffectiveTableCellChildLayoutDirection(
+                    updatedTData,
+                    hoverRoot.cell,
+                  ),
                 );
                 nextParentId = previousParent.id;
                 nextX = myLayout.x;
@@ -1533,6 +1542,10 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                     idx,
                     newTargetIds.length,
                     CELL_INSET,
+                    getEffectiveTableCellChildLayoutDirection(
+                      updatedTData,
+                      hoverRoot.cell,
+                    ),
                   );
                   nextItems = nextItems.map((it) =>
                     it.id === otherId
@@ -1563,6 +1576,10 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                       idx,
                       oldRemainingIds.length,
                       CELL_INSET,
+                      getEffectiveTableCellChildLayoutDirection(
+                        updatedTData,
+                        originalCellHit.cell,
+                      ),
                     );
                     nextItems = nextItems.map((it) =>
                       it.id === remainId
@@ -1594,6 +1611,10 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                   Math.max(0, myIndex),
                   originalCellHit.cell.childItemIds.length,
                   CELL_INSET,
+                  getEffectiveTableCellChildLayoutDirection(
+                    tData,
+                    originalCellHit.cell,
+                  ),
                 );
                 nextParentId = previousParent.id;
                 nextX = myLayout.x;
@@ -1687,7 +1708,8 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
       })();
 
       if (tableCellHit) {
-        const absorbedItemId = drag.selectedItemIds[0]!;
+        const absorbedItemId = drag.selectedItemIds[0];
+        if (!absorbedItemId) return;
         const absorbedItem = nextItems.find((it) => it.id === absorbedItemId);
         const tableItem = nextItems.find((it) => it.id === tableCellHit.tableId);
 
@@ -1728,6 +1750,10 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
             myIndex,
             newChildIds.length,
             CELL_INSET,
+            getEffectiveTableCellChildLayoutDirection(
+              nextTableData,
+              cell ?? { childLayoutDirection: undefined, childLayoutUpdatedAt: undefined },
+            ),
           );
           const updatedAbsorbedItem = {
             ...absorbedItem,
@@ -1753,6 +1779,10 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                 idx,
                 newChildIds.length,
                 CELL_INSET,
+                getEffectiveTableCellChildLayoutDirection(
+                  nextTableData,
+                  cell ?? { childLayoutDirection: undefined, childLayoutUpdatedAt: undefined },
+                ),
               );
               nextItems = nextItems.map((it) =>
                 it.id === existingId

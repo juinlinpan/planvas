@@ -113,7 +113,7 @@
 - [x] Raise the `table` dimension cap from `12 x 12` to `20 x 20`.
 - [x] Make every `table` cell respect the minimum `text_box` size.
 - [x] Make toolbar table insertion preview expand away from the current toolbar dock and allow a second table-tool click to cancel insertion.
-- [x] Reduce the minimum `text_box` width by two grid columns so it aligns with `sticky_note`.
+- [x] Set the minimum `text_box`, `sticky_note`, and `table` cell size to `48 x 48`, matching two default text line-heights while staying grid-aligned.
 - [x] Verify every board item minimum size, including `line`, `arrow`, and dynamic `table` minimum sizes, stays aligned to whole canvas grid units.
 - [x] Snap internal `table` row and column divider dragging to the canvas grid when `magnet` is enabled, with `Alt` as the temporary bypass.
 
@@ -147,7 +147,7 @@
 
 ## Table Text Layout And Inspector Update Notes
 
-- [x] 讓 `table` 儲存格支援文字水平對齊（左/中/右）與垂直對齊（上/中/下）設定
+- [x] 讓 `table` 儲存格與 `text_box` 支援文字水平對齊（左/中/右）與垂直對齊（上/中/下）設定，預設為水平置中、垂直置中
 - [x] 讓 `text_box` 在 read mode 下移除捲動列，盡可能顯示多行文字
 - [x] 讓 `note_paper` read mode 支援 Markdown 溢出捲動，內容過小時優先顯示 Markdown H1 標題
 - [x] 在 Inspector 中為 `table` 新增「鎖定欄」欄位，可設定各欄位隱藏與顯示行為
@@ -289,6 +289,7 @@
 - [x] 支援從格內建立固定儲存格項目
 - [x] 支援拖拉 / 縮放並正確更新儲存格格式
 - [x] 支援 `small_item`（text_box、sticky_note、note_paper）作為儲存格內容（在 frame 外顯示）
+- [x] 支援表格與單一儲存格設定格內 `small_item` 排列方向（上下分 / 左右分），預設上下分，表格層級與儲存格層級以較晚設定者生效
 - [x] 支援 table resize 後自動 relayout 儲存格並更新其中的 `small_item`
 - [x] 支援儲存格內 embedded item 縮放 / 內容更新
 - [x] 支援格子複製並更新複製後格子的 `string[][]` 剪貼板資料
@@ -296,6 +297,7 @@
 - [x] 支援格子資料序列建立，可替換或修改目前的儲存格清單 / 還原格子資料 / 公式
 - [x] 支援格子特殊摘要匯出，確認欄位名稱不重複並維持欄位 identity
 - [x] 支援格子資料結構變更後快速替換差異資料，確保持久性：支援固定 / 可替換欄位，重新排序後維持 diff
+- [x] 支援選取完整表格 row / column 後使用 `Delete` / `Backspace` 或右鍵刪除該行列，保留剩餘格子的像素大小並縮減 table 總尺寸；零散格子選取則只清除選取格內容
 - [x] 支援格欄位游走 table 拖拉功能，確認拖拉後 pixel layout 精確無誤
 - [x] 儲存格支援絕對定位，游走欄位移動時確認視覺位置正確
 - [x] 刪除 row / col 後同步更新 table，確認不重複使用舊欄位名稱

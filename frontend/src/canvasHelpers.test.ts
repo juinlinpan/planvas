@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import type { BoardItem } from './api';
-import { getSelectionMagnetBounds, reorderItemsForLayer } from './canvasHelpers';
+import {
+  computeCellChildLayout,
+  getSelectionMagnetBounds,
+  reorderItemsForLayer,
+} from './canvasHelpers';
 import { buildSegmentGeometry } from './segmentData';
 import { ITEM_CATEGORY, ITEM_TYPE } from './types';
 
@@ -102,5 +106,45 @@ describe('reorderItemsForLayer', () => {
 
     expect(reordered.map((item) => item.id)).toEqual(['b', 'a', 'c']);
     expect(reordered.map((item) => item.z_index)).toEqual([0, 1, 2]);
+  });
+});
+
+describe('computeCellChildLayout', () => {
+  it('splits multiple cell children vertically by default', () => {
+    const first = computeCellChildLayout(
+      { x: 10, y: 20, width: 200, height: 100 },
+      0,
+      2,
+      8,
+    );
+    const second = computeCellChildLayout(
+      { x: 10, y: 20, width: 200, height: 100 },
+      1,
+      2,
+      8,
+    );
+
+    expect(first).toEqual({ x: 18, y: 28, width: 184, height: 34 });
+    expect(second).toEqual({ x: 18, y: 78, width: 184, height: 34 });
+  });
+
+  it('splits multiple cell children horizontally when requested', () => {
+    const first = computeCellChildLayout(
+      { x: 10, y: 20, width: 200, height: 100 },
+      0,
+      2,
+      8,
+      'horizontal',
+    );
+    const second = computeCellChildLayout(
+      { x: 10, y: 20, width: 200, height: 100 },
+      1,
+      2,
+      8,
+      'horizontal',
+    );
+
+    expect(first).toEqual({ x: 18, y: 28, width: 84, height: 84 });
+    expect(second).toEqual({ x: 118, y: 28, width: 84, height: 84 });
   });
 });

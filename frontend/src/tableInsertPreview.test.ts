@@ -40,21 +40,21 @@ describe('tableInsertPreview', () => {
   });
 
   it('clamps the created table size to the table minimum', () => {
-    expect(getTableInsertItemSize(1, 1)).toEqual({ width: 120, height: 72 });
+    expect(getTableInsertItemSize(1, 1)).toEqual({ width: 48, height: 48 });
   });
 
   it('scales the created table size with the chosen grid', () => {
     expect(getTableInsertItemSize(6, 4)).toEqual({
-      width: 720,
-      height: 288,
+      width: 288,
+      height: 192,
     });
   });
 
   it('uses world-sized thresholds for canvas dragging', () => {
     expect(
       getTableInsertCanvasDimensions(
-        119,
-        71,
+        47,
+        47,
         TABLE_MAX_DIMENSION,
         TABLE_MAX_DIMENSION,
       ),
@@ -64,8 +64,8 @@ describe('tableInsertPreview', () => {
     });
     expect(
       getTableInsertCanvasDimensions(
-        120,
-        72,
+        48,
+        48,
         TABLE_MAX_DIMENSION,
         TABLE_MAX_DIMENSION,
       ),
@@ -81,8 +81,8 @@ describe('tableInsertPreview', () => {
       height: 210,
     });
     expect(getTableInsertCanvasSize(40, 40, 1, 1)).toEqual({
-      width: 120,
-      height: 72,
+      width: 48,
+      height: 48,
     });
   });
 

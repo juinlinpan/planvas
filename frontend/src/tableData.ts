@@ -1,4 +1,10 @@
 import { ITEM_MIN_SIZE, ITEM_TYPE } from './types';
+import {
+  sanitizeTextHorizontalAlign,
+  sanitizeTextVerticalAlign,
+  type TextHorizontalAlign,
+  type TextVerticalAlign,
+} from './itemStyles';
 
 const DEFAULT_TABLE_ROWS = 3;
 const DEFAULT_TABLE_COLS = 3;
@@ -8,11 +14,17 @@ export const TABLE_MAX_DIMENSION = 20;
 export const TABLE_CELL_MIN_WIDTH = ITEM_MIN_SIZE[ITEM_TYPE.text_box].width;
 export const TABLE_CELL_MIN_HEIGHT = ITEM_MIN_SIZE[ITEM_TYPE.text_box].height;
 
+export type TableChildLayoutDirection = 'vertical' | 'horizontal';
+
 // null = position is covered by a spanning cell from another grid location
 export type TableCellData = {
   id: string;
   content: string;       // plain text label for the cell
   backgroundColor?: string;
+  textHorizontalAlign?: TextHorizontalAlign;
+  textVerticalAlign?: TextVerticalAlign;
+  childLayoutDirection?: TableChildLayoutDirection;
+  childLayoutUpdatedAt?: number;
   rowSpan: number;       // >= 1
   colSpan: number;       // >= 1
   isCollapsed: boolean;
@@ -38,6 +50,8 @@ export type TableData = {
   /** Explicit continuity breaks between horizontally adjacent row-divider segments.
    *  Key: "r{boundaryIdx}c{col}" means the segments at cols c and c+1 must not auto-join. */
   rowDividerBreaks?: Record<string, true>;
+  childLayoutDirection?: TableChildLayoutDirection;
+  childLayoutUpdatedAt?: number;
 };
 
 /** A group of contiguous divider segments that move together. */
@@ -54,6 +68,11 @@ export type SegmentGroup = {
 
 // [row, col] index pair used by select / merge operations
 export type CellPosition = [number, number];
+
+export type TableCellDeleteOperation =
+  | { type: 'cells'; cellIds: string[] }
+  | { type: 'rows'; rowIndexes: number[] }
+  | { type: 'cols'; colIndexes: number[] };
 
 // ── Internal helpers ─────────────────────────────────────────────────────
 
@@ -200,6 +219,16 @@ function parseNewFormat(parsed: Record<string, unknown>): TableData {
           typeof obj['backgroundColor'] === 'string'
             ? obj['backgroundColor']
             : undefined,
+        textHorizontalAlign: sanitizeTextHorizontalAlign(
+          obj['textHorizontalAlign'],
+        ),
+        textVerticalAlign: sanitizeTextVerticalAlign(obj['textVerticalAlign']),
+        childLayoutDirection: sanitizeTableChildLayoutDirection(
+          obj['childLayoutDirection'],
+        ),
+        childLayoutUpdatedAt: sanitizeTableLayoutUpdatedAt(
+          obj['childLayoutUpdatedAt'],
+        ),
         rowSpan: typeof obj['rowSpan'] === 'number' && obj['rowSpan'] >= 1 ? obj['rowSpan'] : 1,
         colSpan: typeof obj['colSpan'] === 'number' && obj['colSpan'] >= 1 ? obj['colSpan'] : 1,
         isCollapsed: typeof obj['isCollapsed'] === 'boolean' ? obj['isCollapsed'] : true,
@@ -219,6 +248,12 @@ function parseNewFormat(parsed: Record<string, unknown>): TableData {
     cells,
     ...parseDividerPositions(parsed),
     ...parseDividerBreaks(parsed),
+    childLayoutDirection: sanitizeTableChildLayoutDirection(
+      parsed['childLayoutDirection'],
+    ),
+    childLayoutUpdatedAt: sanitizeTableLayoutUpdatedAt(
+      parsed['childLayoutUpdatedAt'],
+    ),
   };
 }
 
@@ -287,6 +322,10 @@ function parseOldFormat(parsed: Record<string, unknown>): TableData {
         id: cell.id,
         content: typeof rawVal === 'string' ? rawVal : '',
         backgroundColor: cell.backgroundColor,
+        textHorizontalAlign: cell.textHorizontalAlign,
+        textVerticalAlign: cell.textVerticalAlign,
+        childLayoutDirection: cell.childLayoutDirection,
+        childLayoutUpdatedAt: cell.childLayoutUpdatedAt,
         rowSpan: cell.rowSpan,
         colSpan: cell.colSpan,
         isCollapsed: cell.isCollapsed,
@@ -321,6 +360,200 @@ export function updateTableCell(
       row.map((cell) => (cell && cell.id === cellId ? { ...cell, ...patch } : cell)),
     ),
   };
+}
+
+export function sanitizeTableChildLayoutDirection(
+  value: unknown,
+): TableChildLayoutDirection | undefined {
+  return value === 'horizontal' || value === 'vertical' ? value : undefined;
+}
+
+function sanitizeTableLayoutUpdatedAt(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+export function getEffectiveTableCellChildLayoutDirection(
+  data: Pick<TableData, 'childLayoutDirection' | 'childLayoutUpdatedAt'>,
+  cell: Pick<TableCellData, 'childLayoutDirection' | 'childLayoutUpdatedAt'>,
+): TableChildLayoutDirection {
+  const tableDirection = data.childLayoutDirection ?? 'vertical';
+  const tableUpdatedAt = data.childLayoutUpdatedAt ?? 0;
+  const cellUpdatedAt = cell.childLayoutUpdatedAt ?? -1;
+
+  if (cell.childLayoutDirection !== undefined && cellUpdatedAt >= tableUpdatedAt) {
+    return cell.childLayoutDirection;
+  }
+
+  return tableDirection;
+}
+
+export function getNextTableLayoutUpdatedAt(data: TableData): number {
+  const cellMax = data.cells
+    .flat()
+    .reduce(
+      (max, cell) => Math.max(max, cell?.childLayoutUpdatedAt ?? 0),
+      0,
+    );
+  return Math.max(data.childLayoutUpdatedAt ?? 0, cellMax) + 1;
+}
+
+export function clearTableCells(
+  data: TableData,
+  cellIds: string[],
+): { data: TableData; clearedChildItemIds: string[] } {
+  const targetIds = new Set(cellIds);
+  const clearedChildItemIds: string[] = [];
+
+  const nextCells = data.cells.map((row) =>
+    row.map((cell) => {
+      if (!cell || !targetIds.has(cell.id)) {
+        return cell;
+      }
+
+      clearedChildItemIds.push(...cell.childItemIds);
+      return {
+        ...cell,
+        content: '',
+        childItemIds: [],
+      };
+    }),
+  );
+
+  return {
+    data: {
+      ...data,
+      cells: nextCells,
+    },
+    clearedChildItemIds: [...new Set(clearedChildItemIds)],
+  };
+}
+
+function getRootCellPositionById(
+  data: TableData,
+  cellId: string,
+): { row: number; col: number; cell: TableCellData } | null {
+  for (let row = 0; row < data.rows; row++) {
+    for (let col = 0; col < data.cols; col++) {
+      const cell = data.cells[row]?.[col];
+      if (cell?.id === cellId) {
+        return { row, col, cell };
+      }
+    }
+  }
+  return null;
+}
+
+function getSelectedGridPositions(data: TableData, cellIds: string[]): Set<string> {
+  const positions = new Set<string>();
+  const uniqueCellIds = [...new Set(cellIds)];
+
+  for (const cellId of uniqueCellIds) {
+    const root = getRootCellPositionById(data, cellId);
+    if (root === null) {
+      continue;
+    }
+
+    for (let rowOffset = 0; rowOffset < root.cell.rowSpan; rowOffset++) {
+      for (let colOffset = 0; colOffset < root.cell.colSpan; colOffset++) {
+        positions.add(`${root.row + rowOffset},${root.col + colOffset}`);
+      }
+    }
+  }
+
+  return positions;
+}
+
+export function getTableCellDeleteOperation(
+  data: TableData,
+  cellIds: string[],
+): TableCellDeleteOperation | null {
+  const selectedPositions = getSelectedGridPositions(data, cellIds);
+  if (selectedPositions.size === 0) {
+    return null;
+  }
+
+  const selectedRows = new Set<number>();
+  const selectedCols = new Set<number>();
+  for (const position of selectedPositions) {
+    const [rowPart, colPart] = position.split(',');
+    selectedRows.add(Number(rowPart));
+    selectedCols.add(Number(colPart));
+  }
+
+  const rowIndexes = [...selectedRows].sort((a, b) => a - b);
+  const colIndexes = [...selectedCols].sort((a, b) => a - b);
+  const coversFullRows = rowIndexes.every((row) =>
+    Array.from({ length: data.cols }, (_, col) =>
+      selectedPositions.has(`${row},${col}`),
+    ).every(Boolean),
+  );
+  const coversFullCols = colIndexes.every((col) =>
+    Array.from({ length: data.rows }, (_, row) =>
+      selectedPositions.has(`${row},${col}`),
+    ).every(Boolean),
+  );
+
+  if (coversFullRows && rowIndexes.length < data.rows) {
+    return { type: 'rows', rowIndexes };
+  }
+
+  if (coversFullCols && colIndexes.length < data.cols) {
+    return { type: 'cols', colIndexes };
+  }
+
+  return { type: 'cells', cellIds: [...new Set(cellIds)] };
+}
+
+export function getChildItemIdsInRows(
+  data: TableData,
+  rowIndexes: number[],
+): string[] {
+  const targetRows = new Set(rowIndexes);
+  const childItemIds: string[] = [];
+
+  for (let row = 0; row < data.rows; row++) {
+    for (let col = 0; col < data.cols; col++) {
+      const cell = data.cells[row]?.[col];
+      if (!cell || !targetRows.has(row)) {
+        continue;
+      }
+      childItemIds.push(...cell.childItemIds);
+    }
+  }
+
+  return [...new Set(childItemIds)];
+}
+
+export function getChildItemIdsInCols(
+  data: TableData,
+  colIndexes: number[],
+): string[] {
+  const targetCols = new Set(colIndexes);
+  const childItemIds: string[] = [];
+
+  for (let row = 0; row < data.rows; row++) {
+    for (let col = 0; col < data.cols; col++) {
+      const cell = data.cells[row]?.[col];
+      if (!cell || !targetCols.has(col)) {
+        continue;
+      }
+      childItemIds.push(...cell.childItemIds);
+    }
+  }
+
+  return [...new Set(childItemIds)];
+}
+
+export function deleteRows(data: TableData, rowIndexes: number[]): TableData {
+  return [...new Set(rowIndexes)]
+    .sort((a, b) => b - a)
+    .reduce((current, rowIndex) => deleteRow(current, rowIndex), data);
+}
+
+export function deleteCols(data: TableData, colIndexes: number[]): TableData {
+  return [...new Set(colIndexes)]
+    .sort((a, b) => b - a)
+    .reduce((current, colIndex) => deleteCol(current, colIndex), data);
 }
 
 export function getTableCellSummary(cell: TableCellData): string {
@@ -376,12 +609,22 @@ export function mergeCells(data: TableData, positions: CellPosition[]): TableDat
 
   const contents: string[] = [];
   let backgroundColor: string | undefined;
+  let childLayoutDirection: TableChildLayoutDirection | undefined;
+  let childLayoutUpdatedAt: number | undefined;
   for (let r = minRow; r <= maxRow; r++) {
     for (let c = minCol; c <= maxCol; c++) {
       const cell = data.cells[r]?.[c];
       if (cell?.content.trim()) contents.push(cell.content.trim());
       if (backgroundColor === undefined && cell?.backgroundColor) {
         backgroundColor = cell.backgroundColor;
+      }
+      if (
+        cell?.childLayoutDirection !== undefined &&
+        (childLayoutUpdatedAt === undefined ||
+          (cell.childLayoutUpdatedAt ?? 0) > childLayoutUpdatedAt)
+      ) {
+        childLayoutDirection = cell.childLayoutDirection;
+        childLayoutUpdatedAt = cell.childLayoutUpdatedAt;
       }
     }
   }
@@ -390,6 +633,8 @@ export function mergeCells(data: TableData, positions: CellPosition[]): TableDat
     id: makeCellId(),
     content: contents.join('\n'),
     backgroundColor,
+    childLayoutDirection,
+    childLayoutUpdatedAt,
     rowSpan: maxRow - minRow + 1,
     colSpan: maxCol - minCol + 1,
     isCollapsed: true,

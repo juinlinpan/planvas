@@ -29,7 +29,6 @@
 .text-box-content {
   display: block;
   width: 100%;
-  min-height: 100%;
   white-space: pre-wrap;
   overflow: hidden;
   overflow-wrap: anywhere;

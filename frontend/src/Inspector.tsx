@@ -13,8 +13,12 @@ import {
 import { hasStoredSegmentData } from './segmentData';
 import {
   countFilledTableCells,
+  getEffectiveTableCellChildLayoutDirection,
+  getNextTableLayoutUpdatedAt,
   getTableMinSizeFromDataJson,
   parseTableData,
+  serializeTableData,
+  type TableChildLayoutDirection,
   type TableCellData,
 } from './tableData';
 import { ITEM_MIN_SIZE, ITEM_TYPE, ITEM_TYPE_LABEL } from './types';
@@ -22,6 +26,23 @@ import { ITEM_MIN_SIZE, ITEM_TYPE, ITEM_TYPE_LABEL } from './types';
 const SEGMENT_TEXT_BACKGROUND_OPTIONS = [
   { name: 'Transparent', value: 'transparent' },
   ...BACKGROUND_COLOR_OPTIONS,
+] as const;
+
+const TEXT_HORIZONTAL_ALIGN_OPTIONS = [
+  { value: 'left', label: '置左' },
+  { value: 'center', label: '置中' },
+  { value: 'right', label: '置右' },
+] as const;
+
+const TEXT_VERTICAL_ALIGN_OPTIONS = [
+  { value: 'top', label: '靠上' },
+  { value: 'middle', label: '置中' },
+  { value: 'bottom', label: '靠下' },
+] as const;
+
+const TABLE_CHILD_LAYOUT_OPTIONS = [
+  { value: 'vertical', label: '上下分' },
+  { value: 'horizontal', label: '左右分' },
 ] as const;
 
 type Props = {
@@ -315,6 +336,42 @@ export function Inspector({
     selectedTableCells.length === 1
       ? (selectedTableCells[0]?.content ?? '')
       : '';
+  const selectedTableCellHorizontalAlign =
+    selectedTableCells.length > 0 &&
+    selectedTableCells.every(
+      (cell) =>
+        (cell.textHorizontalAlign ?? 'center') ===
+        (selectedTableCells[0]?.textHorizontalAlign ?? 'center'),
+    )
+      ? (selectedTableCells[0]?.textHorizontalAlign ?? 'center')
+      : 'center';
+  const selectedTableCellVerticalAlign =
+    selectedTableCells.length > 0 &&
+    selectedTableCells.every(
+      (cell) =>
+        (cell.textVerticalAlign ?? 'middle') ===
+        (selectedTableCells[0]?.textVerticalAlign ?? 'middle'),
+    )
+      ? (selectedTableCells[0]?.textVerticalAlign ?? 'middle')
+      : 'middle';
+  const tableChildLayoutDirection =
+    tableData?.childLayoutDirection ?? 'vertical';
+  const selectedTableCellChildLayoutDirection =
+    isTable && tableData !== null && selectedTableCells.length > 0
+      ? selectedTableCells.every(
+          (cell) =>
+            getEffectiveTableCellChildLayoutDirection(tableData, cell) ===
+            getEffectiveTableCellChildLayoutDirection(
+              tableData,
+              selectedTableCells[0],
+            ),
+        )
+        ? getEffectiveTableCellChildLayoutDirection(
+            tableData,
+            selectedTableCells[0],
+          )
+        : 'vertical'
+      : tableChildLayoutDirection;
   const hasCustomStyle =
     selectedItem.style_json !== null &&
     selectedItem.style_json.trim().length > 0;
@@ -423,6 +480,32 @@ export function Inspector({
     handleStyleChange({ arrowHeadSize: value });
   }
 
+  function handleTableChildLayoutChange(value: TableChildLayoutDirection) {
+    if (!isTable || tableData === null) {
+      return;
+    }
+
+    onUpdate({
+      ...selectedItem,
+      data_json: serializeTableData({
+        ...tableData,
+        childLayoutDirection: value,
+        childLayoutUpdatedAt: getNextTableLayoutUpdatedAt(tableData),
+      }),
+    });
+  }
+
+  function handleTableCellChildLayoutChange(value: TableChildLayoutDirection) {
+    if (!isTable || tableData === null || selectedTableCellIds.length === 0) {
+      return;
+    }
+
+    onUpdateTableCells(selectedItem.id, selectedTableCellIds, {
+      childLayoutDirection: value,
+      childLayoutUpdatedAt: getNextTableLayoutUpdatedAt(tableData),
+    });
+  }
+
   return (
     <aside className="canvas-inspector">
       <div className="inspector-panel">
@@ -520,6 +603,23 @@ export function Inspector({
             <p className="inspector-meta">
               {summarizeContent(selectedItem)}
             </p>
+            <label className="inspector-field">
+              內部物件分割
+              <select
+                value={tableChildLayoutDirection}
+                onChange={(e) =>
+                  handleTableChildLayoutChange(
+                    e.target.value as TableChildLayoutDirection,
+                  )
+                }
+              >
+                {TABLE_CHILD_LAYOUT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </section>
         ) : null}
         {isTable ? (
@@ -566,6 +666,64 @@ export function Inspector({
                 />
               </label>
             </div>
+            <div className="inspector-grid">
+              <label className="inspector-field">
+                水平對齊
+                <select
+                  value={selectedTableCellHorizontalAlign}
+                  disabled={selectedTableCells.length === 0}
+                  onChange={(e) =>
+                    onUpdateTableCells(selectedItem.id, selectedTableCellIds, {
+                      textHorizontalAlign: e.target
+                        .value as TableCellData['textHorizontalAlign'],
+                    })
+                  }
+                >
+                  {TEXT_HORIZONTAL_ALIGN_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="inspector-field">
+                垂直對齊
+                <select
+                  value={selectedTableCellVerticalAlign}
+                  disabled={selectedTableCells.length === 0}
+                  onChange={(e) =>
+                    onUpdateTableCells(selectedItem.id, selectedTableCellIds, {
+                      textVerticalAlign: e.target
+                        .value as TableCellData['textVerticalAlign'],
+                    })
+                  }
+                >
+                  {TEXT_VERTICAL_ALIGN_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <label className="inspector-field">
+              內部物件分割
+              <select
+                value={selectedTableCellChildLayoutDirection}
+                disabled={selectedTableCells.length === 0}
+                onChange={(e) =>
+                  handleTableCellChildLayoutChange(
+                    e.target.value as TableChildLayoutDirection,
+                  )
+                }
+              >
+                {TABLE_CHILD_LAYOUT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="inspector-toggle-group">
               <button
                 type="button"
@@ -716,6 +874,46 @@ export function Inspector({
                     />
                   </label>
                 </div>
+                {selectedItem.type === ITEM_TYPE.text_box ? (
+                  <div className="inspector-grid">
+                    <label className="inspector-field">
+                      水平對齊
+                      <select
+                        value={resolvedStyle.textHorizontalAlign}
+                        onChange={(e) =>
+                          handleStyleChange({
+                            textHorizontalAlign: e.target
+                              .value as BoardItemStyle['textHorizontalAlign'],
+                          })
+                        }
+                      >
+                        {TEXT_HORIZONTAL_ALIGN_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="inspector-field">
+                      垂直對齊
+                      <select
+                        value={resolvedStyle.textVerticalAlign}
+                        onChange={(e) =>
+                          handleStyleChange({
+                            textVerticalAlign: e.target
+                              .value as BoardItemStyle['textVerticalAlign'],
+                          })
+                        }
+                      >
+                        {TEXT_VERTICAL_ALIGN_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                ) : null}
                 <div className="inspector-toggle-group">
                   <button
                     type="button"

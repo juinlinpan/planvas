@@ -9,6 +9,8 @@ export type LineCornerType = 'sharp' | 'rounded';
 export type SegmentTextHorizontalPosition = 'start' | 'center' | 'end';
 export type SegmentTextVerticalPosition = 'top' | 'middle' | 'bottom';
 export type SegmentTextOrientation = 'horizontal' | 'slope';
+export type TextHorizontalAlign = 'left' | 'center' | 'right';
+export type TextVerticalAlign = 'top' | 'middle' | 'bottom';
 export type ColorOption = {
   name: string;
   value: string;
@@ -28,6 +30,8 @@ export type BoardItemStyle = {
   segmentTextHorizontalPosition?: SegmentTextHorizontalPosition;
   segmentTextVerticalPosition?: SegmentTextVerticalPosition;
   segmentTextOrientation?: SegmentTextOrientation;
+  textHorizontalAlign?: TextHorizontalAlign;
+  textVerticalAlign?: TextVerticalAlign;
 };
 
 export type ProjectDefaultStyle = {
@@ -55,6 +59,8 @@ export type ResolvedBoardItemStyle = {
   segmentTextHorizontalPosition: SegmentTextHorizontalPosition;
   segmentTextVerticalPosition: SegmentTextVerticalPosition;
   segmentTextOrientation: SegmentTextOrientation;
+  textHorizontalAlign: TextHorizontalAlign;
+  textVerticalAlign: TextVerticalAlign;
 };
 
 export const BACKGROUND_COLOR_OPTIONS = [
@@ -217,6 +223,22 @@ function sanitizeSegmentTextOrientation(
   return value === 'horizontal' || value === 'slope' ? value : undefined;
 }
 
+export function sanitizeTextHorizontalAlign(
+  value: unknown,
+): TextHorizontalAlign | undefined {
+  return value === 'left' || value === 'center' || value === 'right'
+    ? value
+    : undefined;
+}
+
+export function sanitizeTextVerticalAlign(
+  value: unknown,
+): TextVerticalAlign | undefined {
+  return value === 'top' || value === 'middle' || value === 'bottom'
+    ? value
+    : undefined;
+}
+
 export function getStickyNoteColor(itemId: string): string {
   let hash = 0;
   for (let index = 0; index < itemId.length; index += 1) {
@@ -261,6 +283,10 @@ export function parseBoardItemStyle(styleJson: string | null): BoardItemStyle {
       segmentTextOrientation: sanitizeSegmentTextOrientation(
         parsed.segmentTextOrientation,
       ),
+      textHorizontalAlign: sanitizeTextHorizontalAlign(
+        parsed.textHorizontalAlign,
+      ),
+      textVerticalAlign: sanitizeTextVerticalAlign(parsed.textVerticalAlign),
     };
   } catch {
     return {};
@@ -293,6 +319,10 @@ export function serializeBoardItemStyle(style: BoardItemStyle): string | null {
     segmentTextOrientation: sanitizeSegmentTextOrientation(
       style.segmentTextOrientation,
     ),
+    textHorizontalAlign: sanitizeTextHorizontalAlign(
+      style.textHorizontalAlign,
+    ),
+    textVerticalAlign: sanitizeTextVerticalAlign(style.textVerticalAlign),
   };
 
   const entries = Object.entries(nextStyle).filter(
@@ -447,6 +477,8 @@ export function resolveBoardItemStyle(
       projectDefaultStyle.segmentTextVerticalPosition ??
       'middle',
     segmentTextOrientation: parsed.segmentTextOrientation ?? 'horizontal',
+    textHorizontalAlign: parsed.textHorizontalAlign ?? 'center',
+    textVerticalAlign: parsed.textVerticalAlign ?? 'middle',
   };
 }
 

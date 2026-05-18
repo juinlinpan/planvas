@@ -4,12 +4,18 @@ import {
   TABLE_MAX_DIMENSION,
   addCol,
   addRow,
+  clearTableCells,
   computeColSegmentGroups,
   computeRowSegmentGroups,
   createTableData,
+  deleteCols,
+  deleteRows,
+  getEffectiveTableCellChildLayoutDirection,
+  getNextTableLayoutUpdatedAt,
   getTableMinSize,
   getEffectiveColEdge,
   getEffectiveRowEdge,
+  getTableCellDeleteOperation,
   mergeCells,
   preserveOuterAddColLayout,
   preserveOuterAddRowLayout,
@@ -21,6 +27,77 @@ import {
 } from './tableData';
 
 describe('tableData merge and split semantics', () => {
+  it('detects a full-row cell selection as a row delete operation', () => {
+    const data = createTableData(3, 3);
+    const rowCellIds = data.cells[1]
+      ?.filter((cell): cell is NonNullable<typeof cell> => cell !== null)
+      .map((cell) => cell.id);
+
+    expect(rowCellIds).toBeTruthy();
+    const operation = getTableCellDeleteOperation(data, rowCellIds ?? []);
+
+    expect(operation).toEqual({ type: 'rows', rowIndexes: [1] });
+  });
+
+  it('detects a full-column cell selection as a column delete operation', () => {
+    const data = createTableData(3, 3);
+    const colCellIds = data.cells
+      .map((row) => row[2])
+      .filter((cell): cell is NonNullable<typeof cell> => cell !== null)
+      .map((cell) => cell.id);
+
+    const operation = getTableCellDeleteOperation(data, colCellIds);
+
+    expect(operation).toEqual({ type: 'cols', colIndexes: [2] });
+  });
+
+  it('deletes middle rows and joins the rows around the removed range', () => {
+    const data = createTableData(4, 2);
+    data.cells[0]![0]!.content = 'top';
+    data.cells[3]![0]!.content = 'bottom';
+
+    const deleted = deleteRows(data, [1, 2]);
+
+    expect(deleted.rows).toBe(2);
+    expect(deleted.cells[0]?.[0]?.content).toBe('top');
+    expect(deleted.cells[1]?.[0]?.content).toBe('bottom');
+  });
+
+  it('deletes middle columns and joins the columns around the removed range', () => {
+    const data = createTableData(2, 4);
+    data.cells[0]![0]!.content = 'left';
+    data.cells[0]![3]!.content = 'right';
+
+    const deleted = deleteCols(data, [1, 2]);
+
+    expect(deleted.cols).toBe(2);
+    expect(deleted.cells[0]?.[0]?.content).toBe('left');
+    expect(deleted.cells[0]?.[1]?.content).toBe('right');
+  });
+
+  it('clears only selected cells and reports embedded child items', () => {
+    const data = createTableData(2, 2);
+    const firstCell = data.cells[0]?.[0];
+    const secondCell = data.cells[1]?.[1];
+    expect(firstCell).toBeTruthy();
+    expect(secondCell).toBeTruthy();
+    if (!firstCell || !secondCell) {
+      throw new Error('Expected test table cells to exist');
+    }
+    firstCell.content = 'delete me';
+    firstCell.childItemIds = ['child-a', 'child-b'];
+    secondCell.content = 'keep me';
+
+    const result = clearTableCells(data, [firstCell.id]);
+
+    expect(result.data.rows).toBe(2);
+    expect(result.data.cols).toBe(2);
+    expect(result.data.cells[0]?.[0]?.content).toBe('');
+    expect(result.data.cells[0]?.[0]?.childItemIds).toEqual([]);
+    expect(result.data.cells[1]?.[1]?.content).toBe('keep me');
+    expect(result.clearedChildItemIds).toEqual(['child-a', 'child-b']);
+  });
+
   it('treats split cells as new cells instead of restoring the original ones', () => {
     const data = createTableData(3, 2);
     const originalIds = [data.cells[1]?.[0]?.id, data.cells[1]?.[1]?.id];
@@ -241,8 +318,53 @@ describe('tableData merge and split semantics', () => {
   });
 
   it('uses text box minimum size as the minimum size of each table cell', () => {
-    expect(getTableMinSize(1, 1)).toEqual({ width: 120, height: 72 });
-    expect(getTableMinSize(4, 5)).toEqual({ width: 600, height: 288 });
+    expect(getTableMinSize(1, 1)).toEqual({ width: 48, height: 48 });
+    expect(getTableMinSize(4, 5)).toEqual({ width: 240, height: 192 });
+  });
+
+  it('defaults table cell child layout to vertical', () => {
+    const data = createTableData(1, 1);
+    const cell = data.cells[0]?.[0];
+    expect(cell).toBeTruthy();
+    if (!cell) {
+      throw new Error('Expected test table cell to exist');
+    }
+
+    expect(getEffectiveTableCellChildLayoutDirection(data, cell)).toBe(
+      'vertical',
+    );
+  });
+
+  it('uses the latest table or cell child layout setting by sequence', () => {
+    const data = createTableData(1, 1);
+    const cell = data.cells[0]?.[0];
+    expect(cell).toBeTruthy();
+    if (!cell) {
+      throw new Error('Expected test table cell to exist');
+    }
+
+    const tableFirst = {
+      ...data,
+      childLayoutDirection: 'horizontal' as const,
+      childLayoutUpdatedAt: getNextTableLayoutUpdatedAt(data),
+    };
+    const cellAfter = {
+      ...cell,
+      childLayoutDirection: 'vertical' as const,
+      childLayoutUpdatedAt: getNextTableLayoutUpdatedAt(tableFirst),
+    };
+    expect(getEffectiveTableCellChildLayoutDirection(tableFirst, cellAfter)).toBe(
+      'vertical',
+    );
+
+    const tableAfter = {
+      ...tableFirst,
+      childLayoutDirection: 'horizontal' as const,
+      childLayoutUpdatedAt: (cellAfter.childLayoutUpdatedAt ?? 0) + 1,
+    };
+    expect(getEffectiveTableCellChildLayoutDirection(tableAfter, cellAfter)).toBe(
+      'horizontal',
+    );
   });
 
   it('keeps table minimum sizes on the canvas grid', () => {

@@ -171,6 +171,9 @@ describe('Inspector style palette', () => {
 
     expect(markup).toContain('meta-label">Table Cell<');
     expect(markup).toContain('Cell text');
+    expect(markup).toContain('內部物件分割');
+    expect(markup).toContain('上下分');
+    expect(markup).toContain('左右分');
     expect(markup).not.toContain('Rows');
     expect(markup).not.toContain('Columns');
   });

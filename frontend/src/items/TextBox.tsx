@@ -6,6 +6,22 @@ import {
   resolveBoardItemStyle,
 } from '../itemStyles';
 
+function toJustifyContent(
+  value: 'left' | 'center' | 'right',
+): React.CSSProperties['justifyContent'] {
+  if (value === 'left') return 'flex-start';
+  if (value === 'right') return 'flex-end';
+  return 'center';
+}
+
+function toAlignItems(
+  value: 'top' | 'middle' | 'bottom',
+): React.CSSProperties['alignItems'] {
+  if (value === 'top') return 'flex-start';
+  if (value === 'bottom') return 'flex-end';
+  return 'center';
+}
+
 type Props = {
   item: BoardItem;
   isEditing: boolean;
@@ -25,7 +41,13 @@ export function TextBox({
   const resolvedStyle = resolveBoardItemStyle(item, projectDefaultStyle);
   const contentStyle = {
     background: resolvedStyle.backgroundColor,
+    textAlign: resolvedStyle.textHorizontalAlign,
     ...getBoardItemTypographyStyle(item, projectDefaultStyle),
+  };
+  const displayStyle = {
+    ...contentStyle,
+    justifyContent: toJustifyContent(resolvedStyle.textHorizontalAlign),
+    alignItems: toAlignItems(resolvedStyle.textVerticalAlign),
   };
 
   useEffect(() => {
@@ -54,7 +76,7 @@ export function TextBox({
   }
 
   return (
-    <div className="text-box-display" style={contentStyle}>
+    <div className="text-box-display" style={displayStyle}>
       {item.content ? (
         <span className="text-box-content">{item.content}</span>
       ) : null}
