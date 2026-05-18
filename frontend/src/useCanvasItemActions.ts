@@ -661,11 +661,20 @@ export function useCanvasItemActions({
       itemSaveTimerRef.current = setTimeout(() => {
         const latestUpdated =
           itemsRef.current.find((item) => item.id === updated.id) ?? updated;
-        const latestChildren = changedChildIds
-          .map((childId) =>
-            itemsRef.current.find((item) => item.id === childId),
-          )
-          .filter((item): item is BoardItem => item !== undefined);
+        // For table items, always persist ALL children (parent_item_id match)
+        // because changedChildIds may be empty if relayout ran in a prior rapid
+        // call and the final call saw no positional change relative to the
+        // already-relaid-out in-memory state — leaving children unsaved on disk.
+        const latestChildren =
+          updated.type === ITEM_TYPE.table
+            ? itemsRef.current.filter(
+                (item) => item.parent_item_id === updated.id,
+              )
+            : changedChildIds
+                .map((childId) =>
+                  itemsRef.current.find((item) => item.id === childId),
+                )
+                .filter((item): item is BoardItem => item !== undefined);
         void Promise.all([
           updateBoardItem(latestUpdated.id, toPayload(latestUpdated)),
           ...latestChildren.map((child) =>
