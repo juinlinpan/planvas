@@ -257,6 +257,7 @@ export function BoardItemRenderer({
             onUpdate={onUpdate}
             onEditEnd={onEditEnd}
             projectDefaultStyle={projectDefaultStyle}
+            renderMode={renderMode}
           />
           {resizeHandle}
         </div>

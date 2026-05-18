@@ -84,7 +84,30 @@ const done = true;
     );
 
     expect(markup).toContain('Sprint Plan');
+    expect(markup).toContain('markdown-list');
+  });
+
+  it('renders title-only mode without the body preview', () => {
+    const markup = renderToStaticMarkup(
+      <NotePaper
+        item={createNotePaperItem({
+          data_json: JSON.stringify({
+            noteFile: 'sprint-plan.md',
+            noteDisplayMode: 'title',
+          }),
+          content: `# Sprint Plan
+
+- API sync`,
+        })}
+        isEditing={false}
+        onUpdate={() => {}}
+        onEditEnd={() => {}}
+      />,
+    );
+
+    expect(markup).toContain('Sprint Plan');
     expect(markup).not.toContain('markdown-list');
+    expect(markup).toContain('展開');
   });
 
   it('renders the editor in edit mode', () => {

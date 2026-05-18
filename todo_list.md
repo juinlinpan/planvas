@@ -104,6 +104,7 @@
 - [x] Keep `text_box` read mode scrollbar-free and let it show as much text as the current size allows.
 - [x] Make `note_paper` read mode scroll its body when markdown content overflows.
 - [x] Prioritize the first Markdown `#` heading when a `note_paper` is too small to show both title and body comfortably.
+- [x] Let `note_paper` placements toggle on the Page between expanded markdown content and a title-only H1 summary view.
 - [x] Back `note_paper` content with `.md` files under `.pv_project/` instead of storing markdown text inside Page XML.
 - [x] Let the right inspector rename the markdown backing file for a selected `note_paper`.
 - [x] Add project-level note listing API and sidebar drag placement for markdown-backed notes.
@@ -148,8 +149,9 @@
 ## Table Text Layout And Inspector Update Notes
 
 - [x] 讓 `table` 儲存格與 `text_box` 支援文字水平對齊（左/中/右）與垂直對齊（上/中/下）設定，預設為水平置中、垂直置中
+- [x] 讓選取整張 `table` 時的字型大小、文字顏色、粗體與斜體設定同步套用到所有儲存格文字與格內 `small_item`
 - [x] 讓 `text_box` 在 read mode 下移除捲動列，盡可能顯示多行文字
-- [x] 讓 `note_paper` read mode 支援 Markdown 溢出捲動，內容過小時優先顯示 Markdown H1 標題
+- [x] 讓 `note_paper` read mode 支援 Markdown 溢出捲動，內容過小時優先顯示 Markdown H1 標題，並可在 Page 上切換成只顯示標題
 - [x] 在 Inspector 中為 `table` 新增「鎖定欄」欄位，可設定各欄位隱藏與顯示行為
 
 ## Minimap And New-Page Viewport Update Notes

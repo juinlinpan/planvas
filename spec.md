@@ -89,6 +89,7 @@
 - When a `text_box` becomes too small to show all text, it should keep showing as much text as fits without introducing a scrollbar.
 - When a `note_paper` becomes too small to show all markdown content, the body area should scroll instead of clipping the whole note.
 - When a `note_paper` has very limited space, the read view should prioritize the first Markdown `#` heading before showing lower-priority body blocks.
+- On the Page, `note_paper` must let the user toggle between expanded markdown content and a title-only view that shows just the first Markdown `#` heading, or the first non-empty line when no H1 exists.
 - `note_paper` content is markdown-file-backed: the frontend may continue using the API `content` field, but persistence must write the markdown body to `.pv_project/<note>.md` and reload the API `content` field from that file.
 - The right inspector must let users edit the `.md` filename for a selected `note_paper`; changing it renames the markdown backing file and updates the Page XML reference.
 - Project notes are reusable across Pages: placing a note from the left Notes box creates another board item placement that references the selected markdown file instead of duplicating note text into Page XML.
@@ -137,8 +138,9 @@
 ## Table Text Layout And Inspector Update Notes
 
 - `table` 支援儲存格文字水平對齊（左 / 中 / 右）與垂直對齊（上 / 中 / 下）設定；預設為水平置中、垂直置中；Inspector 顯示對應的對齊、字型大小與文字顏色控制項。
+- 在 Inspector 選取整張 `table` 並調整文字樣式時，表格內所有儲存格文字必須立即套用相同字型大小、文字顏色、粗體與斜體；表格儲存格內嵌的 `small_item` 也必須同步套用這些文字樣式。
 - `text_box` 支援文字水平對齊（左 / 中 / 右）與垂直對齊（上 / 中 / 下）設定；預設為水平置中、垂直置中。
-- `note_paper` 內文以 Markdown 儲存；Inspector 顯示尺寸控制；在 `frame` 縮回時只顯示第一個 Markdown H1 標題。
+- `note_paper` 內文以 Markdown 儲存；Inspector 顯示尺寸控制；在 Page 上可切換展開全文或只顯示第一個 Markdown H1 標題；在 `frame` 縮回時只顯示第一個 Markdown H1 標題。
 - 在 Inspector 中選取 `table` 時，應顯示「列 × 欄」尺寸標籤與新增/刪除列欄的操作按鈕；點擊表格儲存格文字區域時進入 inline 編輯模式，不透過 Inspector 面板介入文字輸入。
 
 ## Minimap And New-Page Viewport Update Notes

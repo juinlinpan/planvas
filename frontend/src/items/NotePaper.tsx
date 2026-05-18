@@ -8,12 +8,58 @@ import {
 } from '../itemStyles';
 import { MarkdownPreview } from '../markdownPreview';
 
+type NoteDisplayMode = 'expanded' | 'title';
+
+function parseNoteDisplayMode(dataJson: string | null): NoteDisplayMode {
+  if (dataJson === null || dataJson.trim().length === 0) {
+    return 'expanded';
+  }
+
+  try {
+    const parsed = JSON.parse(dataJson) as unknown;
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      !Array.isArray(parsed) &&
+      (parsed as { noteDisplayMode?: unknown }).noteDisplayMode === 'title'
+    ) {
+      return 'title';
+    }
+  } catch {
+    return 'expanded';
+  }
+
+  return 'expanded';
+}
+
+function serializeNoteDisplayMode(
+  item: BoardItem,
+  noteDisplayMode: NoteDisplayMode,
+): string {
+  let nextData: Record<string, unknown> = {};
+
+  if (item.data_json !== null && item.data_json.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(item.data_json) as unknown;
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        nextData = parsed as Record<string, unknown>;
+      }
+    } catch {
+      nextData = {};
+    }
+  }
+
+  nextData.noteDisplayMode = noteDisplayMode;
+  return JSON.stringify(nextData);
+}
+
 type Props = {
   item: BoardItem;
   isEditing: boolean;
   onUpdate: (item: BoardItem) => void;
   onEditEnd: () => void;
   projectDefaultStyle?: ProjectDefaultStyle;
+  renderMode?: 'interactive' | 'static';
 };
 
 export function NotePaper({
@@ -22,9 +68,13 @@ export function NotePaper({
   onUpdate,
   onEditEnd,
   projectDefaultStyle,
+  renderMode = 'interactive',
 }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const title = item.title ?? getMarkdownH1(item.content) ?? getFirstNonEmptyLine(item.content);
+  const displayMode = parseNoteDisplayMode(item.data_json);
+  const isTitleOnly = displayMode === 'title';
+  const canToggleDisplayMode = renderMode === 'interactive' && !isEditing;
   const resolvedStyle = resolveBoardItemStyle(item, projectDefaultStyle);
   const typographyStyle = getBoardItemTypographyStyle(
     item,
@@ -49,6 +99,17 @@ export function NotePaper({
     });
   }
 
+  function handleDisplayModeToggle(e: React.MouseEvent<HTMLButtonElement>) {
+    e.stopPropagation();
+    onUpdate({
+      ...item,
+      data_json: serializeNoteDisplayMode(
+        item,
+        isTitleOnly ? 'expanded' : 'title',
+      ),
+    });
+  }
+
   if (isEditing) {
     return (
       <textarea
@@ -65,19 +126,35 @@ export function NotePaper({
 
   return (
     <div
-      className="note-paper-display"
+      className={`note-paper-display ${isTitleOnly ? 'is-title-only' : ''}`.trim()}
       style={cardStyle}
       onWheel={(e) => e.stopPropagation()}
     >
       <div className="note-paper-header">
-        <strong className="note-paper-title">{title ?? 'Untitled note'}</strong>
+        <div className="note-paper-header-row">
+          <strong className="note-paper-title">{title ?? 'Untitled note'}</strong>
+          {canToggleDisplayMode ? (
+            <button
+              type="button"
+              className="note-paper-mode-toggle"
+              aria-label={isTitleOnly ? 'Expand note content' : 'Show title only'}
+              title={isTitleOnly ? '展開內容' : '只顯示標題'}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={handleDisplayModeToggle}
+            >
+              {isTitleOnly ? '展開' : '標題'}
+            </button>
+          ) : null}
+        </div>
       </div>
-      <MarkdownPreview
-        content={item.content}
-        omitFirstHeading={true}
-        className="note-paper-body"
-        maxBlocks={null}
-      />
+      {isTitleOnly ? null : (
+        <MarkdownPreview
+          content={item.content}
+          omitFirstHeading={true}
+          className="note-paper-body"
+          maxBlocks={null}
+        />
+      )}
     </div>
   );
 }
