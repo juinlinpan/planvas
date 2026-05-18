@@ -1,168 +1,253 @@
 import type { BoardItem, PageBoardData } from './api';
 import { ITEM_TYPE } from './types';
+import { parseTableData } from './tableData';
+import type { TableCellData } from './tableData';
 import { getSegmentConnections } from './segmentData';
 
-function getMermaidTitle(item: BoardItem): string {
-  const title = item.title?.trim();
-  if (title && title.length > 0) {
-    return title;
-  }
-  const content = item.content?.trim();
-  if (content && content.length > 0) {
-    // Take first line and remove leading # if any
-    return content.split('\n')[0].replace(/^#+\s*/, '').trim();
-  }
-  return item.type;
-}
+// ── Cell helpers ──────────────────────────────────────────────────────────────
 
-function escapeMermaid(text: string): string {
-  return text.replace(/"/g, '&quot;').replace(/\[/g, '(').replace(/\]/g, ')').replace(/\{/g, '(').replace(/\}/g, ')');
-}
-
-function getMermaidShape(type: string, text: string): string {
-  const escaped = escapeMermaid(text);
-  switch (type) {
-    case ITEM_TYPE.sticky_note:
-      return `("${escaped}")`; // Rounded
-    case ITEM_TYPE.note_paper:
-      return `["${escaped}"]`; // Square
-    case ITEM_TYPE.table:
-      return `[["${escaped}"]]`; // Double box
-    case ITEM_TYPE.text_box:
-      return `>"${escaped}"]`; // Flag/Right-pointing
-    case ITEM_TYPE.frame:
-      return `{{ "${escaped}" }}`; // Hexagon
-    default:
-      return `["${escaped}"]`;
-  }
-}
-
-function getEdgeLabel(item: BoardItem): string {
-  const title = item.title?.trim();
-  if (title && title.length > 0) {
-    return title;
-  }
-  const content = item.content?.trim();
-  if (content && content.length > 0) {
-    return content.split('\n')[0].trim();
+function getCellText(
+  cell: TableCellData,
+  itemById: Map<string, BoardItem>,
+): string {
+  const direct = cell.content?.trim();
+  if (direct) return direct;
+  for (const childId of cell.childItemIds) {
+    const child = itemById.get(childId);
+    const text =
+      child?.title?.trim() ||
+      child?.content
+        ?.trim()
+        .split('\n')[0]
+        ?.replace(/^#+\s*/, '')
+        .trim();
+    if (text) return text;
   }
   return '';
 }
 
-export function exportPageAsMermaidMarkdown(boardData: PageBoardData): string {
+function buildMarkdownTable(
+  tableItem: BoardItem,
+  itemById: Map<string, BoardItem>,
+): string[] {
+  const data = parseTableData(tableItem.data_json);
+  const lines: string[] = [];
+  for (let r = 0; r < data.rows; r += 1) {
+    const cells: string[] = [];
+    for (let c = 0; c < data.cols; c += 1) {
+      const cell = data.cells[r]?.[c];
+      if (!cell) {
+        // covered by a merged cell
+        cells.push('');
+      } else {
+        cells.push(
+          getCellText(cell, itemById).replace(/\n/g, ' ').replace(/\|/g, '\\|'),
+        );
+      }
+    }
+    lines.push('| ' + cells.join(' | ') + ' |');
+    if (r === 0) {
+      // separator after header row
+      lines.push('| ' + Array(data.cols).fill('---').join(' | ') + ' |');
+    }
+  }
+  return lines;
+}
+
+// ── Flowchart helpers ─────────────────────────────────────────────────────────
+
+function escapeMermaid(text: string): string {
+  return text
+    .replace(/"/g, '&quot;')
+    .replace(/\[/g, '(')
+    .replace(/\]/g, ')')
+    .replace(/\{/g, '(')
+    .replace(/\}/g, ')');
+}
+
+function getItemLabel(item: BoardItem): string {
+  const t = item.title?.trim();
+  if (t) return t;
+  const c = item.content?.trim();
+  if (c) return c.split('\n')[0].replace(/^#+\s*/, '').trim();
+  return item.type;
+}
+
+function getEdgeLabel(item: BoardItem): string {
+  const t = item.title?.trim();
+  if (t) return t;
+  const c = item.content?.trim();
+  if (c) return c.split('\n')[0].trim();
+  return '';
+}
+
+function getMermaidNodeShape(type: string, label: string): string {
+  const e = escapeMermaid(label);
+  switch (type) {
+    case ITEM_TYPE.sticky_note:
+      return `("${e}")`;
+    case ITEM_TYPE.frame:
+      return `{{"${e}"}}`;
+    default:
+      return `["${e}"]`;
+  }
+}
+
+// ── Main export ───────────────────────────────────────────────────────────────
+
+export function exportPageAsMarkdown(boardData: PageBoardData): string {
   const { board_items, connector_links, page } = boardData;
+  const itemById = new Map(board_items.map((i) => [i.id, i] as const));
   const lines: string[] = [];
 
-  // Add Page Title
   lines.push(`# ${page.name}`);
   lines.push('');
 
-  const nodes = board_items.filter(
-    (item) =>
-      item.type !== ITEM_TYPE.line &&
-      item.type !== ITEM_TYPE.arrow &&
-      item.type !== ITEM_TYPE.table,
-  );
-
+  // Classify items
   const tableIds = new Set(
-    board_items.filter((item) => item.type === ITEM_TYPE.table).map((item) => item.id),
+    board_items.filter((i) => i.type === ITEM_TYPE.table).map((i) => i.id),
+  );
+  // Items embedded inside a table cell (via parent_item_id)
+  const inTableIds = new Set(
+    board_items
+      .filter((i) => i.parent_item_id != null && tableIds.has(i.parent_item_id))
+      .map((i) => i.id),
   );
 
-  lines.push('```mermaid');
-  lines.push('flowchart TD');
-
-  if (nodes.length === 0) {
-    lines.push('  Empty["No nodes found"]');
+  // ── 1. Tables as Markdown tables ───────────────────────────────────────────
+  const tables = board_items.filter((i) => i.type === ITEM_TYPE.table);
+  for (const table of tables) {
+    const tableTitle = table.title?.trim();
+    if (tableTitle) {
+      lines.push(`## ${tableTitle}`);
+      lines.push('');
+    }
+    lines.push(...buildMarkdownTable(table, itemById));
+    lines.push('');
   }
 
-  const idMap = new Map<string, string>();
-  let idCounter = 0;
-  const getShortId = (longId: string) => {
-    if (!idMap.has(longId)) {
-      idMap.set(longId, `n${++idCounter}`);
-    }
-    return idMap.get(longId)!;
-  };
+  // ── 2. Flowchart for connected non-table items ─────────────────────────────
+  // Nodes: anything that's not a table, not inside a table, not a connector/line
+  const flowNodeIds = new Set(
+    board_items
+      .filter(
+        (i) =>
+          !tableIds.has(i.id) &&
+          !inTableIds.has(i.id) &&
+          i.type !== ITEM_TYPE.line &&
+          i.type !== ITEM_TYPE.arrow,
+      )
+      .map((i) => i.id),
+  );
 
-  // Add nodes
-  for (const node of nodes) {
-    const title = getMermaidTitle(node);
-    const shortId = getShortId(node.id);
-    lines.push(`  ${shortId}${getMermaidShape(node.type, title)}`);
-  }
+  type Edge = { fromId: string; toId: string; isArrow: boolean; label: string };
+  const edges: Edge[] = [];
+  const edgeKeys = new Set<string>();
 
-  const addedEdges = new Set<string>();
-  const addEdge = (fromId: string, toId: string, isArrow: boolean, label: string) => {
-    // Skip if either side is a table
-    if (tableIds.has(fromId) || tableIds.has(toId)) {
-      return;
-    }
-
-    const fromSafe = getShortId(fromId);
-    const toSafe = getShortId(toId);
-    
-    const edgeSyntax = isArrow ? '-->' : '---';
-    const key = `${fromSafe}${edgeSyntax}${label}${toSafe}`;
-    
-    if (!addedEdges.has(key)) {
-      if (label) {
-        // Syntax with label: n1 -- "|label|" --> n2
-        lines.push(`  ${fromSafe} -- "${escapeMermaid(label)}" ${edgeSyntax} ${toSafe}`);
-      } else {
-        // Simple syntax: n1 --> n2
-        lines.push(`  ${fromSafe} ${edgeSyntax} ${toSafe}`);
-      }
-      addedEdges.add(key);
+  const addEdge = (
+    fromId: string,
+    toId: string,
+    isArrow: boolean,
+    label: string,
+  ) => {
+    // Skip if either endpoint is inside a table or is a table itself
+    if (!flowNodeIds.has(fromId) || !flowNodeIds.has(toId)) return;
+    const key = `${fromId}|${toId}|${label}`;
+    if (!edgeKeys.has(key)) {
+      edgeKeys.add(key);
+      edges.push({ fromId, toId, isArrow, label });
     }
   };
 
-  // Add edges from legacy connector_links (always arrows in legacy)
+  // Legacy connector_links
   for (const link of connector_links) {
     if (link.from_item_id && link.to_item_id) {
       const arrowItem = board_items.find((i) => i.id === link.connector_item_id);
-      const label = arrowItem ? getEdgeLabel(arrowItem) : '';
-      addEdge(link.from_item_id, link.to_item_id, true, label);
+      addEdge(
+        link.from_item_id,
+        link.to_item_id,
+        true,
+        arrowItem ? getEdgeLabel(arrowItem) : '',
+      );
     }
   }
 
-  // Add edges from segment data (modern arrows/lines)
+  // Modern segment-based arrows / lines
   for (const item of board_items) {
     if (item.type === ITEM_TYPE.arrow || item.type === ITEM_TYPE.line) {
       const { startConnection, endConnection } = getSegmentConnections(item);
       if (startConnection && endConnection) {
-        const isArrow = item.type === ITEM_TYPE.arrow;
-        const label = getEdgeLabel(item);
-        addEdge(startConnection.itemId, endConnection.itemId, isArrow, label);
+        addEdge(
+          startConnection.itemId,
+          endConnection.itemId,
+          item.type === ITEM_TYPE.arrow,
+          getEdgeLabel(item),
+        );
       }
     }
   }
 
-  lines.push('```');
-  lines.push('');
+  // Only emit the flowchart block when there are actual edges
+  if (edges.length > 0) {
+    let counter = 0;
+    const idMap = new Map<string, string>();
+    const sid = (id: string) => {
+      if (!idMap.has(id)) idMap.set(id, `n${++counter}`);
+      return idMap.get(id)!;
+    };
 
-  // Add full content for notes
+    const flowNodes = board_items.filter((i) => flowNodeIds.has(i.id));
+
+    lines.push('```mermaid');
+    lines.push('flowchart TD');
+    for (const node of flowNodes) {
+      lines.push(
+        `  ${sid(node.id)}${getMermaidNodeShape(node.type, getItemLabel(node))}`,
+      );
+    }
+    for (const edge of edges) {
+      const from = sid(edge.fromId);
+      const to = sid(edge.toId);
+      const arrow = edge.isArrow ? '-->' : '---';
+      if (edge.label) {
+        lines.push(
+          `  ${from} -- "${escapeMermaid(edge.label)}" ${arrow} ${to}`,
+        );
+      } else {
+        lines.push(`  ${from} ${arrow} ${to}`);
+      }
+    }
+    lines.push('```');
+    lines.push('');
+  }
+
+  // ── 3. Notes as plain text ─────────────────────────────────────────────────
+  // note_paper, sticky_note, text_box that are NOT inside a table
   const notes = board_items.filter(
-    (item) => item.type === ITEM_TYPE.sticky_note || item.type === ITEM_TYPE.note_paper,
+    (i) =>
+      !inTableIds.has(i.id) &&
+      (i.type === ITEM_TYPE.note_paper ||
+        i.type === ITEM_TYPE.sticky_note ||
+        i.type === ITEM_TYPE.text_box),
   );
 
   for (const note of notes) {
     const content = note.content?.trim();
-    if (content && content.length > 0) {
-      const title = getMermaidTitle(note);
-      
-      // Check if the content already starts with the title as a header
-      const headerRegex = new RegExp(`^#+\\s*${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(\\n|$)`, 'i');
-      if (headerRegex.test(content)) {
-        // Content already has the header, just push content
-        lines.push(content);
-      } else {
-        // Add the title header then the content
-        lines.push(`# ${title}`);
-        lines.push(content);
-      }
-      lines.push('');
+    if (!content) continue;
+    const label = getItemLabel(note);
+    const headerRe = new RegExp(
+      `^#+\\s*${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(\\n|$)`,
+      'i',
+    );
+    if (!headerRe.test(content)) {
+      lines.push(`### ${label}`);
     }
+    lines.push(content);
+    lines.push('');
   }
 
   return lines.join('\n');
 }
+
+// Backward-compat alias (old import still compiles)
+export const exportPageAsMermaidMarkdown = exportPageAsMarkdown;

@@ -46,7 +46,7 @@ import {
 } from './pageTransfer';
 import { exportPageAsPng } from './pagePngExport';
 import { exportPageAsPptx } from './pagePptxExport';
-import { exportPageAsMermaidMarkdown } from './pageMermaidExport';
+import { exportPageAsMarkdown } from './pageMermaidExport';
 import { parseMermaidToBoardData } from './mermaidImport';
 import { MermaidImportModal } from './MermaidImportModal';
 import { buildAppRouteUrl, readAppRoute, type AppRoute } from './appRoute';
@@ -1388,11 +1388,11 @@ export function App() {
         }
 
         if (format === 'mermaid') {
-          const markdown = exportPageAsMermaidMarkdown(boardData);
+          const markdown = exportPageAsMarkdown(boardData);
           await saveFileWithPicker({
             data: markdown,
             suggestedName: `${safePageName}.md`,
-            description: 'Mermaid Markdown',
+            description: 'Markdown',
             accept: {
               'text/markdown': ['.md'],
             },

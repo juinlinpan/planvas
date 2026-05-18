@@ -544,6 +544,7 @@ export function Canvas({
     handleItemUpdate,
     handleEditEnd,
     handleTransformToNote,
+    flushPendingItemSave,
   } = useCanvasItemActions({
     pageId: page.id,
     itemsRef,
@@ -565,6 +566,11 @@ export function Canvas({
     setActiveAnchorHit,
     onProjectNotesChanged,
   });
+
+  // Keep a stable ref to the flush function so the cleanup effect (with [] deps)
+  // can always call the latest version without capturing a stale closure.
+  const flushPendingItemSaveRef = useRef(flushPendingItemSave);
+  flushPendingItemSaveRef.current = flushPendingItemSave;
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -827,9 +833,10 @@ export function Canvas({
       if (vpSaveTimer.current !== null) {
         clearTimeout(vpSaveTimer.current);
       }
-      if (itemSaveTimer.current !== null) {
-        clearTimeout(itemSaveTimer.current);
-      }
+      // Flush any pending item save (don't cancel — the user's last edit must
+      // reach the backend even when the Canvas unmounts due to a page switch or
+      // the markdown-editor tab opening).
+      flushPendingItemSaveRef.current();
     },
     [],
   );
@@ -1781,7 +1788,7 @@ export function Canvas({
                           setIsExportSubmenuOpen(false);
                         }}
                       >
-                        Mermaid (.md)
+                        Markdown (.md)
                       </button>
                     </div>
                   ) : null}
