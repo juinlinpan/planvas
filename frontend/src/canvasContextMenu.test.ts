@@ -20,6 +20,7 @@ function createContextMenuState(
     canSendBackward: true,
     canBringToFront: true,
     canSendToBack: true,
+    isStickyNoteOnly: false,
     ...overrides,
   };
 }
@@ -40,7 +41,9 @@ describe('canvas context menu helpers', () => {
 
   it('shows only paste for canvas menus', () => {
     expect(
-      getCanvasContextMenuActionKeys(createContextMenuState({ scope: 'canvas' })),
+      getCanvasContextMenuActionKeys(
+        createContextMenuState({ scope: 'canvas' }),
+      ),
     ).toEqual(['paste']);
   });
 
@@ -53,9 +56,15 @@ describe('canvas context menu helpers', () => {
     expect(isCanvasContextMenuActionDisabled(state, 'cut')).toBe(true);
     expect(isCanvasContextMenuActionDisabled(state, 'copy')).toBe(true);
     expect(isCanvasContextMenuActionDisabled(state, 'delete')).toBe(true);
-    expect(isCanvasContextMenuActionDisabled(state, 'bringForward')).toBe(false);
-    expect(isCanvasContextMenuActionDisabled(state, 'sendBackward')).toBe(false);
-    expect(isCanvasContextMenuActionDisabled(state, 'bringToFront')).toBe(false);
+    expect(isCanvasContextMenuActionDisabled(state, 'bringForward')).toBe(
+      false,
+    );
+    expect(isCanvasContextMenuActionDisabled(state, 'sendBackward')).toBe(
+      false,
+    );
+    expect(isCanvasContextMenuActionDisabled(state, 'bringToFront')).toBe(
+      false,
+    );
     expect(isCanvasContextMenuActionDisabled(state, 'sendToBack')).toBe(false);
     expect(isCanvasContextMenuActionDisabled(state, 'paste')).toBe(false);
   });
@@ -70,7 +79,9 @@ describe('canvas context menu helpers', () => {
 
     expect(isCanvasContextMenuActionDisabled(state, 'bringForward')).toBe(true);
     expect(isCanvasContextMenuActionDisabled(state, 'bringToFront')).toBe(true);
-    expect(isCanvasContextMenuActionDisabled(state, 'sendBackward')).toBe(false);
+    expect(isCanvasContextMenuActionDisabled(state, 'sendBackward')).toBe(
+      false,
+    );
     expect(isCanvasContextMenuActionDisabled(state, 'sendToBack')).toBe(false);
   });
 

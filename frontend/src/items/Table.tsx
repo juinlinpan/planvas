@@ -1,16 +1,7 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type BoardItem } from '../api';
 import { CANVAS_GRID_SIZE } from '../canvasConstants';
-import {
-  type ProjectDefaultStyle,
-  resolveBoardItemStyle,
-} from '../itemStyles';
+import { type ProjectDefaultStyle, resolveBoardItemStyle } from '../itemStyles';
 import { snapValueToGrid } from '../magnet';
 import {
   addCol,
@@ -43,9 +34,9 @@ import { reconcileTableInteractionState } from '../tableInteractionState';
 
 type GroupDividerDrag = {
   group: SegmentGroup;
-  startPos: number;       // mouse position at drag start (clientX or clientY)
-  startPosition: number;  // group's divider position fraction at drag start
-  containerSize: number;  // container width or height in pixels
+  startPos: number; // mouse position at drag start (clientX or clientY)
+  startPosition: number; // group's divider position fraction at drag start
+  containerSize: number; // container width or height in pixels
 };
 
 type TableGridLine = {
@@ -103,7 +94,9 @@ function addAxisInterval(
 }
 
 function mergeAxisIntervals(intervals: AxisInterval[]): AxisInterval[] {
-  const sorted = [...intervals].sort((a, b) => a.start - b.start || a.end - b.end);
+  const sorted = [...intervals].sort(
+    (a, b) => a.start - b.start || a.end - b.end,
+  );
   const merged: AxisInterval[] = [];
 
   for (const interval of sorted) {
@@ -143,7 +136,9 @@ export function buildTableGridLines(data: TableData): TableGridLine[] {
   }
 
   const lines: TableGridLine[] = [];
-  for (const [y, intervals] of [...horizontal.entries()].sort((a, b) => a[0] - b[0])) {
+  for (const [y, intervals] of [...horizontal.entries()].sort(
+    (a, b) => a[0] - b[0],
+  )) {
     for (const interval of mergeAxisIntervals(intervals)) {
       lines.push({
         key: `h-${y}-${interval.start}-${interval.end}`,
@@ -151,11 +146,15 @@ export function buildTableGridLines(data: TableData): TableGridLine[] {
         y1: y,
         x2: interval.end,
         y2: y,
-        isOuter: Math.abs(y) <= GRID_LINE_EPSILON || Math.abs(y - 100) <= GRID_LINE_EPSILON,
+        isOuter:
+          Math.abs(y) <= GRID_LINE_EPSILON ||
+          Math.abs(y - 100) <= GRID_LINE_EPSILON,
       });
     }
   }
-  for (const [x, intervals] of [...vertical.entries()].sort((a, b) => a[0] - b[0])) {
+  for (const [x, intervals] of [...vertical.entries()].sort(
+    (a, b) => a[0] - b[0],
+  )) {
     for (const interval of mergeAxisIntervals(intervals)) {
       lines.push({
         key: `v-${x}-${interval.start}-${interval.end}`,
@@ -163,7 +162,9 @@ export function buildTableGridLines(data: TableData): TableGridLine[] {
         y1: interval.start,
         x2: x,
         y2: interval.end,
-        isOuter: Math.abs(x) <= GRID_LINE_EPSILON || Math.abs(x - 100) <= GRID_LINE_EPSILON,
+        isOuter:
+          Math.abs(x) <= GRID_LINE_EPSILON ||
+          Math.abs(x - 100) <= GRID_LINE_EPSILON,
       });
     }
   }
@@ -224,7 +225,10 @@ export function Table({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isStatic = renderMode === 'static';
-  const tableData = useMemo(() => parseTableData(item.data_json), [item.data_json]);
+  const tableData = useMemo(
+    () => parseTableData(item.data_json),
+    [item.data_json],
+  );
   const resolvedStyle = resolveBoardItemStyle(item, projectDefaultStyle);
   const showsStructureControls = (isEditing || isSelected) && !isStatic;
 
@@ -312,7 +316,11 @@ export function Table({
     return [...new Set(ids)];
   }
 
-  function findRoot(data: TableData, row: number, col: number): TableCellData | null {
+  function findRoot(
+    data: TableData,
+    row: number,
+    col: number,
+  ): TableCellData | null {
     for (let r = 0; r <= row; r++) {
       for (let c = 0; c <= col; c++) {
         const candidate = data.cells[r]?.[c];
@@ -325,7 +333,10 @@ export function Table({
     return null;
   }
 
-  function getCellPosition(data: TableData, cellId: string): CellPosition | null {
+  function getCellPosition(
+    data: TableData,
+    cellId: string,
+  ): CellPosition | null {
     for (let r = 0; r < data.rows; r++) {
       for (let c = 0; c < data.cols; c++) {
         if (data.cells[r]?.[c]?.id === cellId) return [r, c];
@@ -338,7 +349,10 @@ export function Table({
 
   const selectionBounds = useMemo(() => {
     if (selectedCells.length < 2) return null;
-    let minRow = Infinity, maxRow = -Infinity, minCol = Infinity, maxCol = -Infinity;
+    let minRow = Infinity,
+      maxRow = -Infinity,
+      minCol = Infinity,
+      maxCol = -Infinity;
     for (const cellId of selectedCells) {
       for (let r = 0; r < tableData.rows; r++) {
         for (let c = 0; c < tableData.cols; c++) {
@@ -352,7 +366,13 @@ export function Table({
       }
     }
     if (!isFinite(minRow)) return null;
-    const bounds = getCellBounds(tableData, minRow, minCol, maxCol - minCol + 1, maxRow - minRow + 1);
+    const bounds = getCellBounds(
+      tableData,
+      minRow,
+      minCol,
+      maxCol - minCol + 1,
+      maxRow - minRow + 1,
+    );
     return {
       left: bounds.left * 100,
       top: bounds.top * 100,
@@ -508,13 +528,22 @@ export function Table({
 
   // ── Segment groups (memoised) ──────────────────────────────────────────
 
-  const colGroups = useMemo(() => computeColSegmentGroups(tableData), [tableData]);
-  const rowGroups = useMemo(() => computeRowSegmentGroups(tableData), [tableData]);
+  const colGroups = useMemo(
+    () => computeColSegmentGroups(tableData),
+    [tableData],
+  );
+  const rowGroups = useMemo(
+    () => computeRowSegmentGroups(tableData),
+    [tableData],
+  );
   const gridLines = useMemo(() => buildTableGridLines(tableData), [tableData]);
 
   const containerStyle: React.CSSProperties = {
     background: resolvedStyle.backgroundColor,
     color: resolvedStyle.textColor,
+    fontSize: `${resolvedStyle.fontSize}px`,
+    fontWeight: resolvedStyle.fontWeight,
+    fontStyle: resolvedStyle.fontStyle,
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -532,14 +561,23 @@ export function Table({
       <div
         className="table-v2-grid"
         onMouseMove={(e) => {
-          if (!dragSelectStartRef.current || !(e.buttons & 1) || isDraggingDivider) return;
+          if (
+            !dragSelectStartRef.current ||
+            !(e.buttons & 1) ||
+            isDraggingDivider
+          )
+            return;
           const target = e.target as HTMLElement;
           const cellEl = target.closest('[data-cell-id]') as HTMLElement | null;
           if (!cellEl) return;
           const cellId = cellEl.dataset['cellId'];
           const pos = cellId ? getCellPosition(tableData, cellId) : null;
           if (!pos || !dragSelectStartRef.current) return;
-          const ids = getRangeSelection(tableData, dragSelectStartRef.current, pos);
+          const ids = getRangeSelection(
+            tableData,
+            dragSelectStartRef.current,
+            pos,
+          );
           setSelectedCells(ids);
         }}
         onMouseUp={() => {
@@ -553,7 +591,13 @@ export function Table({
             const isDropTarget = dropTargetCellId === cell.id;
             const isCellEditing = editingCellId === cell.id;
             const isOccupied = cell.childItemIds.length > 0;
-            const bounds = getCellBounds(tableData, ri, ci, cell.colSpan, cell.rowSpan);
+            const bounds = getCellBounds(
+              tableData,
+              ri,
+              ci,
+              cell.colSpan,
+              cell.rowSpan,
+            );
             const textHorizontalAlign = cell.textHorizontalAlign ?? 'center';
             const textVerticalAlign = cell.textVerticalAlign ?? 'middle';
 
@@ -573,7 +617,8 @@ export function Table({
                   top: `${bounds.top * 100}%`,
                   width: `${bounds.width * 100}%`,
                   height: `${bounds.height * 100}%`,
-                  backgroundColor: cell.backgroundColor ?? resolvedStyle.backgroundColor,
+                  backgroundColor:
+                    cell.backgroundColor ?? resolvedStyle.backgroundColor,
                 }}
                 onMouseDown={(e) => {
                   e.stopPropagation();
@@ -598,7 +643,9 @@ export function Table({
                     style={{ textAlign: textHorizontalAlign }}
                     autoFocus
                     onMouseDown={(e) => e.stopPropagation()}
-                    onChange={(e) => handleCellContentChange(cell.id, e.target.value)}
+                    onChange={(e) =>
+                      handleCellContentChange(cell.id, e.target.value)
+                    }
                     onBlur={() => setEditingCellId(null)}
                     onKeyDown={(e) => {
                       if (e.key === 'Escape') setEditingCellId(null);
@@ -666,15 +713,17 @@ export function Table({
         aria-hidden="true"
         focusable="false"
       >
-        {gridLines.filter((line) => !line.isOuter).map((line) => (
-          <line
-            key={line.key}
-            x1={line.x1}
-            y1={line.y1}
-            x2={line.x2}
-            y2={line.y2}
-          />
-        ))}
+        {gridLines
+          .filter((line) => !line.isOuter)
+          .map((line) => (
+            <line
+              key={line.key}
+              x1={line.x1}
+              y1={line.y1}
+              x2={line.x2}
+              y2={line.y2}
+            />
+          ))}
       </svg>
 
       {/* Column divider groups */}
@@ -685,18 +734,28 @@ export function Table({
           // Compute vertical extent using effective row positions (follows moved row dividers)
           const firstRow = group.segments[0]!;
           const lastRow = group.segments[group.segments.length - 1]!;
-          const topPct = getEffectiveRowEdge(tableData, firstRow, group.boundaryIndex) * 100;
-          const bottomPct = getEffectiveRowEdge(tableData, lastRow + 1, group.boundaryIndex) * 100;
+          const topPct =
+            getEffectiveRowEdge(tableData, firstRow, group.boundaryIndex) * 100;
+          const bottomPct =
+            getEffectiveRowEdge(tableData, lastRow + 1, group.boundaryIndex) *
+            100;
           const heightPct = bottomPct - topPct;
 
           return (
             <div
               key={group.key}
               className={`table-v2-col-divider ${isGroupHovered ? 'is-group-hovered' : ''}`}
-              style={{ left: `${pct}%`, top: `${topPct}%`, height: `${heightPct}%`, bottom: 'auto' }}
+              style={{
+                left: `${pct}%`,
+                top: `${topPct}%`,
+                height: `${heightPct}%`,
+                bottom: 'auto',
+              }}
               onMouseDown={(e) => handleGroupDividerMouseDown(e, group)}
               onMouseEnter={() => setHoveredGroupKey(group.key)}
-              onMouseLeave={() => setHoveredGroupKey((prev) => prev === group.key ? null : prev)}
+              onMouseLeave={() =>
+                setHoveredGroupKey((prev) => (prev === group.key ? null : prev))
+              }
             />
           );
         })}
@@ -708,18 +767,28 @@ export function Table({
           const isGroupHovered = hoveredGroupKey === group.key;
           const firstCol = group.segments[0]!;
           const lastCol = group.segments[group.segments.length - 1]!;
-          const leftPct = getEffectiveColEdge(tableData, firstCol, group.boundaryIndex) * 100;
-          const rightPct = getEffectiveColEdge(tableData, lastCol + 1, group.boundaryIndex) * 100;
+          const leftPct =
+            getEffectiveColEdge(tableData, firstCol, group.boundaryIndex) * 100;
+          const rightPct =
+            getEffectiveColEdge(tableData, lastCol + 1, group.boundaryIndex) *
+            100;
           const widthPct = rightPct - leftPct;
 
           return (
             <div
               key={group.key}
               className={`table-v2-row-divider ${isGroupHovered ? 'is-group-hovered' : ''}`}
-              style={{ top: `${pct}%`, left: `${leftPct}%`, width: `${widthPct}%`, right: 'auto' }}
+              style={{
+                top: `${pct}%`,
+                left: `${leftPct}%`,
+                width: `${widthPct}%`,
+                right: 'auto',
+              }}
               onMouseDown={(e) => handleGroupDividerMouseDown(e, group)}
               onMouseEnter={() => setHoveredGroupKey(group.key)}
-              onMouseLeave={() => setHoveredGroupKey((prev) => prev === group.key ? null : prev)}
+              onMouseLeave={() =>
+                setHoveredGroupKey((prev) => (prev === group.key ? null : prev))
+              }
             />
           );
         })}
@@ -734,7 +803,7 @@ export function Table({
             onClick={(e) => {
               e.stopPropagation();
               const nextHeight = Math.round(
-                item.height * (tableData.rows + 1) / tableData.rows,
+                (item.height * (tableData.rows + 1)) / tableData.rows,
               );
               const nextData = preserveOuterAddRowLayout(
                 tableData,
@@ -764,7 +833,7 @@ export function Table({
             onClick={(e) => {
               e.stopPropagation();
               const nextWidth = Math.round(
-                item.width * (tableData.cols + 1) / tableData.cols,
+                (item.width * (tableData.cols + 1)) / tableData.cols,
               );
               const nextData = preserveOuterAddColLayout(
                 tableData,
@@ -808,7 +877,6 @@ export function Table({
           </button>
         </div>
       )}
-
     </div>
   );
 }

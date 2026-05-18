@@ -206,6 +206,39 @@ export function ColorPaletteField({
   );
 }
 
+export function CommitNumberInput({
+  inputKey,
+  min,
+  max,
+  value,
+  disabled,
+  onCommit,
+}: {
+  inputKey: string;
+  min: number;
+  max: number;
+  value: number;
+  disabled?: boolean;
+  onCommit: (rawValue: string) => void;
+}) {
+  return (
+    <input
+      key={inputKey}
+      type="number"
+      min={min}
+      max={max}
+      disabled={disabled}
+      defaultValue={value}
+      onBlur={(e) => onCommit(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
+
 export function Inspector({
   item,
   selectionCount,
@@ -657,12 +690,12 @@ export function Inspector({
             <div className="inspector-grid">
               <label>
                 Font size
-                <input
-                  type="number"
+                <CommitNumberInput
+                  inputKey={`${selectedItem.id}-table-font-size-${resolvedStyle.fontSize}`}
                   min={12}
                   max={32}
                   value={resolvedStyle.fontSize}
-                  onChange={(e) => handleFontSizeChange(e.target.value)}
+                  onCommit={handleFontSizeChange}
                 />
               </label>
             </div>
@@ -865,12 +898,12 @@ export function Inspector({
                 <div className="inspector-grid">
                   <label>
                     字級
-                    <input
-                      type="number"
+                    <CommitNumberInput
+                      inputKey={`${selectedItem.id}-text-font-size-${resolvedStyle.fontSize}`}
                       min={12}
                       max={32}
                       value={resolvedStyle.fontSize}
-                      onChange={(e) => handleFontSizeChange(e.target.value)}
+                      onCommit={handleFontSizeChange}
                     />
                   </label>
                 </div>
@@ -1136,12 +1169,12 @@ export function Inspector({
             <div className="inspector-grid">
               <label>
                 字級
-                <input
-                  type="number"
+                <CommitNumberInput
+                  inputKey={`${selectedItem.id}-segment-font-size-${resolvedStyle.fontSize}`}
                   min={12}
                   max={32}
                   value={resolvedStyle.fontSize}
-                  onChange={(e) => handleFontSizeChange(e.target.value)}
+                  onCommit={handleFontSizeChange}
                 />
               </label>
             </div>

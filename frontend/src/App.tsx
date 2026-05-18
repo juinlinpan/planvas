@@ -33,7 +33,7 @@ import {
   type ProjectThemeColor,
 } from './api';
 import { Canvas } from './Canvas';
-import { ColorPaletteField } from './Inspector';
+import { ColorPaletteField, CommitNumberInput } from './Inspector';
 import { FolderPickerModal } from './FolderPickerModal';
 import { HomeView } from './HomeView';
 import { MarkdownEditor } from './MarkdownEditor';
@@ -81,8 +81,7 @@ type SidebarDropState = SidebarDragState & {
 type SidebarSectionId = 'pages' | 'notes';
 type WorkspaceTab = { kind: 'page'; id: string } | { kind: 'note'; id: string };
 
-const SIDEBAR_COLLAPSED_STORAGE_KEY =
-  'whiteboard.workspaceSidebarCollapsed';
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'whiteboard.workspaceSidebarCollapsed';
 
 const TAB_BAR_POSITION_STORAGE_KEY = 'whiteboard.tabBarPosition';
 
@@ -251,7 +250,9 @@ async function saveFileWithPicker({
 }): Promise<void> {
   const pickerWindow = window as SaveFilePickerWindow;
   if (pickerWindow.showSaveFilePicker === undefined) {
-    throw new Error('目前瀏覽器不支援「選擇儲存位置」匯出，請改用支援 File System Access API 的瀏覽器。');
+    throw new Error(
+      '目前瀏覽器不支援「選擇儲存位置」匯出，請改用支援 File System Access API 的瀏覽器。',
+    );
   }
 
   let fileHandle: Awaited<
@@ -291,7 +292,9 @@ function buildProjectExportSnapshot(
       name: project.name,
       theme_color: project.theme_color,
       default_style_json: project.default_style_json,
-      pages: boardDataByPage.map((boardData) => buildPageExportPayload(boardData)),
+      pages: boardDataByPage.map((boardData) =>
+        buildPageExportPayload(boardData),
+      ),
     },
   };
 
@@ -484,14 +487,16 @@ export function App() {
   const [dropState, setDropState] = useState<SidebarDropState | null>(null);
   const [projectDeleteDialogOpen, setProjectDeleteDialogOpen] = useState(false);
   const [mermaidImportDialogOpen, setMermaidImportDialogOpen] = useState(false);
-  const [projectDeleteConfirmation, setProjectDeleteConfirmation] = useState('');
+  const [projectDeleteConfirmation, setProjectDeleteConfirmation] =
+    useState('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() =>
     readStoredBoolean(SIDEBAR_COLLAPSED_STORAGE_KEY, false),
   );
   const [tabBarPosition, setTabBarPosition] = useState<TabBarPosition>(() => {
-    const stored = typeof window !== 'undefined'
-      ? window.localStorage.getItem(TAB_BAR_POSITION_STORAGE_KEY)
-      : null;
+    const stored =
+      typeof window !== 'undefined'
+        ? window.localStorage.getItem(TAB_BAR_POSITION_STORAGE_KEY)
+        : null;
     return stored === 'top' ? 'top' : 'bottom';
   });
   const [openTabs, setOpenTabs] = useState<WorkspaceTab[]>([]);
@@ -501,7 +506,9 @@ export function App() {
   useEffect(() => {
     if (selectedPageId !== null) {
       setOpenTabs((prev) => {
-        if (prev.some((tab) => tab.kind === 'page' && tab.id === selectedPageId)) {
+        if (
+          prev.some((tab) => tab.kind === 'page' && tab.id === selectedPageId)
+        ) {
           return prev;
         }
         return [...prev, { kind: 'page', id: selectedPageId }];
@@ -576,36 +583,36 @@ export function App() {
 
   const loadWorkspace = useCallback(
     async (signal?: AbortSignal): Promise<void> => {
-    setLoadState('loading');
-    setErrorMessage(null);
+      setLoadState('loading');
+      setErrorMessage(null);
 
-    try {
-      const [, nextProjects] = await Promise.all([
-        getHealth(signal),
-        listProjects(signal),
-      ]);
+      try {
+        const [, nextProjects] = await Promise.all([
+          getHealth(signal),
+          listProjects(signal),
+        ]);
 
-      setProjects(nextProjects);
-      setSelectedProjectId((current) =>
-        appView === 'workspace'
-          ? current
-          : selectFallbackId(nextProjects, current),
-      );
-      setLoadState('ready');
-    } catch (error) {
-      if (isAbortError(error)) {
-        return;
+        setProjects(nextProjects);
+        setSelectedProjectId((current) =>
+          appView === 'workspace'
+            ? current
+            : selectFallbackId(nextProjects, current),
+        );
+        setLoadState('ready');
+      } catch (error) {
+        if (isAbortError(error)) {
+          return;
+        }
+
+        setErrorMessage(getErrorMessage(error));
+        setProjects([]);
+        setPages([]);
+        setSelectedProjectId(null);
+        setSelectedPageId(null);
+        setLoadState('error');
+        syncBrowserRoute({ view: 'home' }, 'replace');
+        setAppView('home');
       }
-
-      setErrorMessage(getErrorMessage(error));
-      setProjects([]);
-      setPages([]);
-      setSelectedProjectId(null);
-      setSelectedPageId(null);
-      setLoadState('error');
-      syncBrowserRoute({ view: 'home' }, 'replace');
-      setAppView('home');
-    }
     },
     [appView],
   );
@@ -726,7 +733,8 @@ export function App() {
       }
     }
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    return () =>
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [selectedPageId]);
 
   useEffect(() => {
@@ -793,7 +801,9 @@ export function App() {
 
   async function handleDeleteNote(noteFile: string): Promise<void> {
     if (selectedProjectId === null) return;
-    const confirmed = window.confirm(`刪除 Markdown 筆記「${noteFile}」及其在畫布上的連結？`);
+    const confirmed = window.confirm(
+      `刪除 Markdown 筆記「${noteFile}」及其在畫布上的連結？`,
+    );
     if (!confirmed) return;
 
     await runMutation(async () => {
@@ -874,7 +884,9 @@ export function App() {
     setCreateProjectNameDraft('');
   }
 
-  async function handleCreateProject(event?: FormEvent<HTMLFormElement>): Promise<void> {
+  async function handleCreateProject(
+    event?: FormEvent<HTMLFormElement>,
+  ): Promise<void> {
     event?.preventDefault();
     const name = createProjectNameDraft.trim();
     if (name.length === 0) {
@@ -989,7 +1001,7 @@ export function App() {
       await deletePage(selectedPage.id);
       setPages(remainingPages);
       setSelectedPageId((current) =>
-        current === selectedPage.id ? remainingPages[0]?.id ?? null : current,
+        current === selectedPage.id ? (remainingPages[0]?.id ?? null) : current,
       );
     });
   }
@@ -1055,7 +1067,10 @@ export function App() {
       const boardDataByPage = await Promise.all(
         projectPages.map((page) => getPageBoardData(page.id)),
       );
-      const payload = buildProjectExportSnapshot(selectedProject, boardDataByPage);
+      const payload = buildProjectExportSnapshot(
+        selectedProject,
+        boardDataByPage,
+      );
       const safeProjectName = sanitizeExportName(selectedProject.name);
       await saveFileWithPicker({
         data: payload,
@@ -1141,7 +1156,9 @@ export function App() {
   async function handleRemoveProjectFromHome(projectId: string): Promise<void> {
     await runMutation(async () => {
       await deleteProject(projectId);
-      setProjects((current) => current.filter((project) => project.id !== projectId));
+      setProjects((current) =>
+        current.filter((project) => project.id !== projectId),
+      );
       if (selectedProjectId === projectId) {
         setPages([]);
         setSelectedProjectId(null);
@@ -1248,7 +1265,10 @@ export function App() {
     }
   }
 
-  async function handleNoteDrop(noteFile: string, targetPageId: string): Promise<void> {
+  async function handleNoteDrop(
+    noteFile: string,
+    targetPageId: string,
+  ): Promise<void> {
     if (selectedProject === null) {
       return;
     }
@@ -1320,14 +1340,19 @@ export function App() {
       return;
     }
 
-    if (currentDragState.kind !== kind || currentDragState.itemId === targetId) {
+    if (
+      currentDragState.kind !== kind ||
+      currentDragState.itemId === targetId
+    ) {
       return;
     }
 
     void handlePageDrop(currentDragState.itemId, targetId, position);
   }
 
-  function handleExportPageClick(format: 'json' | 'png' | 'pptx' | 'mermaid'): void {
+  function handleExportPageClick(
+    format: 'json' | 'png' | 'pptx' | 'mermaid',
+  ): void {
     if (selectedPage === null || isMutating) {
       return;
     }
@@ -1381,9 +1406,8 @@ export function App() {
           suggestedName: `${safePageName}.pptx`,
           description: 'PowerPoint presentation',
           accept: {
-            'application/vnd.openxmlformats-officedocument.presentationml.presentation': [
-              '.pptx',
-            ],
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+              ['.pptx'],
           },
         });
       } catch (error) {
@@ -1449,7 +1473,7 @@ export function App() {
 
       const parsedData = parseMermaidToBoardData(code);
 
-      const boardState: PageBoardData = {
+      const boardState = {
         board_items: parsedData.board_items.map((item) => ({
           ...item,
           page_id: page.id,
@@ -1478,13 +1502,17 @@ export function App() {
           onCreateProject={openCreateProjectDialog}
           onOpenProject={() => handleOpenProject()}
           onSelectProject={(projectId) => openProject(projectId, null)}
-          onRemoveProject={(projectId) => void handleRemoveProjectFromHome(projectId)}
+          onRemoveProject={(projectId) =>
+            void handleRemoveProjectFromHome(projectId)
+          }
           onRefreshProjects={() => void loadWorkspace()}
         />
         {folderPickerOpen ? (
           <FolderPickerModal
             isBusy={isMutating}
-            onConfirm={(folderPath) => void handleFolderPickerConfirm(folderPath)}
+            onConfirm={(folderPath) =>
+              void handleFolderPickerConfirm(folderPath)
+            }
             onCancel={() => setFolderPickerOpen(false)}
           />
         ) : null}
@@ -1528,7 +1556,9 @@ export function App() {
                 className="confirmation-dialog-input"
                 disabled={isMutating}
                 value={createProjectNameDraft}
-                onChange={(event) => setCreateProjectNameDraft(event.target.value)}
+                onChange={(event) =>
+                  setCreateProjectNameDraft(event.target.value)
+                }
                 onKeyDown={(event) => {
                   if (event.key === 'Escape') {
                     event.preventDefault();
@@ -1549,7 +1579,9 @@ export function App() {
                 <button
                   type="submit"
                   className="ghost-button primary-action-button"
-                  disabled={isMutating || createProjectNameDraft.trim().length === 0}
+                  disabled={
+                    isMutating || createProjectNameDraft.trim().length === 0
+                  }
                 >
                   Create
                 </button>
@@ -1575,7 +1607,9 @@ export function App() {
         className={`app-shell ${isSidebarCollapsed ? 'is-sidebar-collapsed' : ''}`}
         data-project-theme={selectedProject?.theme_color ?? 'default'}
       >
-        <aside className={`sidebar ${isSidebarCollapsed ? 'is-collapsed' : ''}`}>
+        <aside
+          className={`sidebar ${isSidebarCollapsed ? 'is-collapsed' : ''}`}
+        >
           <button
             type="button"
             className="ghost-button sidebar-edge-toggle"
@@ -1595,7 +1629,9 @@ export function App() {
               <div>
                 <h1>Planvas</h1>
                 <p className="sidebar-copy">
-                  {selectedProject !== null ? 'Local workspace' : 'Select a project'}
+                  {selectedProject !== null
+                    ? 'Local workspace'
+                    : 'Select a project'}
                 </p>
               </div>
               <button
@@ -1679,156 +1715,160 @@ export function App() {
             </div>
             <div className="sidebar-section-body">
               {selectedProject === null ? (
-              <p className="empty-copy">Select a project to view pages.</p>
-            ) : isLoadingPages ? (
-              <p className="empty-copy">Loading pages...</p>
-            ) : pages.length === 0 ? (
-              <p className="empty-copy">This project has no pages yet.</p>
-            ) : (
-              <div className="list-stack">
-                {pages.map((page) => {
-                  const isDragging =
-                    dragState?.kind === 'pages' && dragState.itemId === page.id;
-                  const isRenaming = pageRenameTargetId === page.id;
-                  const isOpenInTab = openTabs.some(
-                    (tab) => tab.kind === 'page' && tab.id === page.id,
-                  );
-                  const isSelectedPage =
-                    page.id === selectedPageId && activeNoteFile === null;
-                  const isDropBefore =
-                    dropState?.kind === 'pages' &&
-                    dropState.itemId === page.id &&
-                    dropState.position === 'before';
-                  const isDropAfter =
-                    dropState?.kind === 'pages' &&
-                    dropState.itemId === page.id &&
-                    dropState.position === 'after';
+                <p className="empty-copy">Select a project to view pages.</p>
+              ) : isLoadingPages ? (
+                <p className="empty-copy">Loading pages...</p>
+              ) : pages.length === 0 ? (
+                <p className="empty-copy">This project has no pages yet.</p>
+              ) : (
+                <div className="list-stack">
+                  {pages.map((page) => {
+                    const isDragging =
+                      dragState?.kind === 'pages' &&
+                      dragState.itemId === page.id;
+                    const isRenaming = pageRenameTargetId === page.id;
+                    const isOpenInTab = openTabs.some(
+                      (tab) => tab.kind === 'page' && tab.id === page.id,
+                    );
+                    const isSelectedPage =
+                      page.id === selectedPageId && activeNoteFile === null;
+                    const isDropBefore =
+                      dropState?.kind === 'pages' &&
+                      dropState.itemId === page.id &&
+                      dropState.position === 'before';
+                    const isDropAfter =
+                      dropState?.kind === 'pages' &&
+                      dropState.itemId === page.id &&
+                      dropState.position === 'after';
 
-                  return (
-                    <div
-                      key={page.id}
-                      className={`list-entry ${isDropBefore ? 'is-drop-before' : ''} ${
-                        isDropAfter ? 'is-drop-after' : ''
-                      }`}
-                      onDragOver={(event) =>
-                        handleSidebarDragOver('pages', page.id, event)
-                      }
-                      onDrop={(event) =>
-                        handleSidebarDrop('pages', page.id, event)
-                      }
-                    >
-                      {isRenaming ? (
-                        <div
-                          className={`list-button list-button-rename is-editing ${
-                            isOpenInTab ? 'is-open-tab' : ''
-                          } ${isSelectedPage ? 'is-selected' : ''}`}
-                          onMouseDown={(event) => event.stopPropagation()}
-                        >
-                          <input
-                            className="page-rename-input"
-                            aria-label={`Rename page ${page.name}`}
-                            disabled={isMutating}
-                            value={pageRenameDraft}
-                            placeholder="Page name"
-                            autoFocus
-                            onChange={(event) => setPageRenameDraft(event.target.value)}
-                            onBlur={() => {
-                              void handleSavePageName(page, pageRenameDraft);
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === 'Enter') {
-                                event.preventDefault();
+                    return (
+                      <div
+                        key={page.id}
+                        className={`list-entry ${isDropBefore ? 'is-drop-before' : ''} ${
+                          isDropAfter ? 'is-drop-after' : ''
+                        }`}
+                        onDragOver={(event) =>
+                          handleSidebarDragOver('pages', page.id, event)
+                        }
+                        onDrop={(event) =>
+                          handleSidebarDrop('pages', page.id, event)
+                        }
+                      >
+                        {isRenaming ? (
+                          <div
+                            className={`list-button list-button-rename is-editing ${
+                              isOpenInTab ? 'is-open-tab' : ''
+                            } ${isSelectedPage ? 'is-selected' : ''}`}
+                            onMouseDown={(event) => event.stopPropagation()}
+                          >
+                            <input
+                              className="page-rename-input"
+                              aria-label={`Rename page ${page.name}`}
+                              disabled={isMutating}
+                              value={pageRenameDraft}
+                              placeholder="Page name"
+                              autoFocus
+                              onChange={(event) =>
+                                setPageRenameDraft(event.target.value)
+                              }
+                              onBlur={() => {
                                 void handleSavePageName(page, pageRenameDraft);
-                              }
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                  event.preventDefault();
+                                  void handleSavePageName(
+                                    page,
+                                    pageRenameDraft,
+                                  );
+                                }
 
-                              if (event.key === 'Escape') {
-                                event.preventDefault();
-                                cancelPageRename();
-                              }
-                            }}
-                          />
-                          <small>zoom {page.zoom.toFixed(1)}x</small>
-                        </div>
-                      ) : (
-                        <button
-                          className={`list-button ${
-                            isOpenInTab ? 'is-open-tab' : ''
-                          } ${isSelectedPage ? 'is-selected' : ''} ${
-                            isDragging ? 'is-dragging' : ''
-                          } ${
-                            pages.length > 1 ? 'is-sortable' : ''
-                          }`}
-                          draggable={!isMutating && pages.length > 1}
-                          aria-label={
-                            pages.length > 1
-                              ? `Move page ${page.name}`
-                              : undefined
-                          }
-                          title={
-                            pages.length > 1
-                              ? `Move page ${page.name}`
-                              : undefined
-                          }
-                          onDragStart={(event) =>
-                            handleSidebarDragStart('pages', page.id, event)
-                          }
-                          onDragEnd={clearDragState}
-                          onClick={() => {
-                            setSelectedPageId(page.id);
-                            setActiveNoteFile(null);
-                          }}
-                        >
-                          <span>{page.name}</span>
-                          <small>zoom {page.zoom.toFixed(1)}x</small>
-                        </button>
-                      )}
-                      <div className="page-row-actions">
-                        <button
-                          type="button"
-                          className={`ghost-button page-icon-button page-rename-button ${
-                            isRenaming ? 'is-active' : ''
-                          }`}
-                          disabled={isMutating}
-                          title={
-                            isRenaming
-                              ? `Save page name for ${page.name}`
-                              : `Rename page ${page.name}`
-                          }
-                          aria-label={
-                            isRenaming
-                              ? `Save page name for ${page.name}`
-                              : `Rename page ${page.name}`
-                          }
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            if (isRenaming) {
-                              void handleSavePageName(page, pageRenameDraft);
-                              return;
+                                if (event.key === 'Escape') {
+                                  event.preventDefault();
+                                  cancelPageRename();
+                                }
+                              }}
+                            />
+                            <small>zoom {page.zoom.toFixed(1)}x</small>
+                          </div>
+                        ) : (
+                          <button
+                            className={`list-button ${
+                              isOpenInTab ? 'is-open-tab' : ''
+                            } ${isSelectedPage ? 'is-selected' : ''} ${
+                              isDragging ? 'is-dragging' : ''
+                            } ${pages.length > 1 ? 'is-sortable' : ''}`}
+                            draggable={!isMutating && pages.length > 1}
+                            aria-label={
+                              pages.length > 1
+                                ? `Move page ${page.name}`
+                                : undefined
                             }
+                            title={
+                              pages.length > 1
+                                ? `Move page ${page.name}`
+                                : undefined
+                            }
+                            onDragStart={(event) =>
+                              handleSidebarDragStart('pages', page.id, event)
+                            }
+                            onDragEnd={clearDragState}
+                            onClick={() => {
+                              setSelectedPageId(page.id);
+                              setActiveNoteFile(null);
+                            }}
+                          >
+                            <span>{page.name}</span>
+                            <small>zoom {page.zoom.toFixed(1)}x</small>
+                          </button>
+                        )}
+                        <div className="page-row-actions">
+                          <button
+                            type="button"
+                            className={`ghost-button page-icon-button page-rename-button ${
+                              isRenaming ? 'is-active' : ''
+                            }`}
+                            disabled={isMutating}
+                            title={
+                              isRenaming
+                                ? `Save page name for ${page.name}`
+                                : `Rename page ${page.name}`
+                            }
+                            aria-label={
+                              isRenaming
+                                ? `Save page name for ${page.name}`
+                                : `Rename page ${page.name}`
+                            }
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              if (isRenaming) {
+                                void handleSavePageName(page, pageRenameDraft);
+                                return;
+                              }
 
-                            beginPageRename(page);
-                          }}
-                        >
-                          <IconPencil />
-                        </button>
-                        <button
-                          type="button"
-                          className="ghost-button danger-button page-icon-button page-trash-button"
-                          disabled={isMutating}
-                          title={`Delete page ${page.name}`}
-                          aria-label={`Delete page ${page.name}`}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void handleDeletePage(page);
-                          }}
-                        >
-                          <IconTrash />
-                        </button>
+                              beginPageRename(page);
+                            }}
+                          >
+                            <IconPencil />
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost-button danger-button page-icon-button page-trash-button"
+                            disabled={isMutating}
+                            title={`Delete page ${page.name}`}
+                            aria-label={`Delete page ${page.name}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleDeletePage(page);
+                            }}
+                          >
+                            <IconTrash />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
               )}
               <button
                 className="primary-button sidebar-add-page-button"
@@ -1880,62 +1920,68 @@ export function App() {
             </div>
             <div className="sidebar-section-body">
               {selectedProject === null ? (
-              <p className="empty-copy">Select a project to view notes.</p>
-            ) : isLoadingNotes ? (
-              <p className="empty-copy">Loading notes...</p>
-            ) : projectNotes.length === 0 ? (
-              <p className="empty-copy">This project has no markdown notes yet.</p>
-            ) : (
-              <div className="list-stack sidebar-notes-list">
-                {projectNotes.map((note) => {
-                  const isDragging =
-                    dragState?.kind === 'notes' &&
-                    dragState.itemId === note.note_file;
-                  const isOpenInTab = openTabs.some(
-                    (tab) => tab.kind === 'note' && tab.id === note.note_file,
-                  );
-                  const isSelectedNote = activeNoteFile === note.note_file;
+                <p className="empty-copy">Select a project to view notes.</p>
+              ) : isLoadingNotes ? (
+                <p className="empty-copy">Loading notes...</p>
+              ) : projectNotes.length === 0 ? (
+                <p className="empty-copy">
+                  This project has no markdown notes yet.
+                </p>
+              ) : (
+                <div className="list-stack sidebar-notes-list">
+                  {projectNotes.map((note) => {
+                    const isDragging =
+                      dragState?.kind === 'notes' &&
+                      dragState.itemId === note.note_file;
+                    const isOpenInTab = openTabs.some(
+                      (tab) => tab.kind === 'note' && tab.id === note.note_file,
+                    );
+                    const isSelectedNote = activeNoteFile === note.note_file;
 
-                  return (
-                    <div key={note.note_file} className="list-entry">
-                      <button
-                        type="button"
-                        className={`list-button note-list-button ${
-                          isDragging ? 'is-dragging' : ''
-                        } ${isOpenInTab ? 'is-open-tab' : ''} ${
-                          isSelectedNote ? 'is-selected' : ''
-                        }`}
-                        draggable={!isMutating}
-                        title={`Click to edit · Drag to place on a page`}
-                        aria-label={`Open note ${note.note_file} in editor`}
-                        onClick={() => openNoteTab(note.note_file)}
-                        onDragStart={(event) =>
-                          handleSidebarDragStart('notes', note.note_file, event)
-                        }
-                        onDragEnd={clearDragState}
-                      >
-                        <span>{note.note_file}</span>
-                        <small>{note.title}</small>
-                      </button>
-                      <div className="note-row-actions">
+                    return (
+                      <div key={note.note_file} className="list-entry">
                         <button
                           type="button"
-                          className="ghost-button danger-button page-icon-button note-trash-button"
-                          disabled={isMutating}
-                          title={`Delete note ${note.note_file}`}
-                          aria-label={`Delete note ${note.note_file}`}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void handleDeleteNote(note.note_file);
-                          }}
+                          className={`list-button note-list-button ${
+                            isDragging ? 'is-dragging' : ''
+                          } ${isOpenInTab ? 'is-open-tab' : ''} ${
+                            isSelectedNote ? 'is-selected' : ''
+                          }`}
+                          draggable={!isMutating}
+                          title={`Click to edit · Drag to place on a page`}
+                          aria-label={`Open note ${note.note_file} in editor`}
+                          onClick={() => openNoteTab(note.note_file)}
+                          onDragStart={(event) =>
+                            handleSidebarDragStart(
+                              'notes',
+                              note.note_file,
+                              event,
+                            )
+                          }
+                          onDragEnd={clearDragState}
                         >
-                          <IconTrash />
+                          <span>{note.note_file}</span>
+                          <small>{note.title}</small>
                         </button>
+                        <div className="note-row-actions">
+                          <button
+                            type="button"
+                            className="ghost-button danger-button page-icon-button note-trash-button"
+                            disabled={isMutating}
+                            title={`Delete note ${note.note_file}`}
+                            aria-label={`Delete note ${note.note_file}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleDeleteNote(note.note_file);
+                            }}
+                          >
+                            <IconTrash />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </section>
@@ -1943,240 +1989,277 @@ export function App() {
 
         <section className={`workspace workspace-tabpos-${tabBarPosition}`}>
           {/* ── browser-like tab bar ── */}
-          {selectedProject !== null && (() => {
-            const visibleTabs = openTabs.filter((tab) => {
-              if (tab.kind === 'page') {
-                return pages.some((p) => p.id === tab.id);
-              }
-              return projectNotes.some((n) => n.note_file === tab.id);
-            });
-            const lastVisibleTab = visibleTabs.at(-1);
-            const lastVisibleTabId =
-              lastVisibleTab === undefined
-                ? null
-                : `${lastVisibleTab.kind}:${lastVisibleTab.id}`;
+          {selectedProject !== null &&
+            (() => {
+              const visibleTabs = openTabs.filter((tab) => {
+                if (tab.kind === 'page') {
+                  return pages.some((p) => p.id === tab.id);
+                }
+                return projectNotes.some((n) => n.note_file === tab.id);
+              });
+              const lastVisibleTab = visibleTabs.at(-1);
+              const lastVisibleTabId =
+                lastVisibleTab === undefined
+                  ? null
+                  : `${lastVisibleTab.kind}:${lastVisibleTab.id}`;
 
-            return (
-              <div className={`ws-tab-bar ws-tab-bar-${tabBarPosition}`}>
-                {/* ── Left: Project name ── */}
-                <span
-                  className="ws-tab-project-name"
-                  title={selectedProject.name}
-                  aria-label={`Project: ${selectedProject.name}`}
-                >
-                  <span className="ws-tab-project-value">{selectedProject.name}</span>
-                </span>
+              return (
+                <div className={`ws-tab-bar ws-tab-bar-${tabBarPosition}`}>
+                  {/* ── Left: Project name ── */}
+                  <span
+                    className="ws-tab-project-name"
+                    title={selectedProject.name}
+                    aria-label={`Project: ${selectedProject.name}`}
+                  >
+                    <span className="ws-tab-project-value">
+                      {selectedProject.name}
+                    </span>
+                  </span>
 
-                <div className="ws-tab-divider-v" />
+                  <div className="ws-tab-divider-v" />
 
-                {/* ── Tab strip ── */}
-                <div
-                  className="ws-tab-strip"
-                  onDragOver={(event) => {
-                    const currentDragState = dragState;
-                    if (
-                      currentDragState?.kind !== 'tabs' ||
-                      lastVisibleTabId === null ||
-                      currentDragState.itemId === lastVisibleTabId
-                    ) {
-                      return;
-                    }
+                  {/* ── Tab strip ── */}
+                  <div
+                    className="ws-tab-strip"
+                    onDragOver={(event) => {
+                      const currentDragState = dragState;
+                      if (
+                        currentDragState?.kind !== 'tabs' ||
+                        lastVisibleTabId === null ||
+                        currentDragState.itemId === lastVisibleTabId
+                      ) {
+                        return;
+                      }
 
-                    const target = event.target;
-                    if (
-                      target instanceof Element &&
-                      target.closest('.ws-tab') !== null
-                    ) {
-                      return;
-                    }
+                      const target = event.target;
+                      if (
+                        target instanceof Element &&
+                        target.closest('.ws-tab') !== null
+                      ) {
+                        return;
+                      }
 
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = 'move';
-                    setDropState({
-                      kind: 'tabs',
-                      itemId: lastVisibleTabId,
-                      position: 'after',
-                    });
-                  }}
-                  onDrop={(event) => {
-                    const target = event.target;
-                    if (
-                      target instanceof Element &&
-                      target.closest('.ws-tab') !== null
-                    ) {
-                      return;
-                    }
-
-                    event.preventDefault();
-                    const currentDragState = dragState;
-                    if (
-                      currentDragState?.kind !== 'tabs' ||
-                      lastVisibleTabId === null
-                    ) {
-                      clearDragState();
-                      return;
-                    }
-
-                    const draggedId = currentDragState.itemId;
-                    clearDragState();
-
-                    if (draggedId === lastVisibleTabId) return;
-
-                    setOpenTabs((current) => {
-                      const items = current.map((tab) => ({
-                        tab,
-                        id: `${tab.kind}:${tab.id}`,
-                      }));
-                      const orderedIds = buildDraggedOrder(
-                        items,
-                        draggedId,
-                        lastVisibleTabId,
-                        'after',
-                      );
-                      if (orderedIds === null) return current;
-
-                      const positions = new Map(
-                        orderedIds.map((id, index) => [id, index]),
-                      );
-                      return [...current].sort((left, right) => {
-                        const leftId = `${left.kind}:${left.id}`;
-                        const rightId = `${right.kind}:${right.id}`;
-                        const leftPos = positions.get(leftId) ?? 999;
-                        const rightPos = positions.get(rightId) ?? 999;
-                        return leftPos - rightPos;
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = 'move';
+                      setDropState({
+                        kind: 'tabs',
+                        itemId: lastVisibleTabId,
+                        position: 'after',
                       });
-                    });
-                  }}
-                >
-                  {visibleTabs.map((tab) => {
-                    const isActive =
-                      tab.kind === 'page'
-                        ? selectedPageId === tab.id && activeNoteFile === null
-                        : activeNoteFile === tab.id;
+                    }}
+                    onDrop={(event) => {
+                      const target = event.target;
+                      if (
+                        target instanceof Element &&
+                        target.closest('.ws-tab') !== null
+                      ) {
+                        return;
+                      }
 
-                    const label =
-                      tab.kind === 'page'
-                        ? pages.find((p) => p.id === tab.id)?.name ?? 'Unknown'
-                        : projectNotes.find((n) => n.note_file === tab.id)?.title ?? tab.id;
+                      event.preventDefault();
+                      const currentDragState = dragState;
+                      if (
+                        currentDragState?.kind !== 'tabs' ||
+                        lastVisibleTabId === null
+                      ) {
+                        clearDragState();
+                        return;
+                      }
 
-                    const isDraggingTab =
-                      dragState?.kind === 'tabs' && dragState.itemId === `${tab.kind}:${tab.id}`;
-                    const isDropBefore =
-                      dropState?.kind === 'tabs' &&
-                      dropState.itemId === `${tab.kind}:${tab.id}` &&
-                      dropState.position === 'before';
-                    const isDropAfter =
-                      dropState?.kind === 'tabs' &&
-                      dropState.itemId === `${tab.kind}:${tab.id}` &&
-                      dropState.position === 'after';
+                      const draggedId = currentDragState.itemId;
+                      clearDragState();
 
-                    return (
-                      <div
-                        key={`${tab.kind}:${tab.id}`}
-                        className={`ws-tab ws-tab-${tab.kind} ${isActive ? 'is-active' : ''} ${
-                          isDraggingTab ? 'is-dragging' : ''
-                        } ${isDropBefore ? 'is-drop-before' : ''} ${
-                          isDropAfter ? 'is-drop-after' : ''
-                        }`}
-                        draggable={!isMutating}
-                        onDragStart={(event) => {
-                          if (isMutating) {
-                            event.preventDefault();
-                            return;
-                          }
-                          event.dataTransfer.effectAllowed = 'move';
-                          event.dataTransfer.setData('text/plain', `tabs:${tab.kind}:${tab.id}`);
-                          setDragState({ kind: 'tabs', itemId: `${tab.kind}:${tab.id}` });
-                        }}
-                        onDragOver={(event) => {
-                          const currentDragState = dragState;
-                          if (currentDragState?.kind !== 'tabs') return;
-                          if (currentDragState.itemId === `${tab.kind}:${tab.id}`) return;
-                          event.preventDefault();
-                          event.dataTransfer.dropEffect = 'move';
-                          const position = getTabDropPosition(event);
-                          setDropState({
-                            kind: 'tabs',
-                            itemId: `${tab.kind}:${tab.id}`,
-                            position,
-                          });
-                        }}
-                        onDrop={(event) => {
-                          event.preventDefault();
-                          const currentDragState = dragState;
-                          if (currentDragState?.kind !== 'tabs') {
-                            clearDragState();
-                            return;
-                          }
-                          const draggedId = currentDragState.itemId;
-                          const targetId = `${tab.kind}:${tab.id}`;
-                          const position = getTabDropPosition(event);
-                          clearDragState();
+                      if (draggedId === lastVisibleTabId) return;
 
-                          if (draggedId === targetId) return;
+                      setOpenTabs((current) => {
+                        const items = current.map((tab) => ({
+                          tab,
+                          id: `${tab.kind}:${tab.id}`,
+                        }));
+                        const orderedIds = buildDraggedOrder(
+                          items,
+                          draggedId,
+                          lastVisibleTabId,
+                          'after',
+                        );
+                        if (orderedIds === null) return current;
 
-                          setOpenTabs((current) => {
-                            const items = current.map(t => ({ tab: t, id: `${t.kind}:${t.id}` }));
-                            const orderedIds = buildDraggedOrder(items, draggedId, targetId, position);
-                            if (orderedIds === null) return current;
-                            
-                            const positions = new Map(orderedIds.map((id, index) => [id, index]));
-                            return [...current].sort((left, right) => {
-                              const leftId = `${left.kind}:${left.id}`;
-                              const rightId = `${right.kind}:${right.id}`;
-                              const leftPos = positions.get(leftId) ?? 999;
-                              const rightPos = positions.get(rightId) ?? 999;
-                              return leftPos - rightPos;
+                        const positions = new Map(
+                          orderedIds.map((id, index) => [id, index]),
+                        );
+                        return [...current].sort((left, right) => {
+                          const leftId = `${left.kind}:${left.id}`;
+                          const rightId = `${right.kind}:${right.id}`;
+                          const leftPos = positions.get(leftId) ?? 999;
+                          const rightPos = positions.get(rightId) ?? 999;
+                          return leftPos - rightPos;
+                        });
+                      });
+                    }}
+                  >
+                    {visibleTabs.map((tab) => {
+                      const isActive =
+                        tab.kind === 'page'
+                          ? selectedPageId === tab.id && activeNoteFile === null
+                          : activeNoteFile === tab.id;
+
+                      const label =
+                        tab.kind === 'page'
+                          ? (pages.find((p) => p.id === tab.id)?.name ??
+                            'Unknown')
+                          : (projectNotes.find((n) => n.note_file === tab.id)
+                              ?.title ?? tab.id);
+
+                      const isDraggingTab =
+                        dragState?.kind === 'tabs' &&
+                        dragState.itemId === `${tab.kind}:${tab.id}`;
+                      const isDropBefore =
+                        dropState?.kind === 'tabs' &&
+                        dropState.itemId === `${tab.kind}:${tab.id}` &&
+                        dropState.position === 'before';
+                      const isDropAfter =
+                        dropState?.kind === 'tabs' &&
+                        dropState.itemId === `${tab.kind}:${tab.id}` &&
+                        dropState.position === 'after';
+
+                      return (
+                        <div
+                          key={`${tab.kind}:${tab.id}`}
+                          className={`ws-tab ws-tab-${tab.kind} ${isActive ? 'is-active' : ''} ${
+                            isDraggingTab ? 'is-dragging' : ''
+                          } ${isDropBefore ? 'is-drop-before' : ''} ${
+                            isDropAfter ? 'is-drop-after' : ''
+                          }`}
+                          draggable={!isMutating}
+                          onDragStart={(event) => {
+                            if (isMutating) {
+                              event.preventDefault();
+                              return;
+                            }
+                            event.dataTransfer.effectAllowed = 'move';
+                            event.dataTransfer.setData(
+                              'text/plain',
+                              `tabs:${tab.kind}:${tab.id}`,
+                            );
+                            setDragState({
+                              kind: 'tabs',
+                              itemId: `${tab.kind}:${tab.id}`,
                             });
-                          });
-                        }}
-                        onDragEnd={clearDragState}
-                      >
-                        <button
-                          type="button"
-                          className="ws-tab-label-btn"
-                          title={label}
-                          onClick={() => {
-                            if (tab.kind === 'page') {
-                              setSelectedPageId(tab.id);
-                              setActiveNoteFile(null);
-                            } else {
-                              setActiveNoteFile(tab.id);
-                            }
                           }}
-                        >
-                          {tab.kind === 'note' && (
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="ws-tab-note-icon">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                              <polyline points="14 2 14 8 20 8"/>
-                            </svg>
-                          )}
-                          <span className="ws-tab-label">{label}</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="ws-tab-close"
-                          title={`Close tab: ${label}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (tab.kind === 'page') {
-                              closePageTab(tab.id);
-                            } else {
-                              closeNoteTab(tab.id);
-                            }
+                          onDragOver={(event) => {
+                            const currentDragState = dragState;
+                            if (currentDragState?.kind !== 'tabs') return;
+                            if (
+                              currentDragState.itemId ===
+                              `${tab.kind}:${tab.id}`
+                            )
+                              return;
+                            event.preventDefault();
+                            event.dataTransfer.dropEffect = 'move';
+                            const position = getTabDropPosition(event);
+                            setDropState({
+                              kind: 'tabs',
+                              itemId: `${tab.kind}:${tab.id}`,
+                              position,
+                            });
                           }}
-                          aria-label={`Close tab ${label}`}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
+                          onDrop={(event) => {
+                            event.preventDefault();
+                            const currentDragState = dragState;
+                            if (currentDragState?.kind !== 'tabs') {
+                              clearDragState();
+                              return;
+                            }
+                            const draggedId = currentDragState.itemId;
+                            const targetId = `${tab.kind}:${tab.id}`;
+                            const position = getTabDropPosition(event);
+                            clearDragState();
 
-                {/* ── Right: Spacer (toggle removed to fix tabs at bottom) ── */}
-                <div className="ws-tab-position-spacer" style={{ width: 34 }} />
-              </div>
-            );
-          })()}
+                            if (draggedId === targetId) return;
+
+                            setOpenTabs((current) => {
+                              const items = current.map((t) => ({
+                                tab: t,
+                                id: `${t.kind}:${t.id}`,
+                              }));
+                              const orderedIds = buildDraggedOrder(
+                                items,
+                                draggedId,
+                                targetId,
+                                position,
+                              );
+                              if (orderedIds === null) return current;
+
+                              const positions = new Map(
+                                orderedIds.map((id, index) => [id, index]),
+                              );
+                              return [...current].sort((left, right) => {
+                                const leftId = `${left.kind}:${left.id}`;
+                                const rightId = `${right.kind}:${right.id}`;
+                                const leftPos = positions.get(leftId) ?? 999;
+                                const rightPos = positions.get(rightId) ?? 999;
+                                return leftPos - rightPos;
+                              });
+                            });
+                          }}
+                          onDragEnd={clearDragState}
+                        >
+                          <button
+                            type="button"
+                            className="ws-tab-label-btn"
+                            title={label}
+                            onClick={() => {
+                              if (tab.kind === 'page') {
+                                setSelectedPageId(tab.id);
+                                setActiveNoteFile(null);
+                              } else {
+                                setActiveNoteFile(tab.id);
+                              }
+                            }}
+                          >
+                            {tab.kind === 'note' && (
+                              <svg
+                                width="11"
+                                height="11"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.2"
+                                className="ws-tab-note-icon"
+                              >
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                              </svg>
+                            )}
+                            <span className="ws-tab-label">{label}</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="ws-tab-close"
+                            title={`Close tab: ${label}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (tab.kind === 'page') {
+                                closePageTab(tab.id);
+                              } else {
+                                closeNoteTab(tab.id);
+                              }
+                            }}
+                            aria-label={`Close tab ${label}`}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* ── Right: Spacer (toggle removed to fix tabs at bottom) ── */}
+                  <div
+                    className="ws-tab-position-spacer"
+                    style={{ width: 34 }}
+                  />
+                </div>
+              );
+            })()}
 
           <div className="workspace-content-area">
             {errorMessage !== null ? (
@@ -2199,7 +2282,10 @@ export function App() {
               <section className="hero-panel">
                 <div className="hero-copy">
                   <h3>Select a project</h3>
-                  <p className="hero-text">Open a project from the home screen to start working on a board.</p>
+                  <p className="hero-text">
+                    Open a project from the home screen to start working on a
+                    board.
+                  </p>
                   <button
                     className="primary-button"
                     disabled={isMutating}
@@ -2212,7 +2298,11 @@ export function App() {
             ) : selectedPage === null ? (
               <section className="hero-panel">
                 <div className="hero-copy">
-                  <h3>{pages.length === 0 ? `Create a page in ${selectedProject.name}` : 'Select a page'}</h3>
+                  <h3>
+                    {pages.length === 0
+                      ? `Create a page in ${selectedProject.name}`
+                      : 'Select a page'}
+                  </h3>
                   <p className="hero-text">
                     {pages.length === 0
                       ? 'Add a page to start arranging notes, tables, frames, and connectors.'
@@ -2275,8 +2365,12 @@ export function App() {
           >
             <div className="project-settings-dialog-header">
               <div>
-                <div className="project-settings-dialog-kicker">Project settings</div>
-                <h2 id="project-settings-dialog-title">{selectedProject.name}</h2>
+                <div className="project-settings-dialog-kicker">
+                  Project settings
+                </div>
+                <h2 id="project-settings-dialog-title">
+                  {selectedProject.name}
+                </h2>
               </div>
               <button
                 type="button"
@@ -2291,7 +2385,10 @@ export function App() {
             <div className="project-settings-dialog-grid">
               <section className="project-settings-panel">
                 <div className="project-settings-panel-heading">Name</div>
-                <label className="sidebar-name-group" htmlFor="sidebar-project-name-input">
+                <label
+                  className="sidebar-name-group"
+                  htmlFor="sidebar-project-name-input"
+                >
                   <span className="sidebar-name-label">Project name</span>
                   <div className="sidebar-name-edit-row">
                     <input
@@ -2300,7 +2397,9 @@ export function App() {
                       disabled={isMutating}
                       type="text"
                       value={projectNameDraft}
-                      onChange={(event) => setProjectNameDraft(event.target.value)}
+                      onChange={(event) =>
+                        setProjectNameDraft(event.target.value)
+                      }
                       onKeyDown={(event) => {
                         if (event.key === 'Enter') {
                           event.preventDefault();
@@ -2366,9 +2465,11 @@ export function App() {
               </section>
               <section className="project-settings-panel">
                 <div className="project-settings-panel-heading">Components</div>
-                
+
                 <div className="project-settings-component-group">
-                  <div className="project-settings-dialog-kicker">Table & Frame</div>
+                  <div className="project-settings-dialog-kicker">
+                    Table & Frame
+                  </div>
                   <div className="project-default-style-grid">
                     <ColorPaletteField
                       label="Background"
@@ -2388,7 +2489,9 @@ export function App() {
                 </div>
 
                 <div className="project-settings-component-group">
-                  <div className="project-settings-dialog-kicker">Textbox & Sticky & Note</div>
+                  <div className="project-settings-dialog-kicker">
+                    Textbox & Sticky & Note
+                  </div>
                   <div className="project-default-style-grid">
                     <ColorPaletteField
                       label="Background"
@@ -2408,7 +2511,9 @@ export function App() {
                 </div>
 
                 <div className="project-settings-component-group">
-                  <div className="project-settings-dialog-kicker">Line & Arrow</div>
+                  <div className="project-settings-dialog-kicker">
+                    Line & Arrow
+                  </div>
                   <div className="project-default-style-grid">
                     <ColorPaletteField
                       label="Stroke"
@@ -2419,7 +2524,9 @@ export function App() {
                       }
                       tone="background"
                       onSelect={(value) =>
-                        void handleChangeProjectDefaultStyle({ linkColor: value })
+                        void handleChangeProjectDefaultStyle({
+                          linkColor: value,
+                        })
                       }
                     />
                     <ColorPaletteField
@@ -2437,7 +2544,10 @@ export function App() {
                         })
                       }
                     />
-                    <div className="inspector-grid" style={{ marginTop: '8px' }}>
+                    <div
+                      className="inspector-grid"
+                      style={{ marginTop: '8px' }}
+                    >
                       <label className="sidebar-project-theme-control project-style-control">
                         <span className="sidebar-name-label">Width</span>
                         <input
@@ -2454,7 +2564,9 @@ export function App() {
                         />
                       </label>
                       <label className="sidebar-project-theme-control project-style-control">
-                        <span className="sidebar-name-label">Text position</span>
+                        <span className="sidebar-name-label">
+                          Text position
+                        </span>
                         <select
                           disabled={isMutating}
                           value={
@@ -2489,23 +2601,28 @@ export function App() {
                       }
                       tone="text"
                       onSelect={(value) =>
-                        void handleChangeProjectDefaultStyle({ textColor: value })
+                        void handleChangeProjectDefaultStyle({
+                          textColor: value,
+                        })
                       }
                     />
-                    <div className="inspector-grid" style={{ marginTop: '8px' }}>
+                    <div
+                      className="inspector-grid"
+                      style={{ marginTop: '8px' }}
+                    >
                       <label className="sidebar-project-theme-control project-style-control">
                         <span className="sidebar-name-label">Size</span>
-                        <input
-                          type="number"
+                        <CommitNumberInput
+                          inputKey={`project-default-font-size-${selectedProject?.id ?? 'none'}-${selectedProjectDefaultStyle.fontSize ?? 14}`}
                           min={12}
                           max={32}
                           disabled={isMutating}
                           value={selectedProjectDefaultStyle.fontSize ?? 14}
-                          onChange={(e) =>
+                          onCommit={(rawValue) => {
                             void handleChangeProjectDefaultStyle({
-                              fontSize: Number(e.target.value),
-                            })
-                          }
+                              fontSize: Number(rawValue),
+                            });
+                          }}
                         />
                       </label>
                     </div>
@@ -2515,7 +2632,8 @@ export function App() {
               <section className="project-settings-panel project-settings-panel-actions">
                 <div className="project-settings-panel-heading">Actions</div>
                 <p className="confirmation-dialog-copy">
-                  Export the whole project or remove it from this local workspace.
+                  Export the whole project or remove it from this local
+                  workspace.
                 </p>
                 <div className="sidebar-project-action-row">
                   <button
@@ -2543,7 +2661,9 @@ export function App() {
       {mermaidImportDialogOpen ? (
         <MermaidImportModal
           isBusy={isMutating}
-          onConfirm={(title, code) => void handleMermaidImportConfirm(title, code)}
+          onConfirm={(title, code) =>
+            void handleMermaidImportConfirm(title, code)
+          }
           onCancel={() => setMermaidImportDialogOpen(false)}
         />
       ) : null}
@@ -2589,7 +2709,9 @@ export function App() {
               className="confirmation-dialog-input"
               disabled={isMutating}
               value={projectDeleteConfirmation}
-              onChange={(event) => setProjectDeleteConfirmation(event.target.value)}
+              onChange={(event) =>
+                setProjectDeleteConfirmation(event.target.value)
+              }
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && canConfirmProjectDelete) {
                   event.preventDefault();

@@ -26,6 +26,11 @@ import {
   sortItemsForClipboard,
   toPayload,
 } from './canvasHelpers';
+import {
+  parseBoardItemStyle,
+  serializeBoardItemStyle,
+  type BoardItemStyle,
+} from './itemStyles';
 import type {
   ClipboardSnapshot,
   ConnectorsUpdater,
@@ -33,11 +38,13 @@ import type {
   ItemsUpdater,
   SegmentDraftState,
 } from './canvasTypes';
-import {
-  buildSegmentGeometry,
-} from './segmentData';
+import { buildSegmentGeometry } from './segmentData';
 import type { SegmentDraftTool } from './canvasTypes';
-import { createTableData, serializeTableData } from './tableData';
+import {
+  createTableData,
+  parseTableData,
+  serializeTableData,
+} from './tableData';
 import {
   ITEM_CATEGORY,
   ITEM_CATEGORY_FOR_TYPE,
@@ -66,6 +73,74 @@ function getNoteFileName(item: BoardItem): string | null {
   }
 
   return null;
+}
+
+function isTextStyleChildItem(item: BoardItem): boolean {
+  return (
+    item.type === ITEM_TYPE.text_box ||
+    item.type === ITEM_TYPE.sticky_note ||
+    item.type === ITEM_TYPE.note_paper
+  );
+}
+
+function getTableChildItemIds(item: BoardItem): Set<string> {
+  if (item.type !== ITEM_TYPE.table) {
+    return new Set();
+  }
+
+  const tableData = parseTableData(item.data_json);
+  return new Set(
+    tableData.cells.flat().flatMap((cell) => cell?.childItemIds ?? []),
+  );
+}
+
+function getChangedTableTextStylePatch(
+  previous: BoardItem | null,
+  updated: BoardItem,
+): BoardItemStyle | null {
+  if (
+    previous === null ||
+    previous.type !== ITEM_TYPE.table ||
+    updated.type !== ITEM_TYPE.table ||
+    previous.style_json === updated.style_json
+  ) {
+    return null;
+  }
+
+  const previousStyle = parseBoardItemStyle(previous.style_json);
+  const updatedStyle = parseBoardItemStyle(updated.style_json);
+  const patch: BoardItemStyle = {};
+
+  if (previousStyle.textColor !== updatedStyle.textColor) {
+    patch.textColor = updatedStyle.textColor;
+  }
+  if (previousStyle.fontSize !== updatedStyle.fontSize) {
+    patch.fontSize = updatedStyle.fontSize;
+  }
+  if (previousStyle.fontWeight !== updatedStyle.fontWeight) {
+    patch.fontWeight = updatedStyle.fontWeight;
+  }
+  if (previousStyle.fontStyle !== updatedStyle.fontStyle) {
+    patch.fontStyle = updatedStyle.fontStyle;
+  }
+
+  return previousStyle.textColor !== updatedStyle.textColor ||
+    previousStyle.fontSize !== updatedStyle.fontSize ||
+    previousStyle.fontWeight !== updatedStyle.fontWeight ||
+    previousStyle.fontStyle !== updatedStyle.fontStyle
+    ? patch
+    : null;
+}
+
+function applyTextStylePatch(
+  item: BoardItem,
+  patch: BoardItemStyle,
+): BoardItem {
+  const currentStyle = parseBoardItemStyle(item.style_json);
+  return {
+    ...item,
+    style_json: serializeBoardItemStyle({ ...currentStyle, ...patch }),
+  };
 }
 
 interface UseCanvasItemActionsParams {
@@ -131,7 +206,8 @@ export function useCanvasItemActions({
           deleteIdSet.has(connector.connector_item_id) ||
           (connector.from_item_id !== null &&
             deleteIdSet.has(connector.from_item_id)) ||
-          (connector.to_item_id !== null && deleteIdSet.has(connector.to_item_id)),
+          (connector.to_item_id !== null &&
+            deleteIdSet.has(connector.to_item_id)),
       );
       const relatedItemIds = new Set<string>([
         ...deleteIds,
@@ -414,8 +490,8 @@ export function useCanvasItemActions({
           params.dataJson !== undefined
             ? params.dataJson
             : params.type === ITEM_TYPE.table
-            ? serializeTableData(createTableData())
-            : null,
+              ? serializeTableData(createTableData())
+              : null,
       };
 
       try {
@@ -521,6 +597,14 @@ export function useCanvasItemActions({
         previousNoteFile !== null &&
         nextNoteFile !== null &&
         previousNoteFile !== nextNoteFile;
+      const tableTextStylePatch = getChangedTableTextStylePatch(
+        previousUpdated,
+        updated,
+      );
+      const tableTextStyleChildIds =
+        tableTextStylePatch !== null
+          ? getTableChildItemIds(updated)
+          : new Set<string>();
       let changedChildIds: string[] = [];
       setItemsAndSync((current) => {
         const nextItems = current.map((item) => {
@@ -529,10 +613,7 @@ export function useCanvasItemActions({
           }
 
           const itemNoteFile = getNoteFileName(item);
-          if (
-            shouldPropagateNoteContent &&
-            itemNoteFile === nextNoteFile
-          ) {
+          if (shouldPropagateNoteContent && itemNoteFile === nextNoteFile) {
             return {
               ...item,
               content: updated.content,
@@ -540,16 +621,23 @@ export function useCanvasItemActions({
             };
           }
 
-          if (
-            shouldPropagateNoteRename &&
-            itemNoteFile === previousNoteFile
-          ) {
+          if (shouldPropagateNoteRename && itemNoteFile === previousNoteFile) {
             return {
               ...item,
               content: updated.content,
               content_format: 'markdown',
               data_json: updated.data_json,
             };
+          }
+
+          if (
+            tableTextStylePatch !== null &&
+            isTextStyleChildItem(item) &&
+            (tableTextStyleChildIds.has(item.id) ||
+              item.parent_item_id === updated.id)
+          ) {
+            changedChildIds.push(item.id);
+            return applyTextStylePatch(item, tableTextStylePatch);
           }
 
           return item;
@@ -559,7 +647,10 @@ export function useCanvasItemActions({
           return nextItems;
         }
         const relayoutResult = relayoutTableItems(nextItems, [updated.id]);
-        changedChildIds = relayoutResult.changedIds;
+        changedChildIds = getUniqueItemIds([
+          ...changedChildIds,
+          ...relayoutResult.changedIds,
+        ]);
         return relayoutResult.items;
       });
 
@@ -571,11 +662,15 @@ export function useCanvasItemActions({
         const latestUpdated =
           itemsRef.current.find((item) => item.id === updated.id) ?? updated;
         const latestChildren = changedChildIds
-          .map((childId) => itemsRef.current.find((item) => item.id === childId))
+          .map((childId) =>
+            itemsRef.current.find((item) => item.id === childId),
+          )
           .filter((item): item is BoardItem => item !== undefined);
         void Promise.all([
           updateBoardItem(latestUpdated.id, toPayload(latestUpdated)),
-          ...latestChildren.map((child) => updateBoardItem(child.id, toPayload(child))),
+          ...latestChildren.map((child) =>
+            updateBoardItem(child.id, toPayload(child)),
+          ),
         ])
           .then(() => {
             if (latestUpdated.type === ITEM_TYPE.note_paper) {
@@ -617,7 +712,9 @@ export function useCanvasItemActions({
 
       const content = item.content ?? '';
       const hasH1 = content.trim().startsWith('#');
-      const transformedContent = hasH1 ? content : `# Untitled Note\n\n${content}`;
+      const transformedContent = hasH1
+        ? content
+        : `# Untitled Note\n\n${content}`;
 
       const updated: BoardItem = {
         ...item,
@@ -637,7 +734,13 @@ export function useCanvasItemActions({
         console.error('[Canvas] Failed to transform sticky to note', err);
       }
     },
-    [captureBoardSnapshot, itemsRef, onProjectNotesChanged, pushUndoSnapshot, setItemsAndSync],
+    [
+      captureBoardSnapshot,
+      itemsRef,
+      onProjectNotesChanged,
+      pushUndoSnapshot,
+      setItemsAndSync,
+    ],
   );
 
   return {

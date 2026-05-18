@@ -70,6 +70,30 @@ describe('Table', () => {
     expect(markup).not.toContain('table-v2-add-btn');
   });
 
+  it('applies table item typography to cell text', () => {
+    const markup = renderToStaticMarkup(
+      <Table
+        item={createTableItem({
+          style_json: JSON.stringify({
+            textColor: '#1d4ed8',
+            fontSize: 22,
+            fontWeight: 'bold',
+            fontStyle: 'italic',
+          }),
+        })}
+        isSelected={false}
+        isEditing={false}
+        onUpdate={() => {}}
+        onEditEnd={() => {}}
+      />,
+    );
+
+    expect(markup).toContain('color:#1d4ed8');
+    expect(markup).toContain('font-size:22px');
+    expect(markup).toContain('font-weight:bold');
+    expect(markup).toContain('font-style:italic');
+  });
+
   it('snaps column divider positions to global grid coordinates', () => {
     const item = createTableItem({ x: 10, width: 360 });
 
