@@ -82,11 +82,15 @@ export function MarkdownEditor({
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastSavedContent = useRef(note?.content ?? '');
+  // Tracks the latest content so the unmount flush can access it without
+  // capturing a stale closure.
+  const latestContentRef = useRef(note?.content ?? '');
 
   // When the noteFile changes (tab switch), reload content from projectNotes
   useEffect(() => {
     const newNote = projectNotes.find((n) => n.note_file === noteFile);
     const newContent = newNote?.content ?? '';
+    latestContentRef.current = newContent;
     setContent(newContent);
     setSaveStatus('saved');
     lastSavedContent.current = newContent;
@@ -112,6 +116,7 @@ export function MarkdownEditor({
   );
 
   function handleContentChange(newContent: string) {
+    latestContentRef.current = newContent;
     setContent(newContent);
     setSaveStatus('unsaved');
     if (saveTimerRef.current !== null) {
@@ -122,14 +127,21 @@ export function MarkdownEditor({
     }, AUTOSAVE_DELAY_MS);
   }
 
-  // Flush on unmount
+  // Flush on unmount: fire an immediate save for any pending unsaved content so
+  // that the title on the Page reflects the latest markdown H1 when the user
+  // switches back from the editor tab.
   useEffect(() => {
     return () => {
       if (saveTimerRef.current !== null) {
         clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+        const unsaved = latestContentRef.current;
+        if (unsaved !== lastSavedContent.current) {
+          void updateProjectNote(projectId, noteFile, unsaved).catch(() => {});
+        }
       }
     };
-  }, []);
+  }, [projectId, noteFile]);
 
   // Keyboard shortcut: Ctrl+S / Cmd+S → immediate save
   useEffect(() => {

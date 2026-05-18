@@ -188,6 +188,7 @@ export function useCanvasItemActions({
 }: UseCanvasItemActionsParams) {
   const clipboardRef = useRef<ClipboardSnapshot | null>(null);
   const pasteCountRef = useRef(0);
+  const pendingItemIdRef = useRef<string | null>(null);
 
   const handleDeleteItems = useCallback(
     async (itemIds: string[]) => {
@@ -658,7 +659,9 @@ export function useCanvasItemActions({
         clearTimeout(itemSaveTimerRef.current);
       }
 
+      pendingItemIdRef.current = updated.id;
       itemSaveTimerRef.current = setTimeout(() => {
+        pendingItemIdRef.current = null;
         const latestUpdated =
           itemsRef.current.find((item) => item.id === updated.id) ?? updated;
         // For table items, always persist ALL children (parent_item_id match)
@@ -703,6 +706,34 @@ export function useCanvasItemActions({
       setItemsAndSync,
     ],
   );
+
+  const flushPendingItemSave = useCallback(() => {
+    const pendingId = pendingItemIdRef.current;
+    if (pendingId === null || itemSaveTimerRef.current === null) return;
+    clearTimeout(itemSaveTimerRef.current);
+    itemSaveTimerRef.current = null;
+    pendingItemIdRef.current = null;
+    const latestItem = itemsRef.current.find((item) => item.id === pendingId);
+    if (!latestItem) return;
+    const latestChildren =
+      latestItem.type === ITEM_TYPE.table
+        ? itemsRef.current.filter((item) => item.parent_item_id === pendingId)
+        : [];
+    void Promise.all([
+      updateBoardItem(latestItem.id, toPayload(latestItem)),
+      ...latestChildren.map((child) =>
+        updateBoardItem(child.id, toPayload(child)),
+      ),
+    ])
+      .then(() => {
+        if (latestItem.type === ITEM_TYPE.note_paper) {
+          onProjectNotesChanged?.();
+        }
+      })
+      .catch((err) => {
+        console.error('[Canvas] Failed to flush item save', err);
+      });
+  }, [itemSaveTimerRef, itemsRef, onProjectNotesChanged]);
 
   const handleEditEnd = useCallback(() => {
     editSessionRef.current = null;
@@ -765,5 +796,6 @@ export function useCanvasItemActions({
     handleItemUpdate,
     handleEditEnd,
     handleTransformToNote,
+    flushPendingItemSave,
   };
 }
