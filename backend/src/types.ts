@@ -121,6 +121,12 @@ export type BoardItemUpdatePayload = BoardItemBase;
 export type ConnectorLinkCreatePayload = ConnectorLinkBase;
 export type ConnectorLinkUpdatePayload = ConnectorLinkBase;
 
+export type ImportFromPayload = {
+  source_project_id: string;
+  page_ids: string[];
+  note_files: string[];
+};
+
 export type PageBoardStatePayload = {
   board_items: BoardItem[];
   connector_links: ConnectorLink[];

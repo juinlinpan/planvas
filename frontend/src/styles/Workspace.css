@@ -877,3 +877,118 @@
 .status-meta {
   margin: 0;
 }
+
+/* ── Cross-project Import Dialog ─────────────────────── */
+.cross-project-import-dialog {
+  width: min(600px, 100%);
+  max-height: min(80vh, 700px);
+  display: flex;
+  flex-direction: column;
+  border-color: rgba(22, 50, 56, 0.14);
+}
+
+.confirmation-dialog-header {
+  flex-shrink: 0;
+}
+
+.confirmation-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  flex-shrink: 0;
+}
+
+.cross-project-import-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  margin-top: 14px;
+  min-height: 0;
+}
+
+.cross-project-import-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #24393f;
+}
+
+.cross-project-import-select {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid rgba(22, 50, 56, 0.16);
+  border-radius: 6px;
+  background: #fff;
+  color: #17262b;
+  font: inherit;
+  font-weight: 400;
+}
+
+.cross-project-import-loading,
+.cross-project-import-error,
+.cross-project-import-empty {
+  margin: 12px 0 0;
+  font-size: 0.84rem;
+  color: #52646b;
+}
+
+.cross-project-import-error {
+  color: #b91c1c;
+}
+
+.cross-project-import-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.cross-project-import-section {
+  border: 1px solid rgba(22, 50, 56, 0.1);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.cross-project-import-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 0.84rem;
+}
+
+.cross-project-import-select-all {
+  font-size: 0.78rem;
+  padding: 2px 6px;
+  color: #2563eb;
+}
+
+.cross-project-import-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cross-project-import-item label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.84rem;
+  padding: 3px 2px;
+}
+
+.cross-project-import-item label:hover {
+  color: #2563eb;
+}
+
+.cross-project-import-note-file {
+  color: #8a9fa5;
+  font-size: 0.76rem;
+  margin-left: auto;
+}

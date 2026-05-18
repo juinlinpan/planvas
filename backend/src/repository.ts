@@ -515,6 +515,158 @@ export class WhiteboardRepository {
     return duplicatedPage;
   }
 
+  importFromProject(
+    targetProjectId: string,
+    sourceProjectId: string,
+    pageIds: string[],
+    noteFiles: string[],
+  ): { pages: Page[]; notes: ProjectNote[] } {
+    const { projectDir: targetDir, metadata: targetMetadata } =
+      this.findProjectMetadata(targetProjectId);
+    const { projectDir: sourceDir } =
+      this.findProjectMetadata(sourceProjectId);
+
+    const targetDataDir = this.projectDataDir(targetDir);
+    const sourceDataDir = this.projectDataDir(sourceDir);
+    fs.mkdirSync(targetDataDir, { recursive: true });
+
+    const timestamp = utcTimestamp();
+    const existingPages = this.pagesFromProject(targetDir);
+    let nextSortOrder = existingPages.length;
+    const importedPages: Page[] = [];
+
+    for (const pageId of pageIds) {
+      const sourcePageEntry = this.pageEntriesFromProject(sourceDir).find(
+        (entry) => entry.page.id === pageId,
+      );
+      if (!sourcePageEntry) continue;
+
+      const { page: sourcePage, pagePath: sourcePagePath } = sourcePageEntry;
+      const { boardItems: sourceItems, connectorLinks: sourceConnectors } =
+        this.readPageXmlFile(sourcePagePath, sourcePage, sourceDataDir);
+
+      const itemIdMap = new Map(
+        sourceItems.map((item) => [item.id, randomUUID()]),
+      );
+
+      // Copy note_paper backing files referenced by this page
+      const noteFileCopyMap = new Map<string, string>();
+      for (const item of sourceItems) {
+        if (item.type !== 'note_paper') continue;
+        const srcNoteFile = this.noteFileFromDataJson(item.data_json);
+        if (!srcNoteFile || noteFileCopyMap.has(srcNoteFile)) continue;
+        const srcNotePath = path.join(sourceDataDir, srcNoteFile);
+        if (!fs.existsSync(srcNotePath)) continue;
+        const stem = path.basename(srcNoteFile, noteFileExtension);
+        const dstNotePath = uniquePath(targetDataDir, stem, noteFileExtension);
+        fs.copyFileSync(srcNotePath, dstNotePath);
+        noteFileCopyMap.set(srcNoteFile, path.basename(dstNotePath));
+      }
+
+      const importedItems: BoardItem[] = sourceItems.map((item) => {
+        const newId = itemIdMap.get(item.id) ?? randomUUID();
+        const newParentId = item.parent_item_id
+          ? (itemIdMap.get(item.parent_item_id) ?? null)
+          : null;
+        let dataJson = item.data_json;
+        if (item.type === 'note_paper') {
+          const srcNoteFile = this.noteFileFromDataJson(item.data_json);
+          if (srcNoteFile && noteFileCopyMap.has(srcNoteFile)) {
+            const noteData = parseJsonObject(dataJson);
+            dataJson = JSON.stringify({
+              ...noteData,
+              noteFile: noteFileCopyMap.get(srcNoteFile),
+              noteFileManaged: false,
+            });
+          }
+        }
+        return {
+          ...item,
+          id: newId,
+          page_id: '',
+          parent_item_id: newParentId,
+          data_json: dataJson,
+          created_at: timestamp,
+          updated_at: timestamp,
+        };
+      });
+
+      const importedPage: Page = {
+        ...sourcePage,
+        id: randomUUID(),
+        project_id: targetProjectId,
+        sort_order: nextSortOrder,
+        created_at: timestamp,
+        updated_at: timestamp,
+      };
+      nextSortOrder += 1;
+
+      const finalItems = importedItems.map((item) => ({
+        ...item,
+        page_id: importedPage.id,
+      }));
+
+      const importedConnectors: ConnectorLink[] = sourceConnectors.map(
+        (connector) => ({
+          id: randomUUID(),
+          connector_item_id:
+            itemIdMap.get(connector.connector_item_id) ??
+            connector.connector_item_id,
+          from_item_id: connector.from_item_id
+            ? (itemIdMap.get(connector.from_item_id) ?? connector.from_item_id)
+            : null,
+          to_item_id: connector.to_item_id
+            ? (itemIdMap.get(connector.to_item_id) ?? connector.to_item_id)
+            : null,
+          from_anchor: connector.from_anchor,
+          to_anchor: connector.to_anchor,
+        }),
+      );
+
+      const pageFile = uniquePagePath(
+        targetDataDir,
+        slugify(importedPage.name, 'page'),
+      );
+      this.writePageXml(pageFile, importedPage, finalItems, importedConnectors);
+      importedPages.push(importedPage);
+    }
+
+    // Import standalone notes
+    const importedNotes: ProjectNote[] = [];
+    for (const noteFile of noteFiles) {
+      const safeFile = path.basename(noteFile);
+      if (
+        !safeFile ||
+        path.extname(safeFile).toLowerCase() !== noteFileExtension
+      )
+        continue;
+      const srcNotePath = path.join(sourceDataDir, safeFile);
+      if (!fs.existsSync(srcNotePath)) continue;
+      const stem = path.basename(safeFile, noteFileExtension);
+      const dstNotePath = uniquePath(targetDataDir, stem, noteFileExtension);
+      const dstNoteFile = path.basename(dstNotePath);
+      fs.copyFileSync(srcNotePath, dstNotePath);
+      const content = fs.readFileSync(dstNotePath, 'utf8');
+      const stats = fs.statSync(dstNotePath);
+      importedNotes.push({
+        note_file: dstNoteFile,
+        title:
+          getMarkdownH1(content) ??
+          path.basename(dstNoteFile, noteFileExtension),
+        content,
+        content_format: 'markdown',
+        updated_at: stats.mtime.toISOString(),
+      });
+    }
+
+    if (importedPages.length > 0 || importedNotes.length > 0) {
+      this.touchProject(targetMetadata, timestamp);
+      writeJsonAtomic(this.metadataPath(targetDir), targetMetadata);
+    }
+
+    return { pages: importedPages, notes: importedNotes };
+  }
+
   updatePageViewport(pageId: string, payload: PageViewportPayload): Page {
     const { projectDir, metadata, page, pagePath } = this.findPageMetadata(pageId);
     const nextPage = {

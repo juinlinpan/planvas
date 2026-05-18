@@ -142,8 +142,9 @@ type Props = {
   onViewportChange?: (viewport: Viewport) => void;
   onProjectNotesChanged?: () => void;
   onOpenNote?: (noteFile: string) => void;
-  onImportPage: (format: 'json' | 'mermaid') => void;
-  onExportPage: (format: 'json' | 'png' | 'pptx' | 'mermaid') => void;
+  onImportPage: (format: 'mermaid') => void;
+  onImportFromProject: () => void;
+  onExportPage: (format: 'png' | 'pptx' | 'mermaid') => void;
   importExportDisabled: boolean;
   projectDefaultStyleJson?: string | null;
 };
@@ -223,6 +224,7 @@ export function Canvas({
   onProjectNotesChanged,
   onOpenNote,
   onImportPage,
+  onImportFromProject,
   onExportPage,
   importExportDisabled,
   projectDefaultStyleJson = null,
@@ -1683,25 +1685,24 @@ export function Canvas({
                         role="menuitem"
                         disabled={importExportDisabled}
                         onClick={() => {
-                          onImportPage('json');
-                          setUtilityMenuOpen(null);
-                          setIsImportSubmenuOpen(false);
-                        }}
-                      >
-                        JSON (.json)
-                      </button>
-                      <button
-                        type="button"
-                        className="toolbar-dropdown-item"
-                        role="menuitem"
-                        disabled={importExportDisabled}
-                        onClick={() => {
                           onImportPage('mermaid');
                           setUtilityMenuOpen(null);
                           setIsImportSubmenuOpen(false);
                         }}
                       >
                         Mermaid (.md)
+                      </button>
+                      <button
+                        type="button"
+                        className="toolbar-dropdown-item"
+                        role="menuitem"
+                        onClick={() => {
+                          onImportFromProject();
+                          setUtilityMenuOpen(null);
+                          setIsImportSubmenuOpen(false);
+                        }}
+                      >
+                        從其他 Project…
                       </button>
                     </div>
                   ) : null}
@@ -1738,19 +1739,6 @@ export function Canvas({
                   </button>
                   {isExportSubmenuOpen ? (
                     <div className="toolbar-submenu-panel" role="menu" aria-label="Export formats">
-                      <button
-                        type="button"
-                        className="toolbar-dropdown-item"
-                        role="menuitem"
-                        disabled={importExportDisabled}
-                        onClick={() => {
-                          onExportPage('json');
-                          setUtilityMenuOpen(null);
-                          setIsExportSubmenuOpen(false);
-                        }}
-                      >
-                        JSON (.json)
-                      </button>
                       <button
                         type="button"
                         className="toolbar-dropdown-item"

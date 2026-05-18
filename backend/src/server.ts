@@ -14,6 +14,7 @@ import {
   validateBoardItemPayload,
   validateBoardStatePayload,
   validateConnectorPayload,
+  validateImportFromPayload,
   validateNoteUpdate,
   validateOrderedIds,
   validatePageCreate,
@@ -263,6 +264,20 @@ function buildRoutes(): Route[] {
       statusCode: 201,
       handler: ({ repository }, { params }) =>
         repository.duplicatePage(params.pageId),
+    },
+    {
+      method: 'POST',
+      pattern: /^\/projects\/(?<projectId>[^/]+)\/import-from$/,
+      statusCode: 201,
+      handler: ({ repository, body }, { params }) => {
+        const payload = validateImportFromPayload(body);
+        return repository.importFromProject(
+          params.projectId,
+          payload.source_project_id,
+          payload.page_ids,
+          payload.note_files,
+        );
+      },
     },
     {
       method: 'PATCH',

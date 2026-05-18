@@ -2,9 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
-  type ChangeEvent,
   type DragEvent as ReactDragEvent,
   type FormEvent,
 } from 'react';
@@ -17,6 +15,7 @@ import {
   deleteProjectNote,
   getPageBoardData,
   getHealth,
+  importFromProject,
   listPages,
   listProjectNotes,
   listProjects,
@@ -38,17 +37,12 @@ import { FolderPickerModal } from './FolderPickerModal';
 import { HomeView } from './HomeView';
 import { MarkdownEditor } from './MarkdownEditor';
 import { syncPageViewport } from './pageViewport';
-import {
-  buildPageExportPayload,
-  buildPageExportSnapshot,
-  mergeImportedPageBoardState,
-  parsePageImportText,
-} from './pageTransfer';
 import { exportPageAsPng } from './pagePngExport';
 import { exportPageAsPptx } from './pagePptxExport';
 import { exportPageAsMarkdown } from './pageMermaidExport';
 import { parseMermaidToBoardData } from './mermaidImport';
 import { MermaidImportModal } from './MermaidImportModal';
+import { CrossProjectImportModal } from './CrossProjectImportModal';
 import { buildAppRouteUrl, readAppRoute, type AppRoute } from './appRoute';
 import { resolveProjectEntryPageId } from './workspaceNavigation';
 import { getInlineDropPosition, type DropPosition } from './dragDrop';
@@ -281,26 +275,6 @@ async function saveFileWithPicker({
   await writable.close();
 }
 
-function buildProjectExportSnapshot(
-  project: Project,
-  boardDataByPage: PageBoardData[],
-): string {
-  const payload = {
-    version: 1,
-    kind: 'whiteboard-project',
-    project: {
-      name: project.name,
-      theme_color: project.theme_color,
-      default_style_json: project.default_style_json,
-      pages: boardDataByPage.map((boardData) =>
-        buildPageExportPayload(boardData),
-      ),
-    },
-  };
-
-  return JSON.stringify(payload, null, 2);
-}
-
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.length > 0) {
     return error.message;
@@ -487,6 +461,7 @@ export function App() {
   const [dropState, setDropState] = useState<SidebarDropState | null>(null);
   const [projectDeleteDialogOpen, setProjectDeleteDialogOpen] = useState(false);
   const [mermaidImportDialogOpen, setMermaidImportDialogOpen] = useState(false);
+  const [crossProjectImportOpen, setCrossProjectImportOpen] = useState(false);
   const [projectDeleteConfirmation, setProjectDeleteConfirmation] =
     useState('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() =>
@@ -521,8 +496,6 @@ export function App() {
     pages: true,
     notes: true,
   });
-  const pageImportInputRef = useRef<HTMLInputElement | null>(null);
-
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) ?? null,
     [projects, selectedProjectId],
@@ -1057,31 +1030,7 @@ export function App() {
     });
   }
 
-  function handleExportProjectClick(): void {
-    if (selectedProject === null || isMutating) {
-      return;
-    }
 
-    void runMutation(async () => {
-      const projectPages = await listPages(selectedProject.id);
-      const boardDataByPage = await Promise.all(
-        projectPages.map((page) => getPageBoardData(page.id)),
-      );
-      const payload = buildProjectExportSnapshot(
-        selectedProject,
-        boardDataByPage,
-      );
-      const safeProjectName = sanitizeExportName(selectedProject.name);
-      await saveFileWithPicker({
-        data: payload,
-        suggestedName: `${safeProjectName}.whiteboard-project.json`,
-        description: 'Whiteboard JSON',
-        accept: {
-          'application/json': ['.json'],
-        },
-      });
-    });
-  }
 
   function openProjectDeleteDialog(): void {
     if (selectedProject === null || isMutating) {
@@ -1351,7 +1300,7 @@ export function App() {
   }
 
   function handleExportPageClick(
-    format: 'json' | 'png' | 'pptx' | 'mermaid',
+    format: 'png' | 'pptx' | 'mermaid',
   ): void {
     if (selectedPage === null || isMutating) {
       return;
@@ -1361,19 +1310,6 @@ export function App() {
       try {
         const boardData = await getPageBoardData(selectedPage.id);
         const safePageName = sanitizeExportName(selectedPage.name);
-        if (format === 'json') {
-          const payload = buildPageExportSnapshot(boardData);
-          await saveFileWithPicker({
-            data: payload,
-            suggestedName: `${safePageName}.whiteboard-page.json`,
-            description: 'Whiteboard JSON',
-            accept: {
-              'application/json': ['.json'],
-            },
-          });
-          return;
-        }
-
         if (format === 'png') {
           const pngBlob = await exportPageAsPng(boardData);
           await saveFileWithPicker({
@@ -1420,42 +1356,39 @@ export function App() {
     });
   }
 
-  function handleImportPageButtonClick(format: 'json' | 'mermaid'): void {
+  function handleImportPageButtonClick(format: 'mermaid'): void {
     if (selectedPage === null || isMutating) {
       return;
     }
 
-    if (format === 'json') {
-      pageImportInputRef.current?.click();
-    } else if (format === 'mermaid') {
+    if (format === 'mermaid') {
       setMermaidImportDialogOpen(true);
     }
   }
 
-  async function handleImportPageInputChange(
-    event: ChangeEvent<HTMLInputElement>,
+  function handleCrossProjectImportOpen(): void {
+    if (isMutating) return;
+    setCrossProjectImportOpen(true);
+  }
+
+  async function handleCrossProjectImportConfirm(
+    pageIds: string[],
+    noteFiles: string[],
+    sourceProjectId: string,
   ): Promise<void> {
-    const input = event.currentTarget;
-    const file = input.files?.[0];
-    input.value = '';
-
-    if (file === undefined || selectedPage === null) {
-      return;
-    }
-
+    if (selectedProjectId === null) return;
     await runMutation(async () => {
-      const importedPage = parsePageImportText(await file.text());
-      const currentBoardData = await getPageBoardData(selectedPage.id);
-      const mergedBoardState = mergeImportedPageBoardState(
-        selectedPage.id,
-        currentBoardData,
-        importedPage,
+      const result = await importFromProject(
+        selectedProjectId,
+        sourceProjectId,
+        pageIds,
+        noteFiles,
       );
-      await replacePageBoardState(selectedPage.id, mergedBoardState);
-      setPageRefreshTokenById((current) => ({
-        ...current,
-        [selectedPage.id]: (current[selectedPage.id] ?? 0) + 1,
-      }));
+      setPages((current) => [...current, ...result.pages]);
+      if (result.notes.length > 0) {
+        await refreshProjectNotes(selectedProjectId);
+      }
+      setCrossProjectImportOpen(false);
     });
   }
 
@@ -1595,14 +1528,6 @@ export function App() {
 
   return (
     <>
-      <input
-        ref={pageImportInputRef}
-        hidden
-        accept=".json,.whiteboard-page.json"
-        type="file"
-        onChange={(event) => void handleImportPageInputChange(event)}
-      />
-
       <main
         className={`app-shell ${isSidebarCollapsed ? 'is-sidebar-collapsed' : ''}`}
         data-project-theme={selectedProject?.theme_color ?? 'default'}
@@ -2326,6 +2251,7 @@ export function App() {
                   dragState?.kind === 'notes' ? dragState.itemId : null
                 }
                 onImportPage={handleImportPageButtonClick}
+                onImportFromProject={handleCrossProjectImportOpen}
                 onExportPage={handleExportPageClick}
                 importExportDisabled={isMutating}
                 projectDefaultStyleJson={selectedProject.default_style_json}
@@ -2632,18 +2558,9 @@ export function App() {
               <section className="project-settings-panel project-settings-panel-actions">
                 <div className="project-settings-panel-heading">Actions</div>
                 <p className="confirmation-dialog-copy">
-                  Export the whole project or remove it from this local
-                  workspace.
+                  Remove this project from the local workspace.
                 </p>
                 <div className="sidebar-project-action-row">
-                  <button
-                    type="button"
-                    className="ghost-button sidebar-project-export-button"
-                    disabled={isMutating}
-                    onClick={handleExportProjectClick}
-                  >
-                    Export project
-                  </button>
                   <button
                     type="button"
                     className="ghost-button danger-button sidebar-project-delete-button"
@@ -2665,6 +2582,17 @@ export function App() {
             void handleMermaidImportConfirm(title, code)
           }
           onCancel={() => setMermaidImportDialogOpen(false)}
+        />
+      ) : null}
+      {crossProjectImportOpen && selectedProjectId !== null ? (
+        <CrossProjectImportModal
+          currentProjectId={selectedProjectId}
+          projects={projects}
+          isBusy={isMutating}
+          onConfirm={(pageIds, noteFiles, sourceProjectId) =>
+            void handleCrossProjectImportConfirm(pageIds, noteFiles, sourceProjectId)
+          }
+          onCancel={() => setCrossProjectImportOpen(false)}
         />
       ) : null}
       {projectDeleteDialogOpen && selectedProject !== null ? (

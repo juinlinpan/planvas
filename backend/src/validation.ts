@@ -5,6 +5,7 @@ import {
   type BoardItemBase,
   type ConnectorLink,
   type ConnectorLinkBase,
+  type ImportFromPayload,
   type OrderedIdsPayload,
   type PageCreatePayload,
   type PageUpdatePayload,
@@ -120,6 +121,24 @@ export function validateNoteUpdate(value: unknown): { content: string } {
     ]);
   }
   return { content: body.content };
+}
+
+export function validateImportFromPayload(value: unknown): ImportFromPayload {
+  const body = asRecord(value);
+  if (typeof body.source_project_id !== 'string' || !body.source_project_id.trim()) {
+    throw new HttpError(400, 'source_project_id must be a non-empty string.');
+  }
+  if (!Array.isArray(body.page_ids) || !(body.page_ids as unknown[]).every((id) => typeof id === 'string')) {
+    throw new HttpError(400, 'page_ids must be an array of strings.');
+  }
+  if (!Array.isArray(body.note_files) || !(body.note_files as unknown[]).every((f) => typeof f === 'string')) {
+    throw new HttpError(400, 'note_files must be an array of strings.');
+  }
+  return {
+    source_project_id: body.source_project_id as string,
+    page_ids: body.page_ids as string[],
+    note_files: body.note_files as string[],
+  };
 }
 
 export function validateViewport(value: unknown): PageViewportPayload {

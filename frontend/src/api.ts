@@ -226,6 +226,30 @@ export async function duplicatePage(id: string): Promise<Page> {
   });
 }
 
+export type ImportFromResult = {
+  pages: Page[];
+  notes: ProjectNote[];
+};
+
+export async function importFromProject(
+  targetProjectId: string,
+  sourceProjectId: string,
+  pageIds: string[],
+  noteFiles: string[],
+): Promise<ImportFromResult> {
+  return requestJson<ImportFromResult>(
+    `/projects/${targetProjectId}/import-from`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        source_project_id: sourceProjectId,
+        page_ids: pageIds,
+        note_files: noteFiles,
+      }),
+    },
+  );
+}
+
 export async function reorderPages(
   projectId: string,
   orderedIds: string[],
