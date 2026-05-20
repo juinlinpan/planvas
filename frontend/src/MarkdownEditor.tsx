@@ -90,6 +90,9 @@ export function MarkdownEditor({
   useEffect(() => {
     const newNote = projectNotes.find((n) => n.note_file === noteFile);
     const newContent = newNote?.content ?? '';
+    if (latestContentRef.current !== lastSavedContent.current) {
+      return;
+    }
     latestContentRef.current = newContent;
     setContent(newContent);
     setSaveStatus('saved');

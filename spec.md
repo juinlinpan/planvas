@@ -43,6 +43,9 @@
 - The home screen left action area must show `Create Project` and `Open Project`; the previous project JSON import action is removed from the home screen.
 - `Create Project` should open an app modal for project naming instead of using a browser prompt.
 - `Open Project` should use the Windows native folder picker when available and fall back to manual path entry only if the picker is unavailable; manual paths may be absolute, `~`-based, or relative to `<user_home>`.
+- `Open Project` must identify already-opened projects by canonical filesystem path, not by Project name. Opening the same path again must reuse the same Project registration.
+- If two different Project paths have the same Project name, they must remain separate Common Projects.
+- If a copied Project folder has duplicated metadata ids, opening the copied path must assign that path a new Project id instead of replacing the original path's registration.
 - The home screen project list is `Common Projects`: first projects under `project_store/`, then registered projects from other paths.
 - The home screen must provide `Refresh` to re-check whether registered project paths still exist.
 - After Refresh marks a registered project path as missing, the home screen must provide a remove button that deletes only the `project.json` entry.
@@ -94,6 +97,8 @@
 - The right inspector must let users edit the `.md` filename for a selected `note_paper`; changing it renames the markdown backing file and updates the Page XML reference.
 - Project notes are reusable across Pages: placing a note from the left Notes box creates another board item placement that references the selected markdown file instead of duplicating note text into Page XML.
 - The Notes box must refresh after markdown-backed notes are created, renamed, updated, or deleted through the canvas or inspector so it reflects the Project's current note files.
+- When the user returns focus to the workspace or the browser tab becomes visible again, the frontend must refresh `.pv_project/*.md` project notes from disk and update visible `note_paper` placements that reference those files.
+- External `.md` file refresh must not overwrite an actively edited in-app note draft.
 - Deleting a `note_paper` from a Page deletes only that Page placement. It must not delete the backing `.md` file or remove the note from the left Notes box.
 - The same `.md` note may appear multiple times on the same Page and on multiple Pages. All placements share the same backing file, so content or filename changes update every placement that references that note.
 

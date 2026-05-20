@@ -9,6 +9,7 @@ import {
   normalizeConnectorArrowsToSegments,
   summarizeFrameChild,
 } from './canvasHelpers';
+import { syncMarkdownBackedItems } from './noteSync';
 import { ITEM_CATEGORY, ITEM_TYPE } from './types';
 
 const FIXTURE_TIMESTAMP = '2026-04-11T00:00:00+00:00';
@@ -155,6 +156,65 @@ describe('resolveSidebarNoteDragFile', () => {
     });
 
     expect(resolved).toBeNull();
+  });
+});
+
+describe('syncMarkdownBackedItems', () => {
+  it('updates note paper placements from their project markdown files', () => {
+    const items = [
+      createBoardItem({
+        id: 'note-1',
+        type: ITEM_TYPE.note_paper,
+        content: '# Old',
+        content_format: 'markdown',
+        data_json: JSON.stringify({ noteFile: 'sprint-plan.md' }),
+      }),
+      createBoardItem({
+        id: 'text-1',
+        type: ITEM_TYPE.text_box,
+        content: 'Plain text',
+      }),
+    ];
+
+    const synced = syncMarkdownBackedItems(items, [
+      createProjectNote({
+        note_file: 'sprint-plan.md',
+        title: 'New',
+        content: '# New\n- updated outside the app',
+      }),
+    ]);
+
+    expect(synced[0]).toMatchObject({
+      title: 'New',
+      content: '# New\n- updated outside the app',
+      content_format: 'markdown',
+    });
+    expect(synced[1]).toBe(items[1]);
+  });
+
+  it('leaves the currently edited note placement untouched', () => {
+    const items = [
+      createBoardItem({
+        id: 'note-1',
+        type: ITEM_TYPE.note_paper,
+        content: '# Local draft',
+        content_format: 'markdown',
+        data_json: JSON.stringify({ noteFile: 'sprint-plan.md' }),
+      }),
+    ];
+
+    const synced = syncMarkdownBackedItems(
+      items,
+      [
+        createProjectNote({
+          note_file: 'sprint-plan.md',
+          content: '# External edit',
+        }),
+      ],
+      'note-1',
+    );
+
+    expect(synced).toBe(items);
   });
 });
 

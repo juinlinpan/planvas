@@ -134,6 +134,7 @@ import {
   resolveBoardItemStyle,
 } from './itemStyles';
 import { getMinimapLayout, worldToMinimap } from './minimap';
+import { syncMarkdownBackedItems } from './noteSync';
 
 type Props = {
   page: Page;
@@ -403,6 +404,12 @@ export function Canvas({
     itemsRef.current = nextItems;
     setItems(nextItems);
   }, []);
+
+  useEffect(() => {
+    setItemsAndSync((current) =>
+      syncMarkdownBackedItems(current, projectNotes, editingId),
+    );
+  }, [editingId, projectNotes, setItemsAndSync]);
 
   const setViewportAndSync = useCallback((nextViewport: Viewport) => {
     viewportRef.current = nextViewport;

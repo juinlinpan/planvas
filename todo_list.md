@@ -63,6 +63,8 @@
 - [x] `Create Project` now uses an app modal instead of a browser prompt.
 - [x] `Open Project` uses the Windows native folder picker, with manual path entry as fallback.
 - [x] Manual `Open Project` paths can be absolute, `~`-based, or relative to `<user_home>`.
+- [x] Make `Open Project` dedupe by canonical filesystem path instead of Project name, preserving separate projects with the same name.
+- [x] Keep copied Project folders with duplicated metadata ids from replacing the original Project registration.
 - [x] Home project list is grouped into `project_store` projects first and other registered paths second.
 - [x] Home missing-path projects can be removed from `project.json` after Refresh.
 - [x] Clicking `嚗??啣? Page` now creates `untitled_n` directly without a prompt dialog.
@@ -108,6 +110,8 @@
 - [x] Back `note_paper` content with `.md` files under `.pv_project/` instead of storing markdown text inside Page XML.
 - [x] Let the right inspector rename the markdown backing file for a selected `note_paper`.
 - [x] Add project-level note listing API and sidebar drag placement for markdown-backed notes.
+- [x] Refresh `.pv_project/*.md` project notes from disk when the workspace regains focus or the tab becomes visible, and update visible `note_paper` placements that reference changed files.
+- [x] Preserve active in-app markdown drafts when an external note refresh arrives.
 
 ## Table And Small-Item Sizing Update Notes
 

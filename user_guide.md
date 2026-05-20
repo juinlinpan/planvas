@@ -124,6 +124,7 @@ Frame 收合後，其中的物件顯示如下：
 - 在白板上的 `note_paper` 右上角可切換「展開內容」與「只顯示標題」兩種模式
 - 選取 `note_paper` 後，右側 Inspector 的「Markdown file」欄位可以重新命名對應的 `.md` 檔
 - 同一份 `.md` 檔可以被多個 Page 或多次放置，編輯其中一個等同編輯同一份檔案
+- 在外部編輯 `.pv_project/*.md` 後，回到 workspace 或切回瀏覽器分頁時，Notes 清單與畫面上引用該檔案的 `note_paper` 會重新載入最新內容
 - 從 Page 刪除 `note_paper` 只移除白板上的擺放，不刪除 `.md` 檔案
 
 ### 頁面匯出 / 匯入

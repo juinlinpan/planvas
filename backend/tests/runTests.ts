@@ -306,6 +306,62 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: 'opens copied projects as separate paths without replacing originals',
+    run: async () => {
+      const { baseUrl, root } = await createTestServer();
+      const original = (
+        await requestJson<Project>(baseUrl, '/projects', {
+          method: 'POST',
+          ...jsonBody({ name: 'Same Name' }),
+        })
+      ).data;
+      assert.ok(original.path);
+
+      const copiedPath = path.join(root, 'outside', 'Same Name');
+      fs.mkdirSync(path.join(copiedPath, '.pv_project'), { recursive: true });
+      fs.copyFileSync(
+        path.join(original.path, '.pv_project', 'metadata.json'),
+        path.join(copiedPath, '.pv_project', 'metadata.json'),
+      );
+
+      const copied = await requestJson<Project>(
+        baseUrl,
+        '/projects/open-path',
+        {
+          method: 'POST',
+          ...jsonBody({ path: copiedPath }),
+        },
+      );
+
+      assert.equal(copied.data.name, original.name);
+      assert.notEqual(copied.data.id, original.id);
+      assert.equal(copied.data.path, path.resolve(copiedPath));
+
+      const reopened = await requestJson<Project>(
+        baseUrl,
+        '/projects/open-path',
+        {
+          method: 'POST',
+          ...jsonBody({ path: copiedPath }),
+        },
+      );
+      assert.equal(reopened.data.id, copied.data.id);
+
+      const projects = await requestJson<Project[]>(baseUrl, '/projects');
+      const projectIds = projects.data.map((project) => project.id);
+      assert.equal(projectIds.includes(original.id), true);
+      assert.equal(projectIds.includes(copied.data.id), true);
+      assert.equal(
+        projects.data.filter((project) => project.name === 'Same Name').length,
+        2,
+      );
+      assert.equal(
+        new Set(projects.data.map((project) => project.path)).size,
+        projects.data.length,
+      );
+    },
+  },
+  {
     name: 'opens manual relative paths from the user home directory',
     run: async () => {
       const previousHome = process.env.HOME;

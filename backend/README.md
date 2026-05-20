@@ -46,6 +46,11 @@ path fallback; it accepts absolute paths, `~` paths, and paths relative to
 before other registered paths.
 `DELETE /projects/{project_id}` removes a missing registered path from
 `project.json`; existing external project folders are not deleted.
+Project path registration is keyed by canonical filesystem path rather than
+Project name. Opening the same folder again refreshes the existing entry, while
+different folders with the same name remain separate. If a copied folder carries
+a duplicated metadata id, the opened copy receives a new Project id so the
+original registration is not replaced.
 
 `note_paper` board items are markdown-file-backed. The HTTP API continues to
 send and accept the `content` field, while persistence writes that body to

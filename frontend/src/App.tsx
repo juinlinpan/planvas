@@ -694,22 +694,6 @@ export function App() {
     );
   }, [isSidebarCollapsed]);
 
-  // When the user switches back to this tab, reload the current page so
-  // external changes (e.g. an AI agent writing board state) appear immediately.
-  useEffect(() => {
-    function handleVisibilityChange(): void {
-      if (document.visibilityState === 'visible' && selectedPageId !== null) {
-        setPageRefreshTokenById((current) => ({
-          ...current,
-          [selectedPageId]: (current[selectedPageId] ?? 0) + 1,
-        }));
-      }
-    }
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () =>
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [selectedPageId]);
-
   useEffect(() => {
     if (selectedProjectId === null) {
       setPages([]);
@@ -767,10 +751,54 @@ export function App() {
     }
   }
 
-  async function refreshProjectNotes(projectId: string): Promise<void> {
-    const nextNotes = await listProjectNotes(projectId);
-    setProjectNotes(nextNotes);
-  }
+  const refreshProjectNotes = useCallback(
+    async (projectId: string): Promise<void> => {
+      const nextNotes = await listProjectNotes(projectId);
+      setProjectNotes(nextNotes);
+    },
+    [],
+  );
+
+  const refreshCurrentProjectFromDisk = useCallback(async (): Promise<void> => {
+    if (selectedProjectId === null) {
+      return;
+    }
+
+    try {
+      await refreshProjectNotes(selectedProjectId);
+      if (selectedPageId !== null) {
+        setPageRefreshTokenById((current) => ({
+          ...current,
+          [selectedPageId]: (current[selectedPageId] ?? 0) + 1,
+        }));
+      }
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    }
+  }, [refreshProjectNotes, selectedPageId, selectedProjectId]);
+
+  useEffect(() => {
+    if (appView !== 'workspace' || selectedProjectId === null) {
+      return;
+    }
+
+    function refreshOnReturn(): void {
+      void refreshCurrentProjectFromDisk();
+    }
+
+    function handleVisibilityChange(): void {
+      if (document.visibilityState === 'visible') {
+        refreshOnReturn();
+      }
+    }
+
+    window.addEventListener('focus', refreshOnReturn);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('focus', refreshOnReturn);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [appView, refreshCurrentProjectFromDisk, selectedProjectId]);
 
   async function handleDeleteNote(noteFile: string): Promise<void> {
     if (selectedProjectId === null) return;
@@ -882,9 +910,10 @@ export function App() {
   async function handleFolderPickerConfirm(folderPath: string): Promise<void> {
     setFolderPickerOpen(false);
     await runMutation(async () => {
-      await openProjectPath(folderPath);
+      const openedProject = await openProjectPath(folderPath);
       const nextProjects = await listProjects();
       setProjects(nextProjects);
+      openProject(openedProject.id, null);
     });
   }
 

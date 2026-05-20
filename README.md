@@ -90,6 +90,10 @@ New projects are created under `<user_home>/.planvas/project_store/`. Opened
 external folders are initialized as Planvas projects when needed, then registered
 in `<user_home>/.planvas/project.json`. The home list shows `project_store`
 projects first, then registered projects from other paths.
+Opening the same folder again reuses the same project registration by canonical
+filesystem path. Projects with the same display name remain separate when their
+paths differ, and copied project folders with duplicated metadata ids are
+assigned a new id instead of replacing the original registration.
 If the native folder picker is unavailable, the manual fallback accepts absolute
 paths, `~` paths, and paths relative to `<user_home>`.
 
@@ -167,11 +171,13 @@ the semantic note reference plus the visual board placement. Select a
 backing `.md` file. The workspace sidebar lists those project notes and supports
 dragging a note onto any Page row to add a placement that references the same
 markdown file. The note list refreshes after markdown-backed notes are created,
-renamed, updated, or deleted in the canvas. Deleting a note from a Page removes
-only that board placement; the `.md` file remains in the Project and stays in
-the left Notes list. The same note file can be placed multiple times on one
-Page or across Pages, and every placement reads and writes the same backing
-markdown file.
+renamed, updated, or deleted in the canvas. It also refreshes from disk when
+the workspace regains focus or the browser tab becomes visible, so external
+edits to `.pv_project/*.md` files are reflected in the sidebar and on visible
+`note_paper` placements. Deleting a note from a Page removes only that board
+placement; the `.md` file remains in the Project and stays in the left Notes
+list. The same note file can be placed multiple times on one Page or across
+Pages, and every placement reads and writes the same backing markdown file.
 
 You can override the project storage root with `WHITEBOARD_PLANVAS_ROOT`:
 

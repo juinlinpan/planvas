@@ -155,6 +155,7 @@ export class WhiteboardRepository {
     const timestamp = utcTimestamp();
     fs.mkdirSync(projectDir, { recursive: true });
     const metadata = this.ensureProjectMetadata(projectDir, timestamp);
+    this.ensureUniqueProjectIdentity(projectDir, metadata, timestamp);
     const storageKind = this.storageKindForPath(projectDir);
     const project = this.projectFromMetadata(
       metadata,
@@ -1004,8 +1005,9 @@ export class WhiteboardRepository {
   ): void {
     const index = this.readProjectIndex();
     const resolvedPath = path.resolve(projectDir);
+    const resolvedPathKey = projectPathKey(resolvedPath);
     const entry = index.projects.find(
-      (item) => item.project_id === projectId || item.path === resolvedPath,
+      (item) => projectPathKey(item.path) === resolvedPathKey,
     );
     if (!entry) {
       index.projects.push({
@@ -1047,19 +1049,21 @@ export class WhiteboardRepository {
   private refreshProjectIndex(): ProjectIndex {
     const timestamp = utcTimestamp();
     const index = this.readProjectIndex();
-    const entryById = new Map(
-      index.projects.map((entry) => [entry.project_id, entry]),
-    );
+    index.projects = dedupeProjectIndexEntriesByPath(index.projects);
 
     for (const projectDir of this.discoverProjectStoreDirs()) {
       const metadata = this.ensureProjectMetadata(projectDir, timestamp);
+      this.ensureUniqueProjectIdentity(projectDir, metadata, timestamp, index);
       const project = this.projectFromMetadata(
         metadata,
         projectDir,
         'project_store',
         true,
       );
-      let entry = entryById.get(project.id);
+      const projectDirKey = projectPathKey(projectDir);
+      let entry = index.projects.find(
+        (candidate) => projectPathKey(candidate.path) === projectDirKey,
+      );
       if (!entry) {
         entry = {
           project_id: project.id,
@@ -1070,8 +1074,8 @@ export class WhiteboardRepository {
           last_seen_at: timestamp,
         };
         index.projects.push(entry);
-        entryById.set(project.id, entry);
       } else {
+        entry.project_id = project.id;
         entry.path = path.resolve(projectDir);
         entry.storage_kind = 'project_store';
         entry.last_seen_at = timestamp;
@@ -1083,6 +1087,9 @@ export class WhiteboardRepository {
         fs.existsSync(this.metadataPath(entry.path)) ||
         fs.existsSync(this.legacyMetadataPath(entry.path))
       ) {
+        const metadata = this.ensureProjectMetadata(entry.path, timestamp);
+        this.ensureUniqueProjectIdentity(entry.path, metadata, timestamp, index);
+        entry.project_id = metadata.project.id;
         entry.last_seen_at = timestamp;
       }
     }
@@ -1154,6 +1161,55 @@ export class WhiteboardRepository {
       }
     }
     return entries;
+  }
+
+  private ensureUniqueProjectIdentity(
+    projectDir: string,
+    metadata: ProjectMetadata,
+    timestamp: string,
+    projectIndex = this.readProjectIndex(),
+  ): void {
+    const projectId = metadata.project.id;
+    const projectDirKey = projectPathKey(projectDir);
+    const sameIdEntries = projectIndex.projects
+      .filter((entry) => entry.project_id === projectId)
+      .sort(compareProjectIndexEntries);
+    if (sameIdEntries.length === 0) {
+      return;
+    }
+
+    const currentEntry = sameIdEntries.find(
+      (entry) => projectPathKey(entry.path) === projectDirKey,
+    );
+    const owningEntry = sameIdEntries[0];
+    const currentPathOwnsId =
+      currentEntry !== undefined &&
+      projectPathKey(owningEntry.path) === projectDirKey;
+    if (currentPathOwnsId) {
+      return;
+    }
+
+    const oldProjectId = metadata.project.id;
+    const nextProjectId = randomUUID();
+    metadata.project = {
+      ...metadata.project,
+      id: nextProjectId,
+      updated_at: timestamp,
+    };
+    writeJsonAtomic(this.metadataPath(projectDir), metadata);
+
+    for (const pageEntry of this.pageEntriesFromProject(projectDir)) {
+      this.replaceStoredPage(projectDir, pageEntry.pagePath, {
+        ...pageEntry.page,
+        project_id: nextProjectId,
+        updated_at: timestamp,
+      });
+    }
+
+    appendLog(
+      this.settings,
+      `Reassigned copied project id ${oldProjectId} to ${nextProjectId} for ${path.resolve(projectDir)}`,
+    );
   }
 
   private findProjectMetadata(projectId: string): {
@@ -2070,6 +2126,42 @@ function isProjectIndexEntry(value: unknown): value is ProjectIndexEntry {
     typeof candidate.added_at === 'string' &&
     typeof candidate.last_seen_at === 'string'
   );
+}
+
+function projectPathKey(projectDir: string): string {
+  const resolved = path.resolve(projectDir);
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+function compareProjectIndexEntries(
+  left: ProjectIndexEntry,
+  right: ProjectIndexEntry,
+): number {
+  const addedAtComparison = left.added_at.localeCompare(right.added_at);
+  if (addedAtComparison !== 0) return addedAtComparison;
+  if (left.sort_order !== right.sort_order) {
+    return left.sort_order - right.sort_order;
+  }
+  return projectPathKey(left.path).localeCompare(projectPathKey(right.path));
+}
+
+function dedupeProjectIndexEntriesByPath(
+  entries: ProjectIndexEntry[],
+): ProjectIndexEntry[] {
+  const entryByPath = new Map<string, ProjectIndexEntry>();
+  for (const entry of entries) {
+    const key = projectPathKey(entry.path);
+    const existing = entryByPath.get(key);
+    if (!existing || compareProjectIndexEntries(entry, existing) < 0) {
+      entryByPath.set(key, entry);
+    }
+  }
+  return [...entryByPath.values()].sort((left, right) => {
+    if (left.sort_order !== right.sort_order) {
+      return left.sort_order - right.sort_order;
+    }
+    return left.added_at.localeCompare(right.added_at);
+  });
 }
 
 function stripPageFile(page: Page & { file?: string }): Page {
