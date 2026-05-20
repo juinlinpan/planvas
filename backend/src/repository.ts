@@ -416,15 +416,23 @@ export class WhiteboardRepository {
       name: payload.name,
       updated_at: utcTimestamp(),
     };
+    const nextPagePath = pagePathForName(
+      this.projectDataDir(projectDir),
+      pagePath,
+      payload.name,
+    );
     this.touchProject(metadata, nextPage.updated_at);
     writeJsonAtomic(this.metadataPath(projectDir), metadata);
     const board = this.getPageBoardData(pageId);
     this.writePageXml(
-      pagePath,
+      nextPagePath,
       nextPage,
       board.board_items,
       board.connector_links,
     );
+    if (!sameFilesystemPath(pagePath, nextPagePath)) {
+      deletePageXmlFiles(pagePath);
+    }
     return nextPage;
   }
 
@@ -2077,6 +2085,16 @@ function uniquePagePath(parent: string, stem: string): string {
   return candidate;
 }
 
+function pagePathForName(
+  parent: string,
+  currentPagePath: string,
+  pageName: string,
+): string {
+  const nextPath = path.join(parent, `${slugify(pageName, 'page')}.xml`);
+  if (sameFilesystemPath(nextPath, currentPagePath)) return currentPagePath;
+  return uniquePagePath(parent, slugify(pageName, 'page'));
+}
+
 function pageXmlFilesExist(pagePath: string): boolean {
   return (
     fs.existsSync(pagePath) ||
@@ -2187,6 +2205,10 @@ function isProjectIndexEntry(value: unknown): value is ProjectIndexEntry {
 function projectPathKey(projectDir: string): string {
   const resolved = path.resolve(projectDir);
   return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+function sameFilesystemPath(left: string, right: string): boolean {
+  return projectPathKey(left) === projectPathKey(right);
 }
 
 function compareProjectIndexEntries(

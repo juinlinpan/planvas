@@ -13,6 +13,7 @@
 - `.pv_project/metadata.json` must store only project-level settings and timestamps; it must not persist page lists, note lists, or per-page viewport state.
 - Each Page must be stored as two XML files inside `.pv_project/`: `<page_name>.semantic.xml` and `<page_name>.presentation.xml`.
 - Page discovery must come from the `.pv_project/` XML files, and Project note discovery must come from `.pv_project/*.md`.
+- Renaming a Page must also rename its sibling XML files to match the new Page name, while preserving the Page id and board content.
 - Page XML v2 must separate AI-readable semantic data from visual presentation data at the file level.
 - Page XML v2 semantic files must describe the information inside the board and the relationships between board objects.
 - Page XML v2 presentation files must describe geometry, z-order, color, patterns, shape styling, and connector routing.

@@ -223,6 +223,35 @@ const tests: TestCase[] = [
         },
       );
       assert.equal(renamedPage.data.name, 'Quarter Planning v2');
+      assert.equal(fs.existsSync(semanticPath), false);
+      const renamedSemanticPath = path.join(
+        settings.planvasRoot,
+        'project_store',
+        'Roadmap-2026',
+        '.pv_project',
+        'Quarter-Planning-v2.semantic.xml',
+      );
+      const renamedPresentationPath = path.join(
+        settings.planvasRoot,
+        'project_store',
+        'Roadmap-2026',
+        '.pv_project',
+        'Quarter-Planning-v2.presentation.xml',
+      );
+      assert.equal(fs.existsSync(renamedSemanticPath), true);
+      assert.equal(fs.existsSync(renamedPresentationPath), true);
+      assert.match(
+        fs.readFileSync(renamedSemanticPath, 'utf8'),
+        /name="Quarter Planning v2"/,
+      );
+      const listedPages = await requestJson<Page[]>(
+        baseUrl,
+        `/projects/${created.data.id}/pages`,
+      );
+      assert.deepEqual(
+        listedPages.data.map((page) => page.name),
+        ['Quarter Planning v2'],
+      );
 
       const deletePageResponse = await fetch(
         `${baseUrl}/pages/${pageResponse.data.id}`,

@@ -5,6 +5,7 @@
 - [x] Replace SQLite-backed repository persistence with file-based Planvas project storage.
 - [x] Add default Planvas root resolution at `<user_home>/.planvas/`, with `WHITEBOARD_PLANVAS_ROOT` override.
 - [x] Store each Project as a working directory containing `.pv_project/metadata.json` and two XML files per Page under `.pv_project/`.
+- [x] Rename Page XML sibling files when the user renames a Page, preserving the Page id and board content.
 - [x] Treat `.pv_project/*.md` files as project note files and surface them as `note_paper` notes.
 - [x] Store `note_paper` markdown bodies in `.pv_project/*.md` files while keeping Page XML limited to placement data and a markdown file reference.
 - [x] Add a left-sidebar Notes box that lists all project markdown notes.
