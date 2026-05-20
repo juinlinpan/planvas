@@ -187,19 +187,39 @@ export async function updateProjectNote(
   noteFile: string,
   content: string,
 ): Promise<ProjectNote> {
-  return requestJson<ProjectNote>(`/projects/${projectId}/notes/${noteFile}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ content }),
-  });
+  return requestJson<ProjectNote>(
+    `/projects/${projectId}/notes/${encodeURIComponent(noteFile)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ content }),
+    },
+  );
+}
+
+export async function renameProjectNote(
+  projectId: string,
+  noteFile: string,
+  nextNoteFile: string,
+): Promise<ProjectNote> {
+  return requestJson<ProjectNote>(
+    `/projects/${projectId}/notes/${encodeURIComponent(noteFile)}/rename`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ note_file: nextNoteFile }),
+    },
+  );
 }
 
 export async function deleteProjectNote(
   projectId: string,
   noteFile: string,
 ): Promise<void> {
-  await requestVoid(`/projects/${projectId}/notes/${noteFile}`, {
-    method: 'DELETE',
-  });
+  await requestVoid(
+    `/projects/${projectId}/notes/${encodeURIComponent(noteFile)}`,
+    {
+      method: 'DELETE',
+    },
+  );
 }
 
 export async function createPage(projectId: string, name: string): Promise<Page> {

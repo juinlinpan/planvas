@@ -324,6 +324,62 @@ export class WhiteboardRepository {
     };
   }
 
+  renameProjectNote(
+    projectId: string,
+    previousNoteFile: string,
+    nextNoteFile: string,
+  ): ProjectNote {
+    const safePreviousFile = path.basename(previousNoteFile);
+    const safeNextFile = path.basename(nextNoteFile);
+    if (
+      safePreviousFile !== previousNoteFile ||
+      safeNextFile !== nextNoteFile ||
+      path.extname(safePreviousFile).toLowerCase() !== noteFileExtension ||
+      path.extname(safeNextFile).toLowerCase() !== noteFileExtension
+    ) {
+      throw new HttpError(400, 'Invalid note file name.');
+    }
+
+    const { projectDir } = this.findProjectMetadata(projectId);
+    const projectDataDir = this.projectDataDir(projectDir);
+    const previousPath = this.notePath(projectDataDir, safePreviousFile);
+    const nextPath = this.notePath(projectDataDir, safeNextFile);
+    if (!previousPath || !fs.existsSync(previousPath)) {
+      throw new HttpError(404, 'Note not found.');
+    }
+    if (!nextPath) {
+      throw new HttpError(400, 'Invalid note file name.');
+    }
+    if (safePreviousFile !== safeNextFile && fs.existsSync(nextPath)) {
+      throw new HttpError(409, 'A note with that filename already exists.');
+    }
+
+    if (safePreviousFile === safeNextFile) {
+      const content = fs.readFileSync(previousPath, 'utf8');
+      const stats = fs.statSync(previousPath);
+      return {
+        note_file: safePreviousFile,
+        title:
+          getMarkdownH1(content) ??
+          path.basename(safePreviousFile, noteFileExtension),
+        content,
+        content_format: 'markdown',
+        updated_at: stats.mtime.toISOString(),
+      };
+    }
+
+    this.renameProjectNoteFile(projectDir, safePreviousFile, safeNextFile);
+    const content = fs.readFileSync(nextPath, 'utf8');
+    const stats = fs.statSync(nextPath);
+    return {
+      note_file: safeNextFile,
+      title: getMarkdownH1(content) ?? path.basename(safeNextFile, noteFileExtension),
+      content,
+      content_format: 'markdown',
+      updated_at: stats.mtime.toISOString(),
+    };
+  }
+
   getPage(pageId: string): Page {
     return this.findPageMetadata(pageId).page;
   }

@@ -16,6 +16,7 @@ import {
   validateConnectorPayload,
   validateImportFromPayload,
   validateNoteUpdate,
+  validateNoteRename,
   validateOrderedIds,
   validatePageCreate,
   validatePageUpdate,
@@ -214,14 +215,33 @@ function buildRoutes(): Route[] {
       pattern: /^\/projects\/(?<projectId>[^/]+)\/notes\/(?<noteFile>[^/]+\.md)$/,
       handler: ({ repository, body }, { params }) => {
         const { content } = validateNoteUpdate(body);
-        return repository.updateProjectNote(params.projectId, params.noteFile, content);
+        return repository.updateProjectNote(
+          params.projectId,
+          decodeURIComponent(params.noteFile),
+          content,
+        );
+      },
+    },
+    {
+      method: 'PATCH',
+      pattern: /^\/projects\/(?<projectId>[^/]+)\/notes\/(?<noteFile>[^/]+\.md)\/rename$/,
+      handler: ({ repository, body }, { params }) => {
+        const { note_file } = validateNoteRename(body);
+        return repository.renameProjectNote(
+          params.projectId,
+          decodeURIComponent(params.noteFile),
+          note_file,
+        );
       },
     },
     {
       method: 'DELETE',
       pattern: /^\/projects\/(?<projectId>[^/]+)\/notes\/(?<noteFile>[^/]+\.md)$/,
       handler: ({ repository }, { params }) =>
-        repository.deleteProjectNote(params.projectId, params.noteFile),
+        repository.deleteProjectNote(
+          params.projectId,
+          decodeURIComponent(params.noteFile),
+        ),
     },
     {
       method: 'POST',

@@ -858,6 +858,37 @@ export function App() {
     });
   }
 
+  function handleNoteRenamed(
+    previousNoteFile: string,
+    renamedNote: ProjectNote,
+  ): void {
+    const nextNoteFile = renamedNote.note_file;
+    setProjectNotes((current) => {
+      const replaced = current.map((note) =>
+        note.note_file === previousNoteFile ? renamedNote : note,
+      );
+      return replaced.some((note) => note.note_file === nextNoteFile)
+        ? replaced
+        : [...replaced, renamedNote];
+    });
+    setOpenTabs((current) =>
+      current.map((tab) =>
+        tab.kind === 'note' && tab.id === previousNoteFile
+          ? { ...tab, id: nextNoteFile }
+          : tab,
+      ),
+    );
+    setActiveNoteFile((current) =>
+      current === previousNoteFile ? nextNoteFile : current,
+    );
+    if (selectedPageId !== null) {
+      setPageRefreshTokenById((current) => ({
+        ...current,
+        [selectedPageId]: (current[selectedPageId] ?? 0) + 1,
+      }));
+    }
+  }
+
   function closePageTab(pageId: string): void {
     const nextTabs = openTabs.filter(
       (tab) => !(tab.kind === 'page' && tab.id === pageId),
@@ -2226,6 +2257,7 @@ export function App() {
                 projectId={selectedProjectId}
                 noteFile={activeNoteFile}
                 projectNotes={projectNotes}
+                onNoteRenamed={handleNoteRenamed}
                 onNotesChanged={() => {
                   if (selectedProjectId !== null) {
                     void refreshProjectNotes(selectedProjectId);

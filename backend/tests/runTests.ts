@@ -887,6 +887,55 @@ const tests: TestCase[] = [
         fs.readFileSync(path.join(looseProjectDataDir, 'Loose.md'), 'utf8'),
         '# Loose note\n\nImported body',
       );
+
+      const sameNameRename = (
+        await requestJson<ProjectNote>(
+          baseUrl,
+          `/projects/${looseProject.id}/notes/Loose.md/rename`,
+          {
+            method: 'PATCH',
+            ...jsonBody({ note_file: 'Loose.md' }),
+          },
+        )
+      ).data;
+      assert.equal(sameNameRename.note_file, 'Loose.md');
+      assert.equal(
+        fs.existsSync(path.join(looseProjectDataDir, 'Loose.md')),
+        true,
+      );
+
+      const renamedLooseNote = (
+        await requestJson<ProjectNote>(
+          baseUrl,
+          `/projects/${looseProject.id}/notes/Loose.md/rename`,
+          {
+            method: 'PATCH',
+            ...jsonBody({ note_file: 'Loose-renamed.md' }),
+          },
+        )
+      ).data;
+      assert.equal(renamedLooseNote.note_file, 'Loose-renamed.md');
+      assert.equal(
+        fs.existsSync(path.join(looseProjectDataDir, 'Loose.md')),
+        false,
+      );
+      assert.equal(
+        fs.readFileSync(
+          path.join(looseProjectDataDir, 'Loose-renamed.md'),
+          'utf8',
+        ),
+        '# Loose note\n\nImported body',
+      );
+      const looseBoardAfterRename = (
+        await requestJson<PageBoardData>(
+          baseUrl,
+          `/pages/${loosePage.id}/board-data`,
+        )
+      ).data;
+      assert.match(
+        looseBoardAfterRename.board_items[0]?.data_json ?? '',
+        /"noteFile":"Loose-renamed\.md"/,
+      );
     },
   },
   {

@@ -123,6 +123,21 @@ export function validateNoteUpdate(value: unknown): { content: string } {
   return { content: body.content };
 }
 
+export function validateNoteRename(value: unknown): { note_file: string } {
+  const body = asRecord(value);
+  const noteFile = requireString(body.note_file, ['body', 'note_file']).trim();
+  if (noteFile.length === 0) {
+    throw validationError([
+      {
+        loc: ['body', 'note_file'],
+        msg: 'note_file cannot be blank.',
+        type: 'value_error',
+      },
+    ]);
+  }
+  return { note_file: noteFile };
+}
+
 export function validateImportFromPayload(value: unknown): ImportFromPayload {
   const body = asRecord(value);
   if (typeof body.source_project_id !== 'string' || !body.source_project_id.trim()) {

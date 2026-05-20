@@ -4,7 +4,11 @@ import {
   useRef,
   useState,
 } from 'react';
-import { updateProjectNote, type ProjectNote } from './api';
+import {
+  renameProjectNote,
+  updateProjectNote,
+  type ProjectNote,
+} from './api';
 import { MarkdownPreview } from './markdownPreview';
 
 type Props = {
@@ -12,9 +16,10 @@ type Props = {
   noteFile: string;
   projectNotes: ProjectNote[];
   onNotesChanged: () => void;
+  onNoteRenamed: (previousNoteFile: string, renamedNote: ProjectNote) => void;
 };
 
-type SaveStatus = 'saved' | 'saving' | 'unsaved';
+type SaveStatus = 'saved' | 'saving' | 'unsaved' | 'renaming';
 type ViewMode = 'edit' | 'split' | 'preview';
 
 const AUTOSAVE_DELAY_MS = 1500;
@@ -74,11 +79,15 @@ export function MarkdownEditor({
   noteFile,
   projectNotes,
   onNotesChanged,
+  onNoteRenamed,
 }: Props) {
   const note = projectNotes.find((n) => n.note_file === noteFile);
   const [content, setContent] = useState(note?.content ?? '');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [viewMode, setViewMode] = useState<ViewMode>('split');
+  const [isEditingFileName, setIsEditingFileName] = useState(false);
+  const [fileNameDraft, setFileNameDraft] = useState(noteFile);
+  const [fileNameError, setFileNameError] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastSavedContent = useRef(note?.content ?? '');
@@ -97,6 +106,9 @@ export function MarkdownEditor({
     setContent(newContent);
     setSaveStatus('saved');
     lastSavedContent.current = newContent;
+    setIsEditingFileName(false);
+    setFileNameDraft(noteFile);
+    setFileNameError(null);
   }, [noteFile, projectNotes]);
 
   const performSave = useCallback(
@@ -130,6 +142,61 @@ export function MarkdownEditor({
     }, AUTOSAVE_DELAY_MS);
   }
 
+  function normalizeFileName(value: string): string {
+    const trimmed = value.trim();
+    return trimmed.toLowerCase().endsWith('.md') ? trimmed : `${trimmed}.md`;
+  }
+
+  async function flushPendingSave(): Promise<void> {
+    if (saveTimerRef.current !== null) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    await performSave(latestContentRef.current);
+  }
+
+  async function commitFileNameChange(): Promise<void> {
+    const nextNoteFile = normalizeFileName(fileNameDraft);
+    if (nextNoteFile === noteFile) {
+      setIsEditingFileName(false);
+      setFileNameDraft(noteFile);
+      setFileNameError(null);
+      return;
+    }
+
+    if (
+      nextNoteFile.length <= 3 ||
+      nextNoteFile.includes('/') ||
+      nextNoteFile.includes('\\')
+    ) {
+      setFileNameError('Use a filename like plan.md.');
+      return;
+    }
+
+    setSaveStatus('renaming');
+    setFileNameError(null);
+    try {
+      await flushPendingSave();
+      const renamed = await renameProjectNote(projectId, noteFile, nextNoteFile);
+      setIsEditingFileName(false);
+      setFileNameDraft(renamed.note_file);
+      setSaveStatus('saved');
+      onNoteRenamed(noteFile, renamed);
+      onNotesChanged();
+    } catch (error) {
+      setSaveStatus(
+        latestContentRef.current === lastSavedContent.current
+          ? 'saved'
+          : 'unsaved',
+      );
+      setFileNameError(
+        error instanceof Error && error.message.length > 0
+          ? error.message
+          : 'Rename failed.',
+      );
+    }
+  }
+
   // Flush on unmount: fire an immediate save for any pending unsaved content so
   // that the title on the Page reflects the latest markdown H1 when the user
   // switches back from the editor tab.
@@ -146,7 +213,7 @@ export function MarkdownEditor({
     };
   }, [projectId, noteFile]);
 
-  // Keyboard shortcut: Ctrl+S / Cmd+S → immediate save
+  // Keyboard shortcut: Ctrl+S / Cmd+S immediate save.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -162,7 +229,7 @@ export function MarkdownEditor({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [content, performSave]);
 
-  /* ── Toolbar helpers ── */
+  /* Toolbar helpers */
   function wrapSelection(before: string, after = '') {
     const ta = textareaRef.current;
     if (!ta) return;
@@ -195,7 +262,7 @@ export function MarkdownEditor({
     }, 0);
   }
 
-  /* ── Tab key in textarea → insert spaces ── */
+  /* Tab key in textarea inserts spaces */
   function handleTextareaKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -215,12 +282,14 @@ export function MarkdownEditor({
     saveStatus === 'saved'
       ? 'Saved'
       : saveStatus === 'saving'
-        ? 'Saving…'
-        : '● Unsaved';
+        ? 'Saving'
+        : saveStatus === 'renaming'
+          ? 'Renaming'
+          : 'Unsaved';
 
   return (
     <div className={`markdown-editor markdown-editor-${viewMode}`}>
-      {/* ── Top bar ── */}
+      {/* Top bar */}
       <div className="markdown-editor-topbar">
         <div className="markdown-editor-file-row">
           <svg
@@ -238,10 +307,49 @@ export function MarkdownEditor({
             <line x1="16" y1="17" x2="8" y2="17" />
             <polyline points="10 9 9 9 8 9" />
           </svg>
-          <span className="markdown-editor-filename">{noteFile}</span>
+          {isEditingFileName ? (
+            <input
+              className="markdown-editor-filename-input"
+              value={fileNameDraft}
+              autoFocus
+              onChange={(event) => setFileNameDraft(event.target.value)}
+              onBlur={() => void commitFileNameChange()}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  event.currentTarget.blur();
+                }
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  setIsEditingFileName(false);
+                  setFileNameDraft(noteFile);
+                  setFileNameError(null);
+                }
+              }}
+              aria-label="Markdown filename"
+            />
+          ) : (
+            <button
+              type="button"
+              className="markdown-editor-filename-button"
+              title="Rename markdown file"
+              onClick={() => {
+                setFileNameDraft(noteFile);
+                setFileNameError(null);
+                setIsEditingFileName(true);
+              }}
+            >
+              {noteFile}
+            </button>
+          )}
           <span className={`markdown-editor-save-badge is-${saveStatus}`}>
             {saveLabel}
           </span>
+          {fileNameError !== null ? (
+            <span className="markdown-editor-filename-error">
+              {fileNameError}
+            </span>
+          ) : null}
         </div>
 
         <div className="markdown-editor-view-toggle">
@@ -259,7 +367,7 @@ export function MarkdownEditor({
         </div>
       </div>
 
-      {/* ── Formatting toolbar ── */}
+      {/* Formatting toolbar */}
       <div className="markdown-editor-toolbar">
         <button
           type="button"
@@ -329,7 +437,7 @@ export function MarkdownEditor({
         >1. List</button>
       </div>
 
-      {/* ── Body: write + preview panes ── */}
+      {/* Body: write + preview panes */}
       <div className="markdown-editor-body">
         <div className="markdown-editor-write-pane">
           <textarea
@@ -338,7 +446,7 @@ export function MarkdownEditor({
             value={content}
             onChange={(e) => handleContentChange(e.target.value)}
             onKeyDown={handleTextareaKeyDown}
-            placeholder="Start writing markdown here…&#10;&#10;Use the toolbar above or type directly."
+            placeholder="Start writing markdown here...&#10;&#10;Use the toolbar above or type directly."
             spellCheck
           />
         </div>

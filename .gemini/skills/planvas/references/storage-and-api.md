@@ -1,340 +1,411 @@
-﻿# Planvas Storage And API Reference
+# Planvas File Storage And Page XML Reference
 
-## File Storage
+This skill is designed for LLMs to work directly with Planvas project files. The important mental model is:
 
-Planvas is local-first. The default root is `<user_home>/.planvas/`, unless `WHITEBOARD_PLANVAS_ROOT` overrides it.
+- `.pv_project/*.semantic.xml` answers "what is this page saying?"
+- `.pv_project/*.presentation.xml` answers "where and how is it drawn?"
+- `.pv_project/*.md` stores reusable `note_paper` bodies.
+- Runtime API endpoints are compatibility tools, not the default way for an AI agent to understand or edit a page.
+
+## 1. Path Resolution
+
+Planvas root defaults to:
+
+```text
+<user_home>/.planvas/
+```
+
+If `WHITEBOARD_PLANVAS_ROOT` is set, use that instead.
 
 Root layout:
 
 ```text
-<user_home>/.planvas/
+<planvas_root>/
   project.json
   project_store/
     <project_name>/
       .pv_project/
         metadata.json
-        <page_name>.semantic.xml
-        <page_name>.presentation.xml
-        <note_name>.md
+        <page_stem>.semantic.xml
+        <page_stem>.presentation.xml
+        <note_file>.md
 ```
 
-`project.json` has `version: 1` and a `projects[]` index with `project_id`, `path`, `storage_kind`, `sort_order`, `added_at`, and `last_seen_at`.
+External projects opened by path use the same `.pv_project/` directory but may live outside `project_store/`.
 
-`metadata.json` contains:
+Project lookup order:
 
-```ts
-{
-  project: {
-    id: string;
-    name: string;
-    theme_color: "default" | "sage" | "sunset" | "ocean";
-    default_style_json: string | null;
-    sort_order: number;
-    created_at: string;
-    updated_at: string;
-  };
-  pages: Array<{
-    id: string;
-    project_id: string;
-    name: string;
-    sort_order: number;
-    viewport_x: number;
-    viewport_y: number;
-    zoom: number;
-    created_at: string;
-    updated_at: string;
-    file?: string;
-  }>;
-}
+1. Use a user-provided path when available.
+2. Otherwise read `<planvas_root>/project.json` for registered project paths.
+3. Also inspect `<planvas_root>/project_store/*/.pv_project/`.
+
+Project data directory:
+
+```text
+<project_dir>/.pv_project/
 ```
 
-The `file` field is the page backing stem used to find sibling XML variants. A page stored as `roadmap.xml` is persisted as `roadmap.semantic.xml` and `roadmap.presentation.xml`.
+## 2. Page And Note Discovery
 
-## Semantic XML
+Pages are discovered from semantic XML files:
 
-The semantic file is the AI-readable source of truth for board meaning.
+```text
+.pv_project/<page_stem>.semantic.xml
+.pv_project/<page_stem>.presentation.xml
+```
 
-### `<object>` required attributes
+The page stem is the filename before `.semantic.xml`. The matching presentation file must use the same stem.
 
-Only two attributes are required when writing XML directly:
-
-| Attribute | Required | Notes |
-|-----------|----------|-------|
-| `id` | ✓ | stable unique id |
-| `type` | ✓ | `text_box`, `sticky_note`, `note_paper`, `frame`, `table`, `line`, `arrow` |
-| `parent_item_id` | only when inside a frame | the frame's id |
-
-Everything else (`page_id`, `kind`, `category`, `created_at`, `updated_at`) is **auto-derived by the backend** and must not be specified to keep XML minimal. The backend rejects nothing by omission for these fields.
-
-### Connector items belong in `<objects>` too
-
-`arrow` connectors appear **both** in `<objects>` (as `<object id="..." type="arrow">`) **and** as a `<link>` inside `<links>`. Putting them only in `<links>` causes the board to load with 0 visible connectors.
-
-### Minimal semantic XML
+Read page metadata from the root element:
 
 ```xml
-<?xml version="1.0" encoding="utf-8"?>
-<page_semantic schema_version="2" id="{page_id}" ...>
+<page_semantic schema_version="2"
+  id="page-1"
+  project_id="project-1"
+  name="Roadmap"
+  sort_order="1"
+  viewport_x="0"
+  viewport_y="0"
+  zoom="1"
+  created_at="..."
+  updated_at="...">
+```
+
+Project notes are discovered from:
+
+```text
+.pv_project/*.md
+```
+
+Transitional compatibility note: older/current implementation details may still mirror page records in `metadata.json`. If that array exists, keep it aligned when creating or renaming pages, but use the XML files as the page source for AI reasoning.
+
+## 3. Semantic XML: How To Read The Board
+
+Semantic XML contains three important regions:
+
+```xml
+<page_semantic ...>
   <objects>
-    <object id="node-1" type="text_box">
-      <title>Step A</title>
-      <content>Do something</content>
-      <content_format />
-      <data_json />
-    </object>
-    <!-- frame with children -->
-    <object id="grp-1" type="frame">
-      <title>Group</title>
-      <content />
-      <content_format />
-      <data_json />
-      <contains>
-        <item ref="child-1" />
-      </contains>
-    </object>
-    <object id="child-1" parent_item_id="grp-1" type="text_box">
-      <title>Inside frame</title>
-      <content />
-      <content_format />
-      <data_json />
-    </object>
-    <!-- arrow — must appear here AND in <links> -->
-    <object id="con-1" type="arrow">
-      <title />
-      <content>label</content>
-      <content_format />
-      <data_json />
-    </object>
+    ...
   </objects>
   <links>
-    <link id="lnk-1" type="arrow" connector_item_id="con-1"
-          from="node-1" to="grp-1" from_anchor="" to_anchor="">
-      <label>label</label>
-    </link>
+    ...
   </links>
 </page_semantic>
 ```
 
-Containment:
+Build these indexes first:
 
-- `frame` may include `<contains><item ref="..."/></contains>`.
-- `table` contains rows and cells; each `table_cell` can include text and small-object refs.
-- The item `parent_item_id` API field maps to frame containment.
-- Table cells use stable cell ids inside table JSON and semantic XML.
+- `objectsById`: every `<object id="...">`.
+- `linksById`: every `<link id="...">`.
+- `childrenByContainer`: from `<contains><item ref="..."/></contains>`.
+- `noteFiles`: from `note_paper` `<content_ref type="markdown" file="..."/>`.
 
-Relationships:
+### Object Types
 
-- `links/link` is canonical.
-- `connection` elements on objects are AI-friendly derived indexes and must match canonical links.
-- Common `meaning` values: `dependency`, `blocked_by`, `workflow_transition`, `reference`, `related`.
+```text
+text_box     small text/content node
+sticky_note  informal note/card
+note_paper   markdown-backed reusable note placement
+frame        large collapsible container
+table        grid/matrix; cells can contain text and small objects
+arrow        visible directional connector and semantic link carrier
+line         visual line; semantic only when represented in <links>
+```
 
-Markdown notes:
+Category/kind can be derived:
+
+```text
+text_box/sticky_note/note_paper -> small_item / small_object
+frame                           -> large_item / large_object
+table                           -> shape / large_object
+arrow                           -> connector / link
+line                            -> shape or presentation-only line
+```
+
+### Minimal Object
 
 ```xml
-<object id="..." type="note_paper">
-  <title>...</title>
-  <content_ref type="markdown" file="note.md" />
+<object id="node-1" type="text_box">
+  <title>Step A</title>
+  <content>Do something</content>
+  <content_format>plain_text</content_format>
+  <data_json />
 </object>
 ```
 
-Read or update `.pv_project/note.md` for the note body. Do not persist the markdown body inside Page XML content.
+When reading:
 
-## Presentation XML
+- `<title>` is the display title.
+- `<content>` is plain item body, except `note_paper` content is loaded from markdown.
+- `<content_format>` is often `plain_text` or `markdown`.
+- `<data_json>` contains type-specific structured data such as connector meaning, table data, note file references, or line routing metadata.
 
-Read presentation only for visual tasks. It stores geometry, z-order, collapse state, styles, and connector route data.
+## 4. Markdown-Backed Notes
 
-### `<item>` required attributes and children
-
-| Attribute | Required | Notes |
-|-----------|----------|-------|
-| `ref` | ✓ | matches `<object id>` in the semantic file |
-| `x` | ✓ | canvas x position in px |
-| `y` | ✓ | canvas y position in px |
-| `width` | ✓ | px |
-| `height` | ✓ | px |
-| `rotation` | ✓ | degrees; use `0` when not rotated |
-| `z_index` | ✓ | integer stacking order |
-| `is_collapsed` | — | `false` by default |
-
-`style_json` must be a **child element**, not an attribute:
+A `note_paper` object is a placement. Its body belongs in a markdown file:
 
 ```xml
-<!-- correct -->
-<item ref="node-1" x="80" y="80" width="240" height="120" rotation="0" z_index="1">
-  <style_json>{"backgroundColor":"#d6e4fa","textColor":"#1f2937"}</style_json>
-</item>
-
-<!-- WRONG — style silently ignored -->
-<item ref="node-1" x="80" y="80" width="240" height="120" rotation="0" z_index="1"
-      style_json="{&quot;backgroundColor&quot;:&quot;#d6e4fa&quot;}" />
+<object id="note-1" type="note_paper">
+  <title>Decision Log</title>
+  <content />
+  <content_format>markdown</content_format>
+  <data_json>{"noteFile":"decision-log.md"}</data_json>
+  <content_ref type="markdown" file="decision-log.md" />
+</object>
 ```
 
-When editing files offline, update presentation for any change that affects canvas placement, size, z-order, collapsed state, style, or connector routing.
+Read/write the note body here:
 
-## Runtime API
+```text
+.pv_project/decision-log.md
+```
 
-Default backend: `http://127.0.0.1:18000`
+Rules:
 
-Responses are wrapped as `{ "data": ... }`; errors are `{ "error": { "code", "message", "details" } }`.
+- Multiple page placements may point to the same `.md` file.
+- Editing the `.md` changes every placement that references it.
+- Deleting a placement from XML must not delete the `.md` file unless the user explicitly asks to delete the project note.
+- Creating a reusable project note only requires creating a `.md` file.
+- Placing a note on a page requires a `note_paper` object plus a presentation item.
 
-Core endpoints:
+## 5. Frame Containment
+
+Frames contain small items:
+
+```xml
+<object id="frame-1" type="frame">
+  <title>Sprint 12</title>
+  <content />
+  <content_format />
+  <data_json />
+  <contains>
+    <item ref="note-1" />
+    <item ref="task-1" />
+  </contains>
+</object>
+
+<object id="note-1" parent_item_id="frame-1" type="sticky_note">
+  <title>Risk</title>
+  <content>Vendor dependency</content>
+  <content_format>plain_text</content_format>
+  <data_json />
+</object>
+```
+
+When editing containment, keep both signals aligned:
+
+- Parent frame has `<contains><item ref="child-id"/></contains>`.
+- Child object has `parent_item_id="frame-id"`.
+
+## 6. Table And Cell Semantics
+
+A table is a large semantic object. Cells are semantic containers:
+
+```xml
+<object id="table-1" type="table">
+  <title>Sprint board</title>
+  <content />
+  <content_format />
+  <data_json>{"rows":2,"cols":2}</data_json>
+  <table rows="2" cols="2">
+    <row id="row-0" index="0">
+      <cell id="cell-todo" row="0" column="0" row_span="1" col_span="1">
+        <text>Todo</text>
+        <contains>
+          <item ref="task-1" />
+        </contains>
+      </cell>
+    </row>
+  </table>
+</object>
+```
+
+Reading rules:
+
+- Cell ids are stable references.
+- `<text>` is the cell's own text.
+- Cell `<contains>` points to small objects embedded in the cell.
+- Detailed row heights, column widths, merged cells, and embedded item layout may also be mirrored in `data_json`.
+
+## 7. Links: The Canonical Relationship Graph
+
+Use `<links>` as the source of truth for relationships:
+
+```xml
+<links>
+  <link id="link-1"
+        type="arrow"
+        connector_item_id="arrow-1"
+        from="task-1"
+        to="frame-1"
+        from_anchor="right"
+        to_anchor="left">
+    <label>blocks</label>
+    <meaning>blocked_by</meaning>
+  </link>
+</links>
+```
+
+Rules:
+
+- `from` and `to` may reference objects or stable table cell ids.
+- `connector_item_id` should reference an `arrow` object in `<objects>` when the relationship has a visible connector.
+- `label` is display text.
+- `meaning` should be explicit when possible: `dependency`, `blocked_by`, `workflow_transition`, `reference`, or `related`.
+- Object-level `<connections>` are derived indexes for quick reading. Validate them against `<links>` instead of treating them as independent truth.
+
+Visible connector object:
+
+```xml
+<object id="arrow-1" type="arrow">
+  <title />
+  <content>blocks</content>
+  <content_format>plain_text</content_format>
+  <data_json>{"meaning":"blocked_by"}</data_json>
+</object>
+```
+
+## 8. Presentation XML: Layout And Style
+
+Presentation XML answers layout/styling questions:
+
+```xml
+<page_presentation ...>
+  <items>
+    <item ref="node-1" x="120" y="120" width="220" height="90" rotation="0" z_index="10" is_collapsed="false">
+      <style_json>{"backgroundColor":"#d6e4fa","textColor":"#1f2937"}</style_json>
+    </item>
+  </items>
+</page_presentation>
+```
+
+Rules:
+
+- Every visible semantic object needs a matching `<item ref="object-id">`.
+- `x`, `y`, `width`, `height` are canvas pixels.
+- `rotation` is required; use `0` when unrotated.
+- `z_index` controls stacking.
+- `is_collapsed` is important for `frame`.
+- `style_json` must be a child element. Do not write it as an XML attribute.
+
+Read presentation only when:
+
+- The user asks where something is.
+- The task needs to create a visible object.
+- The task changes size, position, z-order, collapse state, color, stroke, fill, or route.
+
+## 9. Creating A Page Directly
+
+Create both files with the same stem.
+
+`Roadmap.semantic.xml`:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<page_semantic schema_version="2" id="page-roadmap" project_id="project-1" name="Roadmap" sort_order="1" viewport_x="0" viewport_y="0" zoom="1" created_at="2026-01-01T00:00:00.000Z" updated_at="2026-01-01T00:00:00.000Z">
+  <objects>
+  </objects>
+  <links>
+  </links>
+</page_semantic>
+```
+
+`Roadmap.presentation.xml`:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<page_presentation schema_version="2" id="page-roadmap" project_id="project-1" name="Roadmap" sort_order="1" viewport_x="0" viewport_y="0" zoom="1" created_at="2026-01-01T00:00:00.000Z" updated_at="2026-01-01T00:00:00.000Z">
+  <items>
+  </items>
+</page_presentation>
+```
+
+If `metadata.json` contains a legacy/current `pages` list, add a matching record there too. If it does not, do not invent page-list state.
+
+## 10. Creating A Simple Diagram Directly
+
+Semantic:
+
+```xml
+<objects>
+  <object id="frontend" type="text_box">
+    <title>Frontend</title>
+    <content>React UI</content>
+    <content_format>plain_text</content_format>
+    <data_json />
+  </object>
+  <object id="backend" type="text_box">
+    <title>Backend</title>
+    <content>Node API</content>
+    <content_format>plain_text</content_format>
+    <data_json />
+  </object>
+  <object id="arrow-frontend-backend" type="arrow">
+    <title />
+    <content>calls</content>
+    <content_format>plain_text</content_format>
+    <data_json>{"meaning":"workflow_transition"}</data_json>
+  </object>
+</objects>
+<links>
+  <link id="link-frontend-backend" type="arrow" connector_item_id="arrow-frontend-backend" from="frontend" to="backend" from_anchor="right" to_anchor="left">
+    <label>calls</label>
+    <meaning>workflow_transition</meaning>
+  </link>
+</links>
+```
+
+Presentation:
+
+```xml
+<items>
+  <item ref="frontend" x="120" y="120" width="180" height="80" rotation="0" z_index="1" is_collapsed="false">
+    <style_json>{"backgroundColor":"#d6e4fa","textColor":"#1f2937"}</style_json>
+  </item>
+  <item ref="backend" x="420" y="120" width="180" height="80" rotation="0" z_index="2" is_collapsed="false">
+    <style_json>{"backgroundColor":"#dcfce7","textColor":"#14532d"}</style_json>
+  </item>
+  <item ref="arrow-frontend-backend" x="0" y="0" width="0" height="0" rotation="0" z_index="3" is_collapsed="false">
+    <style_json>{"strokeWidth":3,"arrowHeadSize":14}</style_json>
+  </item>
+</items>
+```
+
+## 11. Validation Checklist
+
+After editing:
+
+- XML is well-formed.
+- Every semantic object id is unique.
+- Every presentation `ref` points to a semantic object.
+- Every visible semantic object has a presentation item.
+- Every `contains/item ref` points to an existing object.
+- Child `parent_item_id` agrees with frame containment.
+- Every link id is unique.
+- Every link endpoint points to an existing object or cell id.
+- Every visible link with `connector_item_id` has a matching `arrow` object and presentation item.
+- Every `note_paper` `content_ref` file exists unless intentionally creating a placeholder.
+- `style_json` and `data_json` are valid JSON when non-empty.
+
+## 12. API Fallback
+
+Use runtime API only when the user specifically wants live app/API behavior or direct file edits are not appropriate.
+
+Default backend:
+
+```text
+http://127.0.0.1:18000
+```
+
+Most useful fallback calls:
 
 ```http
-GET    /healthz
-GET    /projects
-POST   /projects
-POST   /projects/open-path
-POST   /projects/open-dialog
-GET    /projects/{project_id}
-PATCH  /projects/{project_id}
-DELETE /projects/{project_id}
-GET    /projects/{project_id}/pages
-POST   /projects/{project_id}/pages
-POST   /projects/{project_id}/pages/reorder
-GET    /projects/{project_id}/notes
-PATCH  /projects/{project_id}/notes/{note_file}.md
-DELETE /projects/{project_id}/notes/{note_file}.md
-GET    /pages/{page_id}
-PATCH  /pages/{page_id}
-DELETE /pages/{page_id}
-POST   /pages/{page_id}/duplicate
-PATCH  /pages/{page_id}/viewport
-GET    /pages/{page_id}/board-data
-PUT    /pages/{page_id}/board-state
-GET    /pages/{page_id}/board-items
-POST   /board-items
-GET    /board-items/{item_id}
-PATCH  /board-items/{item_id}
-DELETE /board-items/{item_id}
-GET    /pages/{page_id}/connectors
-POST   /connectors
-GET    /connectors/{connector_id}
-PATCH  /connectors/{connector_id}
-DELETE /connectors/{connector_id}
-```
-
-Board item fields:
-
-```ts
-{
-  id: string;
-  page_id: string;          // auto-filled from URL if omitted
-  parent_item_id: string | null;
-  category: string;         // auto-derived from type if omitted
-  type: string;
-  title: string | null;
-  content: string | null;
-  content_format: string | null;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  rotation: number;
-  z_index: number;
-  is_collapsed: boolean;    // defaults to false if omitted
-  style_json: string | null;
-  data_json: string | null;
-  created_at: string;       // defaults to now if omitted
-  updated_at: string;       // defaults to now if omitted
-}
-```
-
-Item types and what they are:
-
-- `text_box`, `sticky_note`, `note_paper` — text content nodes
-- `frame` — collapsible group container
-- `table` — grid
-- `arrow` — directional connector (also needs a `connector_link` entry)
-- `line` — decorative non-directional line
-
-## Creating Canvas Diagrams And Icons
-
-If the requested result should appear on a Planvas page, write board data. Do not create an unrelated markdown file to describe the drawing.
-
-Use this API sequence when the backend is available:
-
-```http
+GET /healthz
+GET /projects
 GET /pages/{page_id}/board-data
 PUT /pages/{page_id}/board-state
+GET /projects/{project_id}/notes
 ```
 
-The `PUT` payload must include every current board item and connector link, plus the new/updated objects. Minimal required fields for each item:
-
-```json
-{
-  "board_items": [
-    {
-      "id": "node-1",
-      "type": "text_box",
-      "title": "Frontend",
-      "content": "React UI",
-      "x": 120, "y": 120, "width": 180, "height": 80,
-      "rotation": 0, "z_index": 10,
-      "style_json": "{\"backgroundColor\":\"#d6e4fa\"}"
-    },
-    {
-      "id": "con-1",
-      "type": "arrow",
-      "x": 0, "y": 0, "width": 0, "height": 0,
-      "rotation": 0, "z_index": 1
-    }
-  ],
-  "connector_links": [
-    {
-      "id": "lnk-1",
-      "connector_item_id": "con-1",
-      "from_item_id": "node-1",
-      "to_item_id": "node-2"
-    }
-  ]
-}
-```
-
-Omitted fields are auto-filled: `page_id` from the URL, `category` from `type`, `is_collapsed` → `false`, `created_at`/`updated_at` → current time.
-
-For simple icons, prefer Planvas-native objects instead of external image files:
-
-- Use a compact `text_box` or `sticky_note` with a short label such as `API`, `DB`, `UI`, or `Auth`.
-- Use `frame` for grouped modules.
-- Use `arrow` for relationships; set `style_json` to keep arrow heads readable, for example `{"strokeWidth":3,"arrowHeadSize":14}`.
-- Use `line` for non-directional visual dividers.
-
-Create markdown only for `note_paper` bodies. A diagram node with text should usually be a `text_box`, `sticky_note`, `frame`, or `table` entry, not a `.md` file.
-
-For generated arrows, keep visual defaults readable:
-
-```json
-{ "strokeWidth": 3, "arrowHeadSize": 14 }
-```
-
-Use a larger `arrowHeadSize` only when the user explicitly wants visual emphasis.
-
-Connector link fields:
-
-```ts
-{
-  id: string;
-  connector_item_id: string;
-  from_item_id: string | null;
-  to_item_id: string | null;
-  from_anchor: string | null;
-  to_anchor: string | null;
-}
-```
-
-`arrow` endpoints may connect to `text_box`, `sticky_note`, `note_paper`, and `frame`.
-
-## Editing Guidance
-
-Prefer API writes because the repository regenerates semantic and presentation XML consistently.
-
-Use `PUT /pages/{page_id}/board-state` when changing multiple objects or relationships in one operation. Include every current board item and connector link, not just the edited subset.
-
-Use direct XML/markdown edits only for offline project manipulation. When doing this:
-
-- Back up or diff files first.
-- Preserve ids, timestamps, and page filename stems where possible.
-- Keep `metadata.json.pages[].file` aligned with XML filenames.
-- Keep `note_paper` `content_ref` filenames aligned with existing `.md` files.
-- Keep canonical links and object connection indexes consistent.
-- Re-read the page after edits and check XML remains well-formed.
+When using `PUT /pages/{page_id}/board-state`, send the complete board state, not just the changed items.

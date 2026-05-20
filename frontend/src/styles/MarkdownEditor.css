@@ -37,10 +37,48 @@
   color: var(--project-muted, var(--muted, #64748b));
 }
 
-.markdown-editor-filename {
+.markdown-editor-filename,
+.markdown-editor-filename-button {
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--project-ink, var(--ink, #0f172a));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.markdown-editor-filename-button {
+  max-width: min(36vw, 360px);
+  padding: 2px 5px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  cursor: text;
+}
+
+.markdown-editor-filename-button:hover {
+  border-color: var(--project-line, rgba(22, 50, 56, 0.16));
+  background: var(--project-panel-soft, #e9f3f0);
+}
+
+.markdown-editor-filename-input {
+  width: min(36vw, 360px);
+  height: 28px;
+  padding: 3px 8px;
+  border: 1px solid var(--project-accent, #197377);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--project-ink, #0f172a);
+  font-size: 0.82rem;
+  font-weight: 600;
+  outline: none;
+}
+
+.markdown-editor-filename-error {
+  min-width: 0;
+  color: #dc2626;
+  font-size: 0.74rem;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -67,6 +105,12 @@
   background: #fffbeb;
   color: #d97706;
   border: 1px solid #fef3c7;
+}
+
+.markdown-editor-save-badge.is-renaming {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #dbeafe;
 }
 
 .markdown-editor-save-badge.is-unsaved {
