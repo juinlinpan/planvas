@@ -46,7 +46,7 @@
 - 不再預設包含桌面殼或 Tauri
 - backend 啟動目錄必須可寫入
 - Project 預設儲存根目錄必須位於 `<user_home>/.planvas/`
-- 每個 Project 是一個工作路徑：`<user_home>/.planvas/<project_name>/`
+- 每個 Project 是一個工作路徑；新建 Project 預設位於 `<user_home>/.planvas/project_store/<project_name>/`，外部開啟的 Project 可位於其他使用者選定路徑。
 - 每個 Project 目錄必須包含 `.pv_project/` 資料夾
 - 每個 Project 的 metadata 必須儲存在 `.pv_project/metadata.json`
 - 每個 Project 的 Page XML 檔案必須儲存在 `.pv_project/` 底下

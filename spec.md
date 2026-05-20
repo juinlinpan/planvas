@@ -601,9 +601,15 @@ Backend：
 
 ### 10.2 Planvas file storage 目錄結構
 
-Planvas file storage 根目錄：
+Planvas file storage 預設根目錄：
 
-`<user_home>/.planvas/<project_name>/`
+`<user_home>/.planvas/`
+
+新建 Project 預設儲存在：
+
+`<user_home>/.planvas/project_store/<project_name>/`
+
+外部開啟的 Project 可位於使用者選定路徑，但仍必須包含 `.pv_project/` 資料目錄。
 
 ### 10.3 Log 目錄結構
 

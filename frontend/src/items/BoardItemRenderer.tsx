@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { type BoardItem } from '../api';
 import type { ProjectDefaultStyle } from '../itemStyles';
 import type { SegmentEndpoint } from '../segmentData';
@@ -46,7 +47,7 @@ type Props = {
   projectDefaultStyle?: ProjectDefaultStyle;
 };
 
-export function BoardItemRenderer({
+function BoardItemRendererComponent({
   item,
   childSummaries,
   childCount,
@@ -310,3 +311,39 @@ export function BoardItemRenderer({
       );
   }
 }
+
+function areFrameSummariesEqual(
+  left: FrameSummaryEntry[],
+  right: FrameSummaryEntry[],
+): boolean {
+  if (left === right) return true;
+  if (left.length !== right.length) return false;
+  return left.every((entry, index) => {
+    const other = right[index];
+    return (
+      other !== undefined &&
+      entry.id === other.id &&
+      entry.type === other.type &&
+      entry.title === other.title &&
+      entry.body === other.body
+    );
+  });
+}
+
+export const BoardItemRenderer = memo(
+  BoardItemRendererComponent,
+  (prev, next) =>
+    prev.item === next.item &&
+    prev.childCount === next.childCount &&
+    prev.className === next.className &&
+    prev.renderMode === next.renderMode &&
+    prev.isSelected === next.isSelected &&
+    prev.isEditing === next.isEditing &&
+    prev.canTranslateSegment === next.canTranslateSegment &&
+    prev.deletingWaypointIndex === next.deletingWaypointIndex &&
+    prev.tableCellSelectionResetKey === next.tableCellSelectionResetKey &&
+    prev.tableDropTargetCellId === next.tableDropTargetCellId &&
+    prev.magnetEnabled === next.magnetEnabled &&
+    prev.projectDefaultStyle === next.projectDefaultStyle &&
+    areFrameSummariesEqual(prev.childSummaries, next.childSummaries),
+);

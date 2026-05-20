@@ -497,6 +497,7 @@ export function Canvas({
     () => getPrimarySelectionId(selectedIds),
     [selectedIds],
   );
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const selectedItem = useMemo(
     () => items.find((item) => item.id === primarySelectedId) ?? null,
     [items, primarySelectedId],
@@ -744,6 +745,31 @@ export function Canvas({
         ),
     [items],
   );
+  const frameChildrenById = useMemo(() => {
+    const childrenById = new Map<string, BoardItem[]>();
+    for (const item of items) {
+      if (item.parent_item_id === null) {
+        continue;
+      }
+
+      const children = childrenById.get(item.parent_item_id);
+      if (children === undefined) {
+        childrenById.set(item.parent_item_id, [item]);
+      } else {
+        children.push(item);
+      }
+    }
+
+    return childrenById;
+  }, [items]);
+  const frameChildSummariesById = useMemo(() => {
+    const summariesById = new Map<string, ReturnType<typeof summarizeFrameChild>[]>();
+    for (const [frameId, childItems] of frameChildrenById) {
+      summariesById.set(frameId, childItems.map(summarizeFrameChild));
+    }
+
+    return summariesById;
+  }, [frameChildrenById]);
 
   const segmentDraftPreviewItem = useMemo(() => {
     if (segmentDraft === null) {
@@ -2153,7 +2179,7 @@ export function Canvas({
             >
               {visibleItems.map((item) => {
                 const childItems = isFrame(item)
-                  ? getFrameChildren(items, item.id)
+                  ? (frameChildrenById.get(item.id) ?? [])
                   : [];
                 const itemAnimation = frameItemAnimations[item.id];
                 const isTableDropTarget =
@@ -2174,9 +2200,9 @@ export function Canvas({
                       key={item.id}
                       item={item}
                       childCount={childItems.length}
-                      childSummaries={childItems.map(summarizeFrameChild)}
+                      childSummaries={frameChildSummariesById.get(item.id) ?? []}
                       className={itemClassName}
-                      isSelected={selectedIds.includes(item.id)}
+                      isSelected={selectedIdSet.has(item.id)}
                       isEditing={item.id === editingId}
                       canTranslateSegment={canTranslateSegmentItem(item)}
                       onMouseDown={(e) => handleItemMouseDown(e, item.id)}

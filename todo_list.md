@@ -185,7 +185,7 @@
 ### 2. 後端儲存與日誌設定
 
 - [x] Initialize `.planvas` project storage and `logs/` runtime output.
-- [x] Planvas file storage uses `<user_home>/.planvas/<project_name>/.pv_project/metadata.json` and page XML files under `.pv_project/`.
+- [x] Planvas file storage uses `<user_home>/.planvas/project_store/<project_name>/.pv_project/metadata.json` for newly created projects, while external projects may live at user-selected paths with page XML files under `.pv_project/`.
 - [x] 設定 log 輸出目錄至 `<backend_root>/logs/`
 - [x] 確認後端重啟後資料不遺失
 - [x] 確認日誌路徑格式與輸出符合規範
