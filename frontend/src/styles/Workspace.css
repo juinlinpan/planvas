@@ -798,11 +798,12 @@
   }
 
   .home-hero-panel {
-    min-height: 560px;
+    min-height: 0;
   }
 
   .home-project-panel {
     min-height: 0;
+    max-height: none;
   }
 }
 
@@ -828,7 +829,8 @@
   }
 
   .home-visual {
-    min-height: 260px;
+    flex: 1 1 38dvh;
+    min-height: 0;
   }
 
   .home-visual::after {

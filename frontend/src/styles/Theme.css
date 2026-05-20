@@ -14,7 +14,7 @@
 .app-shell:not(.app-shell-single) {
   grid-template-columns: 282px minmax(0, 1fr);
   gap: 16px;
-  padding: 16px;
+  padding: clamp(8px, 1.7dvh, 16px);
   background: #f8faf8;
 }
 
@@ -246,7 +246,7 @@
 }
 
 .canvas-content {
-  height: 100%;
+  flex: 1 1 0;
   min-height: 0;
 }
 

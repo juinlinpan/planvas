@@ -4,7 +4,9 @@
 
 .home-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -313,7 +315,9 @@
 
 .home-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   height: 100vh;
+  height: 100dvh;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(340px, 440px);
   gap: 22px;
@@ -329,6 +333,7 @@
 .home-hero-panel,
 .home-project-panel {
   min-width: 0;
+  min-height: 0;
   border: 1px solid rgba(35, 49, 55, 0.1);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.88);
@@ -339,7 +344,7 @@
 .home-hero-panel {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(360px, 0.88fr) minmax(420px, 1.12fr);
+  grid-template-columns: minmax(320px, 0.88fr) minmax(360px, 1.12fr);
   align-items: stretch;
 }
 
@@ -347,11 +352,11 @@
   position: relative;
   z-index: 2;
   min-width: 0;
-  padding: 44px;
+  padding: clamp(24px, 4.2vh, 44px);
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 30px;
+  gap: clamp(16px, 3vh, 30px);
   background:
     linear-gradient(90deg, #ffffff 0%, rgba(255, 255, 255, 0.95) 72%, rgba(255, 255, 255, 0) 100%);
 }
@@ -412,7 +417,7 @@
   max-width: 11.5em;
   margin: 0;
   color: #18262b !important;
-  font-size: 3.15rem !important;
+  font-size: clamp(2rem, 5.4vh, 3.15rem) !important;
   font-weight: 850 !important;
   letter-spacing: 0 !important;
   line-height: 1.06;
@@ -421,13 +426,13 @@
 .home-subtitle {
   max-width: 560px;
   color: #5c686d;
-  font-size: 1rem;
-  line-height: 1.75;
+  font-size: clamp(0.9rem, 1.8vh, 1rem);
+  line-height: 1.65;
 }
 
 .home-visual {
   position: relative;
-  min-height: 520px;
+  min-height: 0;
   isolation: isolate;
 }
 
@@ -452,10 +457,10 @@
 }
 
 .home-project-panel {
-  padding: 28px;
+  padding: clamp(18px, 3vh, 28px);
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: clamp(10px, 2vh, 18px);
 }
 
 .home-project-panel .error-banner {
