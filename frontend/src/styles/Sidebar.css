@@ -6,8 +6,9 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
+  gap: clamp(6px, 1.1dvh, 10px);
+  min-height: 0;
+  padding: clamp(8px, 1.3dvh, 12px);
   background: var(--sidebar-bg);
   border-right: 1px solid rgba(11, 23, 36, 0.28);
   box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04);
@@ -31,8 +32,9 @@
 .sidebar-header {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
+  gap: clamp(8px, 1.5dvh, 12px);
+  min-height: 0;
+  padding: clamp(10px, 1.8dvh, 16px);
   border-radius: var(--radius-xl);
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid var(--sidebar-line);
@@ -91,8 +93,8 @@
 .sidebar-project-strip {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 0 2px;
+  gap: clamp(6px, 1.2dvh, 10px);
+  padding: clamp(8px, 1.5dvh, 14px) 0 2px;
   border-top: 1px solid rgba(22, 50, 56, 0.16);
 }
 
@@ -151,8 +153,9 @@
 .sidebar-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 14px;
+  gap: clamp(6px, 1dvh, 8px);
+  min-height: 0;
+  padding: clamp(8px, 1.5dvh, 14px);
   border-radius: var(--radius-lg);
   background: var(--sidebar-surface);
   border: 1px solid var(--sidebar-line);
@@ -195,7 +198,13 @@
 }
 
 .sidebar-foldout-section {
+  flex: 1 1 0;
   min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar-foldout-section.is-collapsed {
+  flex: 0 0 auto;
 }
 
 .sidebar-foldout-trigger {
@@ -233,8 +242,8 @@
 
 .sidebar-section-body {
   display: flex;
+  flex: 1 1 0;
   min-height: 0;
-  max-height: calc((100vh - 260px) / 2);
   flex-direction: column;
   gap: 8px;
   overflow-y: auto;

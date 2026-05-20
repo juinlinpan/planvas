@@ -229,6 +229,35 @@
   margin-top: 3px;
 }
 
+.markdown-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.markdown-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.markdown-table th,
+.markdown-table td {
+  padding: 6px 8px;
+  border: 1px solid var(--line-strong);
+  vertical-align: top;
+}
+
+.markdown-table th {
+  background: rgba(15, 23, 42, 0.06);
+  font-weight: 700;
+}
+
+.markdown-table td {
+  background: rgba(255, 255, 255, 0.58);
+}
+
 .markdown-quote {
   margin: 0;
   padding: 8px 10px;
@@ -257,6 +286,16 @@
   color: var(--ink);
   font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
   font-size: 0.76rem;
+}
+
+.markdown-link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown-link:hover {
+  color: var(--accent-strong, var(--accent));
 }
 
 .note-paper-editor {

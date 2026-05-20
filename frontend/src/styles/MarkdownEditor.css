@@ -282,6 +282,80 @@
 
 .markdown-editor-preview-content {
   max-width: 800px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--project-ink, #17262b);
+  font-size: 0.94rem;
+  line-height: 1.75;
+}
+
+.markdown-editor-preview-content > * {
+  margin: 0;
+}
+
+.markdown-editor-preview-content .markdown-heading {
+  color: var(--project-ink, #17262b);
+  line-height: 1.28;
+}
+
+.markdown-editor-preview-content .markdown-heading-1 {
+  font-size: 1.55rem;
+}
+
+.markdown-editor-preview-content .markdown-heading-2 {
+  font-size: 1.28rem;
+}
+
+.markdown-editor-preview-content .markdown-heading-3,
+.markdown-editor-preview-content .markdown-heading-4,
+.markdown-editor-preview-content .markdown-heading-5,
+.markdown-editor-preview-content .markdown-heading-6 {
+  font-size: 1.05rem;
+}
+
+.markdown-editor-preview-content .markdown-paragraph,
+.markdown-editor-preview-content .markdown-list {
+  color: var(--project-ink, #17262b);
+}
+
+.markdown-editor-preview-content .markdown-list {
+  padding-left: 1.45rem;
+}
+
+.markdown-editor-preview-content .markdown-list li + li {
+  margin-top: 6px;
+}
+
+.markdown-editor-preview-content .markdown-quote {
+  padding: 10px 14px;
+  line-height: 1.65;
+}
+
+.markdown-editor-preview-content .markdown-code-block {
+  padding: 14px 16px;
+  border-radius: 7px;
+  font-size: 0.84rem;
+  line-height: 1.65;
+}
+
+.markdown-editor-preview-content .markdown-inline-code {
+  border-radius: 6px;
+  font-size: 0.84rem;
+}
+
+.markdown-editor-preview-content .markdown-table-wrap {
+  margin: 2px 0;
+}
+
+.markdown-editor-preview-content .markdown-table {
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.markdown-editor-preview-content .markdown-table th,
+.markdown-editor-preview-content .markdown-table td {
+  padding: 9px 12px;
 }
 
 .markdown-editor-empty-preview {

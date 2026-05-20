@@ -456,7 +456,11 @@ export function MarkdownEditor({
               Nothing to preview yet.
             </p>
           ) : (
-            <MarkdownPreview content={content} className="markdown-editor-preview-content" />
+            <MarkdownPreview
+              content={content}
+              className="markdown-editor-preview-content"
+              maxBlocks={null}
+            />
           )}
         </div>
       </div>

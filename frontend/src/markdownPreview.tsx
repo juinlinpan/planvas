@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 type MarkdownPreviewProps = {
   content: string | null;
   className?: string;
@@ -10,7 +12,13 @@ type MarkdownBlock =
   | { type: 'paragraph'; text: string }
   | { type: 'list'; ordered: boolean; items: string[] }
   | { type: 'quote'; text: string }
-  | { type: 'code'; language: string | null; code: string };
+  | { type: 'code'; language: string | null; code: string }
+  | {
+      type: 'table';
+      headers: string[];
+      rows: string[][];
+      alignments: Array<'left' | 'center' | 'right' | null>;
+    };
 
 function isBlankLine(line: string): boolean {
   return line.trim().length === 0;
@@ -36,6 +44,23 @@ function isUnorderedListLine(line: string): boolean {
   return /^[-*]\s+/.test(line.trim());
 }
 
+function isTableCandidateLine(line: string): boolean {
+  return line.includes('|') && line.trim().length > 0;
+}
+
+function isTableSeparatorLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed.includes('|')) {
+    return false;
+  }
+
+  const cells = splitMarkdownTableRow(trimmed);
+  return (
+    cells.length > 0 &&
+    cells.every((cell) => /^:?-{3,}:?$/.test(cell.trim()))
+  );
+}
+
 function isSpecialBlockStart(line: string): boolean {
   return (
     isFenceLine(line) ||
@@ -46,9 +71,78 @@ function isSpecialBlockStart(line: string): boolean {
   );
 }
 
+function splitMarkdownTableRow(line: string): string[] {
+  let normalized = line.trim();
+  if (normalized.startsWith('|')) {
+    normalized = normalized.slice(1);
+  }
+  if (normalized.endsWith('|')) {
+    normalized = normalized.slice(0, -1);
+  }
+
+  const cells: string[] = [];
+  let current = '';
+  let escaped = false;
+
+  for (const char of normalized) {
+    if (escaped) {
+      current += char;
+      escaped = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+
+    if (char === '|') {
+      cells.push(current.trim());
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  cells.push(current.trim());
+  return cells;
+}
+
+function getTableAlignments(
+  separatorCells: string[],
+): Array<'left' | 'center' | 'right' | null> {
+  return separatorCells.map((cell) => {
+    const trimmed = cell.trim();
+    const starts = trimmed.startsWith(':');
+    const ends = trimmed.endsWith(':');
+    if (starts && ends) {
+      return 'center';
+    }
+    if (ends) {
+      return 'right';
+    }
+    if (starts) {
+      return 'left';
+    }
+    return null;
+  });
+}
+
+function normalizeTableRow(cells: string[], columnCount: number): string[] {
+  if (cells.length === columnCount) {
+    return cells;
+  }
+  if (cells.length > columnCount) {
+    return cells.slice(0, columnCount);
+  }
+  return [...cells, ...Array.from({ length: columnCount - cells.length }, () => '')];
+}
+
 function renderInlineMarkdown(text: string): ReactNode[] {
   const segments: ReactNode[] = [];
-  const pattern = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  const pattern =
+    /(\[[^\]\n]+\]\((?:https?:\/\/|mailto:)[^) \n]+\)|`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
   let cursor = 0;
   let match: RegExpExecArray | null = pattern.exec(text);
 
@@ -59,7 +153,20 @@ function renderInlineMarkdown(text: string): ReactNode[] {
 
     const token = match[0];
     const key = `${match.index}-${token}`;
-    if (token.startsWith('**')) {
+    const linkMatch = token.match(/^\[([^\]\n]+)\]\(((?:https?:\/\/|mailto:)[^) \n]+)\)$/);
+    if (linkMatch) {
+      segments.push(
+        <a
+          key={key}
+          className="markdown-link"
+          href={linkMatch[2]}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {linkMatch[1]}
+        </a>,
+      );
+    } else if (token.startsWith('**')) {
       segments.push(<strong key={key}>{token.slice(2, -2)}</strong>);
     } else if (token.startsWith('*')) {
       segments.push(<em key={key}>{token.slice(1, -1)}</em>);
@@ -116,6 +223,36 @@ function parseMarkdownBlocks(content: string | null): MarkdownBlock[] {
         type: 'code',
         language: fenceMatch[1] ?? null,
         code: codeLines.join('\n').trimEnd(),
+      });
+      continue;
+    }
+
+    if (
+      isTableCandidateLine(currentLine) &&
+      index + 1 < lines.length &&
+      isTableSeparatorLine(lines[index + 1] ?? '')
+    ) {
+      const headers = splitMarkdownTableRow(currentLine);
+      const columnCount = headers.length;
+      const separatorCells = normalizeTableRow(
+        splitMarkdownTableRow(lines[index + 1] ?? ''),
+        columnCount,
+      );
+      const rows: string[][] = [];
+      index += 2;
+
+      while (index < lines.length && isTableCandidateLine(lines[index] ?? '')) {
+        rows.push(
+          normalizeTableRow(splitMarkdownTableRow(lines[index] ?? ''), columnCount),
+        );
+        index += 1;
+      }
+
+      blocks.push({
+        type: 'table',
+        headers,
+        rows,
+        alignments: getTableAlignments(separatorCells),
       });
       continue;
     }
@@ -257,6 +394,45 @@ export function MarkdownPreview({
           );
         }
 
+        if (block.type === 'table') {
+          return (
+            <div key={key} className="markdown-table-wrap">
+              <table className="markdown-table">
+                <thead>
+                  <tr>
+                    {block.headers.map((header, cellIndex) => (
+                      <th
+                        key={`${key}-header-${cellIndex}`}
+                        style={{
+                          textAlign: block.alignments[cellIndex] ?? undefined,
+                        }}
+                      >
+                        {renderInlineMarkdown(header)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {block.rows.map((row, rowIndex) => (
+                    <tr key={`${key}-row-${rowIndex}`}>
+                      {row.map((cell, cellIndex) => (
+                        <td
+                          key={`${key}-row-${rowIndex}-${cellIndex}`}
+                          style={{
+                            textAlign: block.alignments[cellIndex] ?? undefined,
+                          }}
+                        >
+                          {renderInlineMarkdown(cell)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
+
         const ListTag = block.ordered ? 'ol' : 'ul';
         return (
           <ListTag key={key} className="markdown-list">
@@ -269,4 +445,3 @@ export function MarkdownPreview({
     </div>
   );
 }
-import type { ReactNode } from 'react';
