@@ -434,6 +434,22 @@
 - [ ] 確認 viewer 執行不依賴 Node.js backend、SQLite 或其他伺服器
 - [ ] 驗證匯出取消、渲染保真度與 viewer 導覽的測試覆蓋
 
+### 22. 大型檔案拆分與 AI 可讀性改善
+
+拆分目標不是單純降低行數，而是讓每個檔案有明確責任邊界，方便人工 review、AI 閱讀、測試定位與後續效能優化。拆分時不得改變既有功能行為；每一階段都必須跑對應測試，並優先保留現有 export API 以降低呼叫端改動。
+
+- [ ] 第一階段：拆分純邏輯檔案，優先處理 `frontend/src/tableData.ts`，依責任拆成 table parsing / mutation / layout / divider helpers，並保留或補齊既有 table tests。
+- [ ] 第一階段：拆分 `frontend/src/canvasHelpers.ts`，依責任拆成 selection、frame layout、connector anchors、layer ordering、payload conversion 等 helper 模組，避免 Canvas 與 mouse handler 讀入過大的混合 helper。
+- [ ] 第二階段：拆分 `backend/src/repository.ts`，先抽出 Page XML reader / writer、markdown note file handling、project index handling、validation helpers，再保留 `WhiteboardRepository` 作為對 HTTP API 穩定的 facade。
+- [ ] 第二階段：為 backend storage 拆分補強測試，至少涵蓋 project index refresh、Page XML v2 round trip、markdown-backed note rename / propagation、board state replace。
+- [ ] 第三階段：拆分 `frontend/src/Canvas.tsx`，將 canvas ribbon、minimap、context menu、stage/world rendering、board data loading、viewport persistence 分離成 component 或 hook。
+- [ ] 第三階段：拆分 `frontend/src/Inspector.tsx`，依 item type 拆成 text、table、segment、note paper、frame 等 Inspector panel，保留共用欄位元件如 color palette 與 commit-on-blur number input。
+- [ ] 第四階段：拆分 `frontend/src/useCanvasMouseHandlers.ts`，在前面 helper 邊界穩定後，分離 pan、item drag、item resize、segment drag、table insert、marquee selection 等互動流程。
+- [ ] 第四階段：拆分 mouse handlers 時導入 `requestAnimationFrame` 批次更新策略，降低 drag / resize mousemove 對整個 Canvas 的 render 壓力。
+- [ ] 效能後續：將 PNG / PPTX / viewer export module 改成動態 import，降低首頁與 workspace 初始 bundle parse 成本。
+- [ ] 驗收條件：每個拆分 PR / commit 應通過相關 frontend tests、backend tests 或 build；若只搬移程式碼，應避免混入功能變更。
+- [ ] 文件條件：拆分後若正式模組責任或檔案結構改變，需同步更新 `spec.md`、`todo_list.md`、`README.md` 或 `backend/README.md` 中受影響的架構 / 操作說明。
+
 ## 建議實作順序
 
 1. 專案設定與初始化
@@ -443,3 +459,4 @@
 5. 白板物件建立與互動
 6. Snap / Connector 對齊
 7. 後端基礎設施與冒煙測試
+8. 大型檔案拆分與 AI 可讀性改善
