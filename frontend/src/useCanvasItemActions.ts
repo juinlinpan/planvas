@@ -31,8 +31,10 @@ import {
 import { toPayload } from './canvasHelpers/payloadConversion';
 import {
   parseBoardItemStyle,
+  resolveBoardItemStyle,
   serializeBoardItemStyle,
   type BoardItemStyle,
+  type ProjectDefaultStyle,
 } from './itemStyles';
 import type {
   ClipboardSnapshot,
@@ -160,6 +162,31 @@ function createOptimisticItem(payload: BoardItemPayload): BoardItem {
   };
 }
 
+export function buildClipboardPayload(
+  item: BoardItem,
+  projectDefaultStyle: ProjectDefaultStyle = {},
+): BoardItemPayload {
+  const payload = toPayload(item);
+
+  if (item.type !== ITEM_TYPE.sticky_note) {
+    return payload;
+  }
+
+  const parsedStyle = parseBoardItemStyle(item.style_json);
+  if (parsedStyle.backgroundColor !== undefined) {
+    return payload;
+  }
+
+  const resolvedStyle = resolveBoardItemStyle(item, projectDefaultStyle);
+  return {
+    ...payload,
+    style_json: serializeBoardItemStyle({
+      ...parsedStyle,
+      backgroundColor: resolvedStyle.backgroundColor,
+    }),
+  };
+}
+
 interface UseCanvasItemActionsParams {
   pageId: string;
   itemsRef: MutableRefObject<BoardItem[]>;
@@ -179,6 +206,7 @@ interface UseCanvasItemActionsParams {
   setActiveTool: (tool: ActiveTool) => void;
   setAnchorIndicatorItems: Dispatch<SetStateAction<BoardItem[]>>;
   setActiveAnchorHit: Dispatch<SetStateAction<AnchorHit | null>>;
+  projectDefaultStyle?: ProjectDefaultStyle;
   onProjectNotesChanged?: () => void;
 }
 
@@ -201,6 +229,7 @@ export function useCanvasItemActions({
   setActiveTool,
   setAnchorIndicatorItems,
   setActiveAnchorHit,
+  projectDefaultStyle = {},
   onProjectNotesChanged,
 }: UseCanvasItemActionsParams) {
   const clipboardRef = useRef<ClipboardSnapshot | null>(null);
@@ -364,11 +393,11 @@ export function useCanvasItemActions({
     clipboardRef.current = {
       items: selectedItems.map((item) => ({
         sourceId: item.id,
-        payload: toPayload(item),
+        payload: buildClipboardPayload(item, projectDefaultStyle),
       })),
     };
     pasteCountRef.current = 0;
-  }, [itemsRef, selectedIdsRef]);
+  }, [itemsRef, projectDefaultStyle, selectedIdsRef]);
 
   const hasClipboardData = useCallback(
     () =>

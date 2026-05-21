@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { BoardItem, ConnectorLink, ProjectNote } from './api';
 import { resolveSidebarNoteDragFile } from './Canvas';
+import { buildClipboardPayload } from './useCanvasItemActions';
 import {
   getAutoAnchors,
   getConnectorPoints,
@@ -9,6 +10,7 @@ import {
   normalizeConnectorArrowsToSegments,
   summarizeFrameChild,
 } from './canvasHelpers';
+import { parseBoardItemStyle, resolveBoardItemStyle } from './itemStyles';
 import { syncMarkdownBackedItems } from './noteSync';
 import { ITEM_CATEGORY, ITEM_TYPE } from './types';
 
@@ -215,6 +217,34 @@ describe('syncMarkdownBackedItems', () => {
     );
 
     expect(synced).toBe(items);
+  });
+});
+
+describe('buildClipboardPayload', () => {
+  it('materializes sticky note default background before paste creates a new id', () => {
+    const sticky = createBoardItem({
+      id: 'sticky-source',
+      type: ITEM_TYPE.sticky_note,
+      style_json: null,
+    });
+    const originalStyle = resolveBoardItemStyle(sticky);
+
+    const payload = buildClipboardPayload(sticky);
+    const clipboardStyle = parseBoardItemStyle(payload.style_json);
+
+    expect(clipboardStyle.backgroundColor).toBe(originalStyle.backgroundColor);
+  });
+
+  it('preserves an explicitly styled sticky note background', () => {
+    const sticky = createBoardItem({
+      id: 'sticky-source',
+      type: ITEM_TYPE.sticky_note,
+      style_json: '{"backgroundColor":"#f5d8e8"}',
+    });
+
+    const payload = buildClipboardPayload(sticky);
+
+    expect(payload.style_json).toBe('{"backgroundColor":"#f5d8e8"}');
   });
 });
 

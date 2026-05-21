@@ -611,6 +611,7 @@ export function Canvas({
     setActiveTool: handleToolChange,
     setAnchorIndicatorItems,
     setActiveAnchorHit,
+    projectDefaultStyle,
     onProjectNotesChanged,
   });
 
