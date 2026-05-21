@@ -8,6 +8,9 @@ import {
 
 const DEFAULT_TABLE_ROWS = 3;
 const DEFAULT_TABLE_COLS = 3;
+export const DEFAULT_TABLE_LABEL_FONT_SIZE = 12;
+export const TABLE_LABEL_FONT_SIZE_MIN = 10;
+export const TABLE_LABEL_FONT_SIZE_MAX = 32;
 
 export const TABLE_MIN_DIMENSION = 1;
 export const TABLE_MAX_DIMENSION = 20;
@@ -33,6 +36,8 @@ export type TableCellData = {
 };
 
 export type TableData = {
+  name?: string;
+  labelFontSize?: number;
   rows: number;
   cols: number;
   colWidths: number[];   // fractions summing to ~1.0 (one entry per column)
@@ -241,6 +246,8 @@ function parseNewFormat(parsed: Record<string, unknown>): TableData {
     });
   });
   return {
+    name: sanitizeTableName(parsed['name']),
+    labelFontSize: sanitizeTableLabelFontSize(parsed['labelFontSize']),
     rows,
     cols,
     colWidths,
@@ -334,6 +341,26 @@ function parseOldFormat(parsed: Record<string, unknown>): TableData {
     }),
   );
   return base;
+}
+
+export function sanitizeTableName(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+export function sanitizeTableLabelFontSize(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return undefined;
+  }
+
+  return Math.min(
+    TABLE_LABEL_FONT_SIZE_MAX,
+    Math.max(TABLE_LABEL_FONT_SIZE_MIN, Math.round(value)),
+  );
 }
 
 export function parseTableData(dataJson: string | null): TableData {

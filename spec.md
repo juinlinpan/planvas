@@ -148,6 +148,9 @@
 - `text_box` 支援文字水平對齊（左 / 中 / 右）與垂直對齊（上 / 中 / 下）設定；預設為水平置中、垂直置中。
 - `note_paper` 內文以 Markdown 儲存；Inspector 顯示尺寸控制；在 Page 上可切換展開全文或只顯示第一個 Markdown H1 標題；在 `frame` 縮回時只顯示第一個 Markdown H1 標題。
 - 在 Inspector 中選取 `table` 時，應顯示「列 × 欄」尺寸標籤與新增/刪除列欄的操作按鈕；點擊表格儲存格文字區域時進入 inline 編輯模式，不透過 Inspector 面板介入文字輸入。
+- 在 Inspector 中選取 `table` 時，應顯示 optional「名子」欄位；輸入後才在表格左上方顯示小標籤，未輸入或舊 Page 缺少 `name` 時不顯示。
+- `table` 名稱標籤支援獨立字級設定；使用者可在 Inspector 調整標籤字級，也可在 Page 上雙擊標籤進行現場編輯。
+- `table` 的新增 row / col 邊緣按鈕必須保持容易點擊，控制層不得被表格內容裁切。
 
 ## Minimap And New-Page Viewport Update Notes
 
@@ -387,6 +390,10 @@ Page 匯出備註：
 - 支援儲存格內嵌入 `small_item`（`embed` 物件，帶 type / content / styleJson）。
 - 表格的欄寬列高以絕對像素計算，不依賴 zoom；儲存格數值為視覺像素大小。
 - 表格支援列欄操作按鈕，滑鼠懸停時顯示 `+` 按鈕以新增 row 或 col。
+- 表格支援 optional `name` 欄位；預設不設定名稱，既有 Page 的 `table` 若沒有 `name` 必須照常載入且不顯示額外標籤。
+- 當使用者在 Inspector 的「名子」欄位輸入文字時，表格左上方顯示一個小標籤；清空或缺少 `name` 時不顯示標籤。
+- 表格名稱標籤支援 optional `labelFontSize` 欄位；缺少時使用預設標籤字級；雙擊既有標籤可在 Page 上 inline 編輯名稱。
+- 新增 row / col 的 `+` 按鈕必須有足夠點擊範圍，不得因位於表格邊界外而被裁切到難以點擊。
 - 支援儲存格文字編輯。
 - 儲存格合併操作在拖選多格後於右鍵選單呈現，系統計算合理的 `rowSpan` / `colSpan` > 1。
 - 合併後的儲存格顯示合併前各格的文字拼接 / 空格分隔。

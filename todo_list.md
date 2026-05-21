@@ -158,6 +158,9 @@
 - [x] 讓 `text_box` 在 read mode 下移除捲動列，盡可能顯示多行文字
 - [x] 讓 `note_paper` read mode 支援 Markdown 溢出捲動，內容過小時優先顯示 Markdown H1 標題，並可在 Page 上切換成只顯示標題
 - [x] 在 Inspector 中為 `table` 新增「鎖定欄」欄位，可設定各欄位隱藏與顯示行為
+- [x] 在 Inspector 中為 `table` 新增 optional「名子」欄位，輸入後才在表格左上方顯示小標籤，並保持未命名舊 Page 相容
+- [x] 在 Inspector 中為 `table` 名稱標籤新增獨立字級控制，並套用到 Page 上方標籤顯示
+- [x] 改善 `table` 新增 row / col 邊緣按鈕的可點擊範圍
 
 ## Minimap And New-Page Viewport Update Notes
 
@@ -311,6 +314,9 @@
 - [x] 刪除 row / col 後 relayout，確認 cell 的 child items 一併清除
 - [x] table 格框線支援多種樣式，包含點線、虛線與混合格線，套用後確認外觀正確
 - [x] table 格框線顏色支援自訂，可在 Inspector 面板中直接選色並套用
+- [x] 支援 table optional「名子」欄位，Inspector 輸入後在表格左上方顯示小標籤，缺少或清空時維持舊 Page 相容且不顯示標籤
+- [x] 支援 table 名稱標籤字級調整，儲存在 table data 的 optional `labelFontSize` 欄位
+- [x] 放大 table 新增 row / col 按鈕點擊範圍，避免邊界外控制被裁切造成難以點擊
 
 ### 10. `small_item`
 

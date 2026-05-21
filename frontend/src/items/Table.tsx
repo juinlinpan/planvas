@@ -18,6 +18,8 @@ import {
   preserveOuterAddRowLayout,
   resizeColGroup,
   resizeRowGroup,
+  DEFAULT_TABLE_LABEL_FONT_SIZE,
+  sanitizeTableName,
   TABLE_CELL_MIN_HEIGHT,
   TABLE_CELL_MIN_WIDTH,
   type SegmentGroup,
@@ -242,6 +244,8 @@ export function Table({
   const groupDragRef = useRef<GroupDividerDrag | null>(null);
   // Track whether we have an active drag to suppress click
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
+  const [isEditingTableName, setIsEditingTableName] = useState(false);
+  const [tableNameDraft, setTableNameDraft] = useState('');
   // Hovered segment group key
   const [hoveredGroupKey, setHoveredGroupKey] = useState<string | null>(null);
 
@@ -288,6 +292,14 @@ export function Table({
 
   function handleUpdate(nextData: TableData) {
     onUpdate({ ...item, data_json: serializeTableData(nextData) });
+  }
+
+  function handleTableNameCommit(rawValue: string) {
+    handleUpdate({
+      ...tableData,
+      name: sanitizeTableName(rawValue),
+    });
+    setIsEditingTableName(false);
   }
 
   // ── Cell selection ──────────────────────────────────────────────────────
@@ -545,6 +557,9 @@ export function Table({
     fontWeight: resolvedStyle.fontWeight,
     fontStyle: resolvedStyle.fontStyle,
   };
+  const tableName = tableData.name?.trim();
+  const tableLabelFontSize =
+    tableData.labelFontSize ?? DEFAULT_TABLE_LABEL_FONT_SIZE;
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -557,6 +572,44 @@ export function Table({
       onBlur={isEditing ? handleBlurContainer : undefined}
       onKeyDown={isEditing ? handleContainerKeyDown : undefined}
     >
+      {tableName || isEditingTableName ? (
+        <div
+          className="table-v2-name-label"
+          style={{ fontSize: `${tableLabelFontSize}px` }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => {
+            if (isStatic) {
+              return;
+            }
+            e.stopPropagation();
+            onCellInteractionStart?.();
+            setTableNameDraft(tableName ?? '');
+            setIsEditingTableName(true);
+          }}
+        >
+          {isEditingTableName ? (
+            <input
+              className="table-v2-name-label-input"
+              value={tableNameDraft}
+              autoFocus
+              onMouseDown={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
+              onChange={(e) => setTableNameDraft(e.target.value)}
+              onBlur={(e) => handleTableNameCommit(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.currentTarget.blur();
+                } else if (e.key === 'Escape') {
+                  setIsEditingTableName(false);
+                  setTableNameDraft(tableName ?? '');
+                }
+              }}
+            />
+          ) : (
+            tableName
+          )}
+        </div>
+      ) : null}
       {/* Cells (absolute positioning for per-row column independence) */}
       <div
         className="table-v2-grid"

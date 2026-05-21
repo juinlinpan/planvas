@@ -17,6 +17,11 @@ import {
   getNextTableLayoutUpdatedAt,
   getTableMinSizeFromDataJson,
   parseTableData,
+  DEFAULT_TABLE_LABEL_FONT_SIZE,
+  TABLE_LABEL_FONT_SIZE_MAX,
+  TABLE_LABEL_FONT_SIZE_MIN,
+  sanitizeTableLabelFontSize,
+  sanitizeTableName,
   serializeTableData,
   type TableChildLayoutDirection,
   type TableCellData,
@@ -528,6 +533,39 @@ export function Inspector({
     });
   }
 
+  function handleTableNameChange(rawValue: string) {
+    if (!isTable || tableData === null) {
+      return;
+    }
+
+    onUpdate({
+      ...selectedItem,
+      data_json: serializeTableData({
+        ...tableData,
+        name: sanitizeTableName(rawValue),
+      }),
+    });
+  }
+
+  function handleTableLabelFontSizeChange(rawValue: string) {
+    if (!isTable || tableData === null) {
+      return;
+    }
+
+    const value = Number(rawValue);
+    if (Number.isNaN(value)) {
+      return;
+    }
+
+    onUpdate({
+      ...selectedItem,
+      data_json: serializeTableData({
+        ...tableData,
+        labelFontSize: sanitizeTableLabelFontSize(value),
+      }),
+    });
+  }
+
   function handleTableCellChildLayoutChange(value: TableChildLayoutDirection) {
     if (!isTable || tableData === null || selectedTableCellIds.length === 0) {
       return;
@@ -636,6 +674,35 @@ export function Inspector({
             <p className="inspector-meta">
               {summarizeContent(selectedItem)}
             </p>
+            <label className="inspector-field">
+              名子
+              <input
+                key={`${selectedItem.id}-table-name-${tableData.name ?? ''}`}
+                type="text"
+                defaultValue={tableData.name ?? ''}
+                placeholder="不顯示標籤"
+                onBlur={(e) => handleTableNameChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  }
+                }}
+              />
+            </label>
+            <label className="inspector-field">
+              標籤字級
+              <CommitNumberInput
+                inputKey={`${selectedItem.id}-table-label-font-size-${
+                  tableData.labelFontSize ?? DEFAULT_TABLE_LABEL_FONT_SIZE
+                }`}
+                min={TABLE_LABEL_FONT_SIZE_MIN}
+                max={TABLE_LABEL_FONT_SIZE_MAX}
+                value={
+                  tableData.labelFontSize ?? DEFAULT_TABLE_LABEL_FONT_SIZE
+                }
+                onCommit={handleTableLabelFontSizeChange}
+              />
+            </label>
             <label className="inspector-field">
               內部物件分割
               <select

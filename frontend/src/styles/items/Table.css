@@ -10,7 +10,7 @@
   border-radius: 0;
   border: none;
   box-shadow: var(--shadow-sm);
-  overflow: hidden;
+  overflow: visible;
   user-select: none;
   cursor: default;
 }
@@ -39,6 +39,42 @@
   position: relative;
   width: 100%;
   height: 100%;
+  overflow: hidden;
+}
+
+.table-v2-name-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translateY(-100%);
+  z-index: 9;
+  max-width: min(240px, 100%);
+  padding: 4px 10px;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 700;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-shadow: 0 -2px 8px rgba(15, 23, 42, 0.08);
+  pointer-events: auto;
+  cursor: text;
+}
+
+.table-v2-name-label-input {
+  width: min(220px, 100%);
+  min-width: 72px;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
 }
 
 /* ?? Cell ??????????????????????????????? */
@@ -255,7 +291,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 6;
+  z-index: 12;
   opacity: 0;
   transition: opacity 120ms ease;
   pointer-events: none;
@@ -270,22 +306,24 @@
 .table-v2-add-row-end {
   left: 0;
   right: 0;
-  bottom: 0;
-  height: 20px;
-  transform: translateY(50%);
+  bottom: -18px;
+  min-height: 36px;
+  padding-top: 4px;
 }
 
 .table-v2-add-col-end {
   top: 0;
   bottom: 0;
-  right: 0;
-  width: 20px;
-  transform: translateX(50%);
+  right: -18px;
+  min-width: 36px;
+  padding-left: 4px;
   flex-direction: column;
 }
 
 .table-v2-add-edge-btn {
-  padding: 2px 8px;
+  min-width: 72px;
+  min-height: 28px;
+  padding: 5px 12px;
   border-radius: var(--radius-sm);
   border: 1.5px solid var(--accent);
   background: var(--surface);
@@ -303,7 +341,9 @@
 
 .table-v2-add-edge-btn--col {
   writing-mode: vertical-lr;
-  padding: 8px 2px;
+  min-width: 28px;
+  min-height: 72px;
+  padding: 12px 5px;
 }
 
 .table-v2-add-edge-btn:hover {

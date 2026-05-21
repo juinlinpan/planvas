@@ -17,16 +17,62 @@ import {
   getEffectiveRowEdge,
   getTableCellDeleteOperation,
   mergeCells,
+  parseTableData,
   preserveOuterAddColLayout,
   preserveOuterAddRowLayout,
   resizeColGroup,
   resizeRowGroup,
   scaleTableDividerPositions,
+  serializeTableData,
   splitCellHorizontal,
   splitCellVertical,
 } from './tableData';
 
 describe('tableData merge and split semantics', () => {
+  it('keeps table labels optional for legacy data and sanitizes label settings', () => {
+    const unnamed = parseTableData(
+      JSON.stringify({ rows: 1, cols: 1, colWidths: [1], rowHeights: [1] }),
+    );
+    const named = parseTableData(
+      JSON.stringify({
+        rows: 1,
+        cols: 1,
+        name: '  Sprint planning  ',
+        labelFontSize: 17.6,
+        colWidths: [1],
+        rowHeights: [1],
+      }),
+    );
+    const blank = parseTableData(
+      JSON.stringify({
+        rows: 1,
+        cols: 1,
+        name: '   ',
+        colWidths: [1],
+        rowHeights: [1],
+      }),
+    );
+
+    expect(unnamed.name).toBeUndefined();
+    expect(unnamed.labelFontSize).toBeUndefined();
+    expect(named.name).toBe('Sprint planning');
+    expect(named.labelFontSize).toBe(18);
+    expect(blank.name).toBeUndefined();
+    expect(
+      parseTableData(
+        JSON.stringify({
+          rows: 1,
+          cols: 1,
+          labelFontSize: 99,
+          colWidths: [1],
+          rowHeights: [1],
+        }),
+      ).labelFontSize,
+    ).toBe(32);
+    expect(serializeTableData(createTableData())).not.toContain('"name"');
+    expect(serializeTableData(createTableData())).not.toContain('"labelFontSize"');
+  });
+
   it('detects a full-row cell selection as a row delete operation', () => {
     const data = createTableData(3, 3);
     const rowCellIds = data.cells[1]

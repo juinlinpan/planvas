@@ -94,6 +94,37 @@ describe('Table', () => {
     expect(markup).toContain('font-style:italic');
   });
 
+  it('renders a top-left table name label only when a name exists', () => {
+    const namedData = {
+      ...createTableData(),
+      name: 'Roadmap',
+      labelFontSize: 18,
+    };
+    const namedMarkup = renderToStaticMarkup(
+      <Table
+        item={createTableItem({ data_json: serializeTableData(namedData) })}
+        isSelected={false}
+        isEditing={false}
+        onUpdate={() => {}}
+        onEditEnd={() => {}}
+      />,
+    );
+    const unnamedMarkup = renderToStaticMarkup(
+      <Table
+        item={createTableItem()}
+        isSelected={false}
+        isEditing={false}
+        onUpdate={() => {}}
+        onEditEnd={() => {}}
+      />,
+    );
+
+    expect(namedMarkup).toContain('table-v2-name-label');
+    expect(namedMarkup).toContain('Roadmap');
+    expect(namedMarkup).toContain('font-size:18px');
+    expect(unnamedMarkup).not.toContain('table-v2-name-label');
+  });
+
   it('snaps column divider positions to global grid coordinates', () => {
     const item = createTableItem({ x: 10, width: 360 });
 

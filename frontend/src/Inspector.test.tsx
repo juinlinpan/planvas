@@ -177,6 +177,42 @@ describe('Inspector style palette', () => {
     expect(markup).not.toContain('Rows');
     expect(markup).not.toContain('Columns');
   });
+
+  it('renders optional table label editing in the table section', () => {
+    const tableData = {
+      ...createTableData(2, 2),
+      name: 'Sprint board',
+      labelFontSize: 18,
+    };
+    const markup = renderToStaticMarkup(
+      <Inspector
+        item={createBoardItem({
+          category: ITEM_CATEGORY.shape,
+          type: ITEM_TYPE.table,
+          width: 320,
+          height: 160,
+          content: null,
+          content_format: null,
+          data_json: serializeTableData(tableData),
+        })}
+        selectionCount={1}
+        childCount={0}
+        selectedTableCellIds={[]}
+        isCollapsed={false}
+        onUpdate={() => {}}
+        onUpdateTableCells={() => {}}
+        onDelete={() => {}}
+        onToggleInspector={() => {}}
+        onToggleCollapse={() => {}}
+      />,
+    );
+
+    expect(markup).toContain('名子');
+    expect(markup).toContain('value="Sprint board"');
+    expect(markup).toContain('placeholder="不顯示標籤"');
+    expect(markup).toContain('標籤字級');
+    expect(markup).toContain('value="18"');
+  });
   it('shows the markdown filename field for note paper items', () => {
     const markup = renderToStaticMarkup(
       <Inspector
