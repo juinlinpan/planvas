@@ -22,24 +22,29 @@ import {
 } from './api';
 import {
   findFrameDropTarget,
-  findNearestConnectorAnchor,
-  findTableCellDropTarget,
   getFrameChildren,
   getFrameOverlapScore,
-  getItemConnectorAnchors,
-  getLayerBlockIds,
-  normalizeConnectorArrowsToSegments,
-  getPrimarySelectionId,
-  sortItemsByLayer,
-  getUniqueItemIds,
   isFrame,
-  isHiddenByCollapsedFrame,
   isSmallItem,
-  summarizeFrameChild,
-  toPayload,
-  type AnchorHit,
-  type TableCellHit,
-} from './canvasHelpers';
+} from './canvasHelpers/frameLayout';
+import {
+  findNearestConnectorAnchor,
+  getItemConnectorAnchors,
+  normalizeConnectorArrowsToSegments,
+} from './canvasHelpers/connectorAnchors';
+import { findTableCellDropTarget } from './canvasHelpers/tableLayout';
+import {
+  getPrimarySelectionId,
+  getUniqueItemIds,
+  isHiddenByCollapsedFrame,
+} from './canvasHelpers/selection';
+import {
+  getLayerBlockIds,
+  sortItemsByLayer,
+} from './canvasHelpers/layerOrdering';
+import { summarizeFrameChild } from './canvasHelpers/contentSummary';
+import { toPayload } from './canvasHelpers/payloadConversion';
+import type { AnchorHit, TableCellHit } from './canvasHelpers/types';
 import {
   CANVAS_GRID_SIZE,
   VIEWPORT_SAVE_DELAY,

@@ -444,8 +444,8 @@
 
 拆分目標不是單純降低行數，而是讓每個檔案有明確責任邊界，方便人工 review、AI 閱讀、測試定位與後續效能優化。拆分時不得改變既有功能行為；每一階段都必須跑對應測試，並優先保留現有 export API 以降低呼叫端改動。
 
-- [ ] 第一階段：拆分純邏輯檔案，優先處理 `frontend/src/tableData.ts`，依責任拆成 table parsing / mutation / layout / divider helpers，並保留或補齊既有 table tests。
-- [ ] 第一階段：拆分 `frontend/src/canvasHelpers.ts`，依責任拆成 selection、frame layout、connector anchors、layer ordering、payload conversion 等 helper 模組，避免 Canvas 與 mouse handler 讀入過大的混合 helper。
+- [x] 第一階段：拆分純邏輯檔案，優先處理 `frontend/src/tableData.ts`，依責任拆成 table parsing / mutation / layout / divider helpers，並保留或補齊既有 table tests。
+- [x] 第一階段：拆分 `frontend/src/canvasHelpers.ts`，依責任拆成 selection、frame layout、connector anchors、layer ordering、payload conversion 等 helper 模組，避免 Canvas 與 mouse handler 讀入過大的混合 helper。
 - [ ] 第二階段：拆分 `backend/src/repository.ts`，先抽出 Page XML reader / writer、markdown note file handling、project index handling、validation helpers，再保留 `WhiteboardRepository` 作為對 HTTP API 穩定的 facade。
 - [ ] 第二階段：為 backend storage 拆分補強測試，至少涵蓋 project index refresh、Page XML v2 round trip、markdown-backed note rename / propagation、board state replace。
 - [ ] 第三階段：拆分 `frontend/src/Canvas.tsx`，將 canvas ribbon、minimap、context menu、stage/world rendering、board data loading、viewport persistence 分離成 component 或 hook。

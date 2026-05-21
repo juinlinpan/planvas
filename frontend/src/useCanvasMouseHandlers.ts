@@ -4,35 +4,40 @@ import type { BoardItem, ConnectorLink } from './api';
 import {
   clampItemSize,
   clampItemToFrame,
-  detachDraggedSegments,
   findFrameDropTarget,
-  findNearestConnectorAnchor,
-  findTableCellDropTarget,
   fitItemWithinBounds,
-  getAnchorPoint,
-  getDraggableSelectionItemIds,
   getFrameChildFitSize,
   getFrameChildren,
   getFrameContentBounds,
-  getItemsNearPoint,
-  getItemMagnetBounds,
   getPartialFrameExitEjectPosition,
-  getSelectionMagnetBounds,
-  getTableCellBounds,
-  computeCellChildLayout,
-  getUniqueItemIds,
-  isAnchor,
   isFrame,
-  isHiddenByCollapsedFrame,
-  isInlineEditable,
   isItemFullyOutsideFrame,
   isSmallItem,
   relayoutFrameItems,
+} from './canvasHelpers/frameLayout';
+import {
+  detachDraggedSegments,
+  getDraggableSelectionItemIds,
+  getItemMagnetBounds,
+  getSelectionMagnetBounds,
+  getUniqueItemIds,
+  isHiddenByCollapsedFrame,
+  isInlineEditable,
+} from './canvasHelpers/selection';
+import {
+  findNearestConnectorAnchor,
+  getAnchorPoint,
+  getItemsNearPoint,
+  isAnchor,
+} from './canvasHelpers/connectorAnchors';
+import {
+  computeCellChildLayout,
+  findTableCellDropTarget,
+  getTableCellBounds,
   relayoutTableItems,
-  toPayload,
-  type AnchorHit,
-  type TableCellHit,
-} from './canvasHelpers';
+} from './canvasHelpers/tableLayout';
+import { toPayload } from './canvasHelpers/payloadConversion';
+import type { AnchorHit, TableCellHit } from './canvasHelpers/types';
 import {
   CANVAS_GRID_SIZE,
   MIN_ZOOM,

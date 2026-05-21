@@ -16,6 +16,12 @@ Local-first whiteboard planning app built with React, TypeScript, Node.js, and f
 - `backend/`: TypeScript + Node.js local API service
 - `scripts/`: Windows preflight and bootstrap helpers
 
+Frontend pure helper modules are grouped by responsibility. `frontend/src/tableData.ts`
+and `frontend/src/canvasHelpers.ts` remain compatibility barrels, while grouped
+modules under `frontend/src/tableData/` and `frontend/src/canvasHelpers/` expose
+table parsing / mutation / layout / divider helpers and canvas selection / frame
+layout / connector anchor / layer ordering / payload conversion helpers.
+
 ## Prerequisites
 
 Run the Windows preflight check first:

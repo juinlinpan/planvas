@@ -17,15 +17,21 @@ import type { BoardSnapshot } from './boardHistory';
 import { PASTE_OFFSET_STEP, ITEM_SAVE_DELAY } from './canvasConstants';
 import {
   relayoutTableItems,
+} from './canvasHelpers/tableLayout';
+import {
   clampItemSize,
+} from './canvasHelpers/frameLayout';
+import {
   expandSelectionItemIds,
   getPrimarySelectionId,
   getUniqueItemIds,
   isInlineEditable,
+} from './canvasHelpers/selection';
+import {
   reorderItemsForLayer,
   sortItemsForClipboard,
-  toPayload,
-} from './canvasHelpers';
+} from './canvasHelpers/layerOrdering';
+import { toPayload } from './canvasHelpers/payloadConversion';
 import {
   parseBoardItemStyle,
   serializeBoardItemStyle,
@@ -51,7 +57,7 @@ import {
   ITEM_TYPE,
   type ActiveTool,
 } from './types';
-import type { AnchorHit, LayerAction } from './canvasHelpers';
+import type { AnchorHit, LayerAction } from './canvasHelpers/types';
 
 function getNoteFileName(item: BoardItem): string | null {
   if (item.type !== ITEM_TYPE.note_paper || item.data_json === null) {
