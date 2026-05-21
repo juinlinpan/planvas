@@ -1528,15 +1528,18 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                 hoverRoot !== null &&
                 originalCellHit !== null &&
                 hoverRoot.cell.id !== originalCellHit.cell.id;
-              const canAccept = isDifferentCell;
+              const isUnassignedTableChild =
+                hoverRoot !== null && originalCellHit === null;
+              const canAccept = isDifferentCell || isUnassignedTableChild;
 
-              if (canAccept && originalCellHit && hoverRoot) {
-                // Move item from old cell to new cell within the same table
+              if (canAccept && hoverRoot) {
+                // Move item from an old cell, or assign a table-parented orphan
+                // created by paste flows, into the hovered cell.
                 const CELL_INSET = 8;
-                // Remove from old cell
-                const oldRemainingIds = originalCellHit.cell.childItemIds.filter(
-                  (id) => id !== movedItem.id,
-                );
+                const oldRemainingIds =
+                  originalCellHit?.cell.childItemIds.filter(
+                    (id) => id !== movedItem.id,
+                  ) ?? [];
                 const newTargetIds = [...hoverRoot.cell.childItemIds, movedItem.id];
 
                 const updatedTData = {
@@ -1544,7 +1547,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                   cells: tData.cells.map((row) =>
                     row.map((c) => {
                       if (!c) return c;
-                      if (c.id === originalCellHit.cell.id)
+                      if (originalCellHit !== null && c.id === originalCellHit.cell.id)
                         return { ...c, childItemIds: oldRemainingIds };
                       if (c.id === hoverRoot.cell.id)
                         return { ...c, childItemIds: newTargetIds };
@@ -1614,7 +1617,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                 });
 
                 // Relayout remaining items in the old cell
-                if (oldRemainingIds.length > 0) {
+                if (originalCellHit !== null && oldRemainingIds.length > 0) {
                   const oldCellBounds = getTableCellBounds(
                     updatedTableItem,
                     originalCellHit.row,
