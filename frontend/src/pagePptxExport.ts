@@ -47,7 +47,10 @@ async function createPptxInstance() {
   return new module.default();
 }
 
-function toPptxColor(color: string | undefined | null, fallback = 'F8FAFC'): string {
+function toPptxColor(
+  color: string | undefined | null,
+  fallback = 'F8FAFC',
+): string {
   if (!color) {
     return fallback;
   }
@@ -121,7 +124,11 @@ type PptxTextRun = {
  * Handles: h1-h3 (bold + larger), **bold**, *italic*, bullet lists (- / *), plain text.
  * Each logical line becomes its own text run with breakLine:true so the layout matches.
  */
-function markdownToPptxRuns(md: string, baseColor = '334155', baseFontSize = 11): PptxTextRun[] {
+function markdownToPptxRuns(
+  md: string,
+  baseColor = '334155',
+  baseFontSize = 11,
+): PptxTextRun[] {
   const runs: PptxTextRun[] = [];
 
   const lines = md.split('\n');
@@ -140,22 +147,39 @@ function markdownToPptxRuns(md: string, baseColor = '334155', baseFontSize = 11)
     if (h1 || h2 || h3) {
       const level = h1 ? 1 : h2 ? 2 : 3;
       const text = (h1 ?? h2 ?? h3)![1];
-      const fontSize = level === 1 ? baseFontSize + 5 : level === 2 ? baseFontSize + 3 : baseFontSize + 1;
-      runs.push({ text, options: { bold: true, color: '111827', fontSize, breakLine } });
+      const fontSize =
+        level === 1
+          ? baseFontSize + 5
+          : level === 2
+            ? baseFontSize + 3
+            : baseFontSize + 1;
+      runs.push({
+        text,
+        options: { bold: true, color: '111827', fontSize, breakLine },
+      });
     } else if (bullet) {
       const text = bullet[1];
       const inlineRuns = parseInlineMarkdown(text, baseColor, baseFontSize);
       // Prepend bullet character
-      inlineRuns[0] = { text: '• ' + inlineRuns[0].text, options: inlineRuns[0].options };
+      inlineRuns[0] = {
+        text: '• ' + inlineRuns[0].text,
+        options: inlineRuns[0].options,
+      };
       // Only the last inline run of this line gets breakLine
       inlineRuns.forEach((r, ri) => {
-        r.options = { ...r.options, breakLine: ri === inlineRuns.length - 1 ? breakLine : false };
+        r.options = {
+          ...r.options,
+          breakLine: ri === inlineRuns.length - 1 ? breakLine : false,
+        };
       });
       runs.push(...inlineRuns);
     } else {
       const inlineRuns = parseInlineMarkdown(raw, baseColor, baseFontSize);
       inlineRuns.forEach((r, ri) => {
-        r.options = { ...r.options, breakLine: ri === inlineRuns.length - 1 ? breakLine : false };
+        r.options = {
+          ...r.options,
+          breakLine: ri === inlineRuns.length - 1 ? breakLine : false,
+        };
       });
       runs.push(...inlineRuns);
     }
@@ -164,7 +188,11 @@ function markdownToPptxRuns(md: string, baseColor = '334155', baseFontSize = 11)
   return runs.length > 0 ? runs : [{ text: '' }];
 }
 
-function parseInlineMarkdown(text: string, color: string, fontSize: number): PptxTextRun[] {
+function parseInlineMarkdown(
+  text: string,
+  color: string,
+  fontSize: number,
+): PptxTextRun[] {
   // Split on **bold** and *italic* tokens
   const runs: PptxTextRun[] = [];
   const pattern = /(\*\*(.+?)\*\*|\*(.+?)\*)/g;
@@ -173,7 +201,10 @@ function parseInlineMarkdown(text: string, color: string, fontSize: number): Ppt
 
   while ((match = pattern.exec(text)) !== null) {
     if (match.index > lastIndex) {
-      runs.push({ text: text.slice(lastIndex, match.index), options: { color, fontSize } });
+      runs.push({
+        text: text.slice(lastIndex, match.index),
+        options: { color, fontSize },
+      });
     }
     if (match[2] !== undefined) {
       // **bold**
@@ -189,10 +220,16 @@ function parseInlineMarkdown(text: string, color: string, fontSize: number): Ppt
     runs.push({ text: text.slice(lastIndex), options: { color, fontSize } });
   }
 
-  return runs.length > 0 ? runs : [{ text: text, options: { color, fontSize } }];
+  return runs.length > 0
+    ? runs
+    : [{ text: text, options: { color, fontSize } }];
 }
 
-function renderNoteContentSlides(pptx: any, item: BoardItem, index: number): void {
+function renderNoteContentSlides(
+  pptx: any,
+  item: BoardItem,
+  index: number,
+): void {
   if (!item.content || item.content.trim().length === 0) {
     return;
   }
@@ -200,7 +237,14 @@ function renderNoteContentSlides(pptx: any, item: BoardItem, index: number): voi
   const slide = pptx.addSlide();
   slide.background = { color: 'FFFFFF' };
 
-  const heading = item.title?.trim() || item.content.trim().split('\n')[0].replace(/^#+\s*/, '').slice(0, 60) || 'Note';
+  const heading =
+    item.title?.trim() ||
+    item.content
+      .trim()
+      .split('\n')[0]
+      .replace(/^#+\s*/, '')
+      .slice(0, 60) ||
+    'Note';
   const label = `${index}. ${heading}`;
 
   // Slide title
@@ -230,7 +274,11 @@ function renderNoteContentSlides(pptx: any, item: BoardItem, index: number): voi
   });
 }
 
-function renderTableAsNativeTable(slide: any, item: BoardItem, placement: Placement): void {
+function renderTableAsNativeTable(
+  slide: any,
+  item: BoardItem,
+  placement: Placement,
+): void {
   const table = parseTableData(item.data_json);
   const rows: Array<Array<string | Record<string, unknown>>> = [];
 
@@ -268,15 +316,23 @@ function renderTableAsNativeTable(slide: any, item: BoardItem, placement: Placem
       pt: 1,
       color: 'CBD5E1',
     },
-    colW: table.colWidths.map((fraction) => Math.max(fraction * placement.w, 0.08)),
-    rowH: table.rowHeights.map((fraction) => Math.max(fraction * placement.h, 0.08)),
+    colW: table.colWidths.map((fraction) =>
+      Math.max(fraction * placement.w, 0.08),
+    ),
+    rowH: table.rowHeights.map((fraction) =>
+      Math.max(fraction * placement.h, 0.08),
+    ),
     valign: 'middle',
     fontFace: 'Arial',
     fontSize: 12,
   });
 }
 
-function renderFrameAsFooterRect(slide: any, item: BoardItem, placement: Placement): void {
+function renderFrameAsFooterRect(
+  slide: any,
+  item: BoardItem,
+  placement: Placement,
+): void {
   const style = resolveBoardItemStyle(item);
   const frameName = item.title?.trim() || item.content?.trim() || 'frame';
   const footerHeight = Math.max(placement.h * FRAME_FOOTER_RATIO, 0.15);
@@ -312,7 +368,12 @@ function renderFrameAsFooterRect(slide: any, item: BoardItem, placement: Placeme
   });
 }
 
-function truncateText(text: string, width: number, height: number, fontSize: number): string {
+function truncateText(
+  text: string,
+  width: number,
+  height: number,
+  fontSize: number,
+): string {
   // Rough estimation: each character is about 0.5 * fontSize wide, each line is about 1.2 * fontSize high.
   // PPT units are inches. 1 point = 1/72 inch.
   const charWidth = (fontSize * 0.5) / 72;
@@ -328,14 +389,21 @@ function truncateText(text: string, width: number, height: number, fontSize: num
   return text.slice(0, Math.max(0, maxChars - 3)) + '...';
 }
 
-function renderAsTextBox(slide: any, item: BoardItem, placement: Placement): void {
+function renderAsTextBox(
+  slide: any,
+  item: BoardItem,
+  placement: Placement,
+): void {
   const style = resolveBoardItemStyle(item);
   const parsed = parseBoardItemStyle(item.style_json);
   const fontSize = Math.max(Math.min(style.fontSize * 0.7, 24), 9);
   let text = getTextContent(item);
 
   // For note_paper / sticky_note on the main slide, truncate to fit the box
-  if (item.type === ITEM_TYPE.note_paper || item.type === ITEM_TYPE.sticky_note) {
+  if (
+    item.type === ITEM_TYPE.note_paper ||
+    item.type === ITEM_TYPE.sticky_note
+  ) {
     text = truncateText(text, placement.w, placement.h, fontSize);
   }
 
@@ -348,7 +416,9 @@ function renderAsTextBox(slide: any, item: BoardItem, placement: Placement): voi
     fill: {
       color: toPptxColor(
         parsed.backgroundColor,
-        item.type === ITEM_TYPE.text_box ? 'FFFFFF' : toPptxColor(style.backgroundColor),
+        item.type === ITEM_TYPE.text_box
+          ? 'FFFFFF'
+          : toPptxColor(style.backgroundColor),
       ),
       transparency: item.type === ITEM_TYPE.text_box ? 100 : 0,
     },
@@ -367,7 +437,9 @@ function renderAsTextBox(slide: any, item: BoardItem, placement: Placement): voi
   });
 }
 
-export async function exportPageAsPptx(boardData: PageBoardData): Promise<Blob> {
+export async function exportPageAsPptx(
+  boardData: PageBoardData,
+): Promise<Blob> {
   const bounds = getPagePngExportBounds(boardData.board_items);
   if (bounds === null) {
     throw new Error('目前 Page 沒有可匯出的物件。');
@@ -419,7 +491,10 @@ export async function exportPageAsPptx(boardData: PageBoardData): Promise<Blob> 
   // Add detail slides for notes
   let noteIndex = 0;
   for (const item of orderedItems) {
-    if (item.type === ITEM_TYPE.note_paper || item.type === ITEM_TYPE.sticky_note) {
+    if (
+      item.type === ITEM_TYPE.note_paper ||
+      item.type === ITEM_TYPE.sticky_note
+    ) {
       noteIndex += 1;
       renderNoteContentSlides(pptx, item, noteIndex);
     }

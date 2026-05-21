@@ -866,19 +866,14 @@ export function normalizeConnectorArrowsToSegments(
         : {
             itemId: connector.from_item_id,
             anchor:
-              connector.from_anchor ??
-              autoAnchors?.from_anchor ??
-              'right',
+              connector.from_anchor ?? autoAnchors?.from_anchor ?? 'right',
           };
     const endConnection =
       connector.to_item_id === null
         ? null
         : {
             itemId: connector.to_item_id,
-            anchor:
-              connector.to_anchor ??
-              autoAnchors?.to_anchor ??
-              'left',
+            anchor: connector.to_anchor ?? autoAnchors?.to_anchor ?? 'left',
           };
 
     migratedIds.push(item.id);

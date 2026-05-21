@@ -10,7 +10,11 @@
   --ws-tab-browser-bg: var(--project-chrome-bg, #edf4f1);
   --ws-tab-active-bg: var(--ws-content-bg);
   --ws-tab-idle-bg: transparent;
-  --ws-tab-idle-hover-bg: color-mix(in srgb, var(--project-accent, #197377) 9%, transparent);
+  --ws-tab-idle-hover-bg: color-mix(
+    in srgb,
+    var(--project-accent, #197377) 9%,
+    transparent
+  );
   --ws-tab-active-ink: var(--project-ink, #1e293b);
   --ws-tab-muted-ink: var(--project-muted, #64748b);
   --ws-tab-line: var(--project-chrome-line, rgba(22, 50, 56, 0.1));
@@ -215,7 +219,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.12s, background 0.12s;
+  transition:
+    opacity 0.12s,
+    background 0.12s;
 }
 
 .ws-tab:hover .ws-tab-close,
@@ -237,8 +243,12 @@
   background: currentColor;
 }
 
-.ws-tab-close::before { transform: rotate(45deg); }
-.ws-tab-close::after  { transform: rotate(-45deg); }
+.ws-tab-close::before {
+  transform: rotate(45deg);
+}
+.ws-tab-close::after {
+  transform: rotate(-45deg);
+}
 
 /* ?? Content area (canvas / editor) ?? */
 .workspace-content-area {

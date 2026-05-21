@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
+import { monitorEventLoopDelay, performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { buildSettings, type AppSettings } from './settings.js';
 import { getErrorCode, HttpError } from './httpError.js';
@@ -27,6 +28,11 @@ import {
 } from './validation.js';
 
 const devOrigins = new Set(['http://127.0.0.1:5173', 'http://localhost:5173']);
+const slowRequestThresholdMs = 250;
+const eventLoopLagThresholdMs = 250;
+
+let diagnosticsStarted = false;
+let diagnosticsSettings: AppSettings | null = null;
 
 type RouteMatch = {
   params: Record<string, string>;
@@ -55,14 +61,18 @@ export function createRequestHandler(
   settings: AppSettings = buildSettings(),
 ): http.RequestListener {
   initializeStorage(settings);
+  startDiagnostics(settings);
   appendLog(settings, `Backend started with root ${settings.backendRoot}`);
 
   const routes = buildRoutes();
   return async (request, response) => {
+    const startedAt = performance.now();
+    const requestLabel = `${request.method ?? 'UNKNOWN'} ${request.url ?? '/'}`;
     applyCors(request, response);
     if (request.method === 'OPTIONS') {
       response.writeHead(204);
       response.end();
+      logRequestDuration(settings, requestLabel, startedAt, 204);
       return;
     }
 
@@ -70,10 +80,22 @@ export function createRequestHandler(
       const url = new URL(request.url ?? '/', 'http://127.0.0.1');
       if (request.method === 'GET' && url.pathname === '/') {
         serveFrontendIndex(settings, response);
+        logRequestDuration(
+          settings,
+          requestLabel,
+          startedAt,
+          response.statusCode,
+        );
         return;
       }
       if (request.method === 'GET' && url.pathname.startsWith('/assets/')) {
         serveAsset(settings, url.pathname, response);
+        logRequestDuration(
+          settings,
+          requestLabel,
+          startedAt,
+          response.statusCode,
+        );
         return;
       }
 
@@ -94,11 +116,24 @@ export function createRequestHandler(
       if (route.statusCode === 204) {
         response.writeHead(204);
         response.end();
+        logRequestDuration(settings, requestLabel, startedAt, 204);
         return;
       }
       sendJson(response, route.statusCode ?? 200, { data: result });
+      logRequestDuration(
+        settings,
+        requestLabel,
+        startedAt,
+        route.statusCode ?? 200,
+      );
     } catch (error) {
       handleError(settings, request, response, error);
+      logRequestDuration(
+        settings,
+        requestLabel,
+        startedAt,
+        response.statusCode,
+      );
     }
   };
 }
@@ -212,7 +247,8 @@ function buildRoutes(): Route[] {
     },
     {
       method: 'PATCH',
-      pattern: /^\/projects\/(?<projectId>[^/]+)\/notes\/(?<noteFile>[^/]+\.md)$/,
+      pattern:
+        /^\/projects\/(?<projectId>[^/]+)\/notes\/(?<noteFile>[^/]+\.md)$/,
       handler: ({ repository, body }, { params }) => {
         const { content } = validateNoteUpdate(body);
         return repository.updateProjectNote(
@@ -224,7 +260,8 @@ function buildRoutes(): Route[] {
     },
     {
       method: 'PATCH',
-      pattern: /^\/projects\/(?<projectId>[^/]+)\/notes\/(?<noteFile>[^/]+\.md)\/rename$/,
+      pattern:
+        /^\/projects\/(?<projectId>[^/]+)\/notes\/(?<noteFile>[^/]+\.md)\/rename$/,
       handler: ({ repository, body }, { params }) => {
         const { note_file } = validateNoteRename(body);
         return repository.renameProjectNote(
@@ -236,7 +273,8 @@ function buildRoutes(): Route[] {
     },
     {
       method: 'DELETE',
-      pattern: /^\/projects\/(?<projectId>[^/]+)\/notes\/(?<noteFile>[^/]+\.md)$/,
+      pattern:
+        /^\/projects\/(?<projectId>[^/]+)\/notes\/(?<noteFile>[^/]+\.md)$/,
       handler: ({ repository }, { params }) =>
         repository.deleteProjectNote(
           params.projectId,
@@ -600,6 +638,12 @@ function handleError(
     settings,
     `HTTP error ${httpError.statusCode} on ${request.method} ${request.url}: ${httpError.message}`,
   );
+  if (!(error instanceof HttpError)) {
+    appendLog(
+      settings,
+      `Unhandled request error detail: ${errorToLogString(error)}`,
+    );
+  }
   sendJson(response, httpError.statusCode, {
     error: {
       code: getErrorCode(httpError.statusCode),
@@ -607,6 +651,73 @@ function handleError(
       details: httpError.details,
     },
   });
+}
+
+function startDiagnostics(settings: AppSettings): void {
+  diagnosticsSettings = settings;
+  if (diagnosticsStarted) return;
+  diagnosticsStarted = true;
+
+  const delay = monitorEventLoopDelay({ resolution: 20 });
+  delay.enable();
+  const interval = setInterval(() => {
+    const activeSettings = diagnosticsSettings;
+    if (!activeSettings) return;
+    const maxMs = Number(delay.max) / 1_000_000;
+    const meanMs = Number(delay.mean) / 1_000_000;
+    if (maxMs >= eventLoopLagThresholdMs) {
+      appendLog(
+        activeSettings,
+        `Event loop lag detected max=${maxMs.toFixed(1)}ms mean=${meanMs.toFixed(1)}ms`,
+      );
+    }
+    delay.reset();
+  }, 10_000);
+  interval.unref();
+
+  process.on('unhandledRejection', (reason) => {
+    const activeSettings = diagnosticsSettings;
+    if (activeSettings) {
+      appendLog(
+        activeSettings,
+        `Unhandled promise rejection: ${errorToLogString(reason)}`,
+      );
+    }
+    console.error('Unhandled promise rejection:', reason);
+  });
+
+  process.on('uncaughtException', (error) => {
+    const activeSettings = diagnosticsSettings;
+    if (activeSettings) {
+      appendLog(
+        activeSettings,
+        `Uncaught exception: ${errorToLogString(error)}`,
+      );
+    }
+    console.error('Uncaught exception:', error);
+    process.exit(1);
+  });
+}
+
+function logRequestDuration(
+  settings: AppSettings,
+  requestLabel: string,
+  startedAt: number,
+  statusCode: number,
+): void {
+  const durationMs = performance.now() - startedAt;
+  if (durationMs < slowRequestThresholdMs) return;
+  appendLog(
+    settings,
+    `Slow request ${requestLabel} status=${statusCode} duration=${durationMs.toFixed(1)}ms`,
+  );
+}
+
+function errorToLogString(error: unknown): string {
+  if (error instanceof Error) {
+    return error.stack ?? `${error.name}: ${error.message}`;
+  }
+  return String(error);
 }
 
 function applyCors(request: IncomingMessage, response: ServerResponse): void {

@@ -154,6 +154,9 @@ Project content is stored as regular files. By default the backend creates:
 - `backend/logs/app.log`
 - `backend/logs/backend.log`
 
+`backend/logs/app.log` also records backend diagnostics for slow HTTP requests,
+event loop lag, uncaught exceptions, and unhandled promise rejections.
+
 Projects opened from other folders use the same `.pv_project/` data directory
 inside the selected folder, with metadata, page XML files, and markdown note
 files under it. Their paths are tracked in `project.json`.

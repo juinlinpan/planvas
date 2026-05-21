@@ -117,7 +117,11 @@ export function validateNoteUpdate(value: unknown): { content: string } {
   const body = asRecord(value);
   if (typeof body.content !== 'string') {
     throw validationError([
-      { loc: ['body', 'content'], msg: 'content must be a string.', type: 'type_error' },
+      {
+        loc: ['body', 'content'],
+        msg: 'content must be a string.',
+        type: 'type_error',
+      },
     ]);
   }
   return { content: body.content };
@@ -140,13 +144,22 @@ export function validateNoteRename(value: unknown): { note_file: string } {
 
 export function validateImportFromPayload(value: unknown): ImportFromPayload {
   const body = asRecord(value);
-  if (typeof body.source_project_id !== 'string' || !body.source_project_id.trim()) {
+  if (
+    typeof body.source_project_id !== 'string' ||
+    !body.source_project_id.trim()
+  ) {
     throw new HttpError(400, 'source_project_id must be a non-empty string.');
   }
-  if (!Array.isArray(body.page_ids) || !(body.page_ids as unknown[]).every((id) => typeof id === 'string')) {
+  if (
+    !Array.isArray(body.page_ids) ||
+    !(body.page_ids as unknown[]).every((id) => typeof id === 'string')
+  ) {
     throw new HttpError(400, 'page_ids must be an array of strings.');
   }
-  if (!Array.isArray(body.note_files) || !(body.note_files as unknown[]).every((f) => typeof f === 'string')) {
+  if (
+    !Array.isArray(body.note_files) ||
+    !(body.note_files as unknown[]).every((f) => typeof f === 'string')
+  ) {
     throw new HttpError(400, 'note_files must be an array of strings.');
   }
   return {
@@ -226,7 +239,10 @@ export function validateBoardItemPayload(value: unknown): BoardItemBase {
       'body',
       'parent_item_id',
     ]),
-    category: typeof body.category === 'string' && body.category ? body.category : categoryForType(type),
+    category:
+      typeof body.category === 'string' && body.category
+        ? body.category
+        : categoryForType(type),
     type,
     title: optionalString(body.title, ['body', 'title']),
     content: optionalString(body.content, ['body', 'content']),
@@ -274,7 +290,11 @@ export function validateBoardStatePayload(
   }
   return {
     board_items: body.board_items.map((item, index) =>
-      validateBoardItemForBoardState(item, ['body', 'board_items', index], pageId),
+      validateBoardItemForBoardState(
+        item,
+        ['body', 'board_items', index],
+        pageId,
+      ),
     ),
     connector_links: body.connector_links.map((item, index) =>
       validateConnectorLink(item, ['body', 'connector_links', index]),
@@ -292,24 +312,41 @@ function validateBoardItemForBoardState(
   const now = new Date().toISOString();
   return {
     id: requireString(body.id, [...loc, 'id']),
-    page_id: typeof body.page_id === 'string' && body.page_id ? body.page_id : pageId,
-    parent_item_id: optionalString(body.parent_item_id, [...loc, 'parent_item_id']),
-    category: typeof body.category === 'string' && body.category ? body.category : categoryForType(type),
+    page_id:
+      typeof body.page_id === 'string' && body.page_id ? body.page_id : pageId,
+    parent_item_id: optionalString(body.parent_item_id, [
+      ...loc,
+      'parent_item_id',
+    ]),
+    category:
+      typeof body.category === 'string' && body.category
+        ? body.category
+        : categoryForType(type),
     type,
     title: optionalString(body.title, [...loc, 'title']),
     content: optionalString(body.content, [...loc, 'content']),
-    content_format: optionalString(body.content_format, [...loc, 'content_format']),
+    content_format: optionalString(body.content_format, [
+      ...loc,
+      'content_format',
+    ]),
     x: requireNumber(body.x, [...loc, 'x']),
     y: requireNumber(body.y, [...loc, 'y']),
     width: requireNumber(body.width, [...loc, 'width']),
     height: requireNumber(body.height, [...loc, 'height']),
     rotation: requireNumber(body.rotation, [...loc, 'rotation']),
     z_index: requireInteger(body.z_index, [...loc, 'z_index']),
-    is_collapsed: typeof body.is_collapsed === 'boolean' ? body.is_collapsed : false,
+    is_collapsed:
+      typeof body.is_collapsed === 'boolean' ? body.is_collapsed : false,
     style_json: optionalString(body.style_json, [...loc, 'style_json']),
     data_json: optionalString(body.data_json, [...loc, 'data_json']),
-    created_at: typeof body.created_at === 'string' && body.created_at ? body.created_at : now,
-    updated_at: typeof body.updated_at === 'string' && body.updated_at ? body.updated_at : now,
+    created_at:
+      typeof body.created_at === 'string' && body.created_at
+        ? body.created_at
+        : now,
+    updated_at:
+      typeof body.updated_at === 'string' && body.updated_at
+        ? body.updated_at
+        : now,
   };
 }
 

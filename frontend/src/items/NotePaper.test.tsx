@@ -58,7 +58,9 @@ const done = true;
 
     expect(markup).toContain('Sprint Plan');
     expect(markup).toContain('<strong>MVP</strong>');
-    expect(markup).toContain('<code class="markdown-inline-code">healthz</code>');
+    expect(markup).toContain(
+      '<code class="markdown-inline-code">healthz</code>',
+    );
     expect(markup).toContain('<ul class="markdown-list">');
     expect(markup).toContain('<blockquote class="markdown-quote">');
     expect(markup).toContain('<pre class="markdown-code-block">');

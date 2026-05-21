@@ -131,15 +131,14 @@ export function getToolbarDockPosition(
   ).position;
 }
 
-export function Toolbar({
-  activeTool,
-  onToolChange,
-  onTableToolClick,
-}: Props) {
+export function Toolbar({ activeTool, onToolChange, onTableToolClick }: Props) {
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const [position, setPosition] = useState<ToolbarPosition>('left');
-  const [previewPosition, setPreviewPosition] = useState<ToolbarPosition | null>(null);
-  const [dragCoords, setDragCoords] = useState<{ x: number; y: number } | null>(null);
+  const [previewPosition, setPreviewPosition] =
+    useState<ToolbarPosition | null>(null);
+  const [dragCoords, setDragCoords] = useState<{ x: number; y: number } | null>(
+    null,
+  );
   const isDraggingRef = useRef(false);
   const dragOffsetRef = useRef<{ x: number; y: number } | null>(null);
   const pendingPositionRef = useRef<ToolbarPosition>('left');
@@ -160,7 +159,13 @@ export function Toolbar({
     if (!toolbarRef.current) return;
     event.preventDefault();
     const rect = toolbarRef.current.getBoundingClientRect();
-    const parentRect = toolbarRef.current.parentElement?.getBoundingClientRect() ?? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+    const parentRect =
+      toolbarRef.current.parentElement?.getBoundingClientRect() ?? {
+        left: 0,
+        top: 0,
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
 
     dragOffsetRef.current = {
       x: event.clientX - rect.left,
@@ -174,18 +179,32 @@ export function Toolbar({
     toolbarRef.current.setPointerCapture(event.pointerId);
 
     setPreviewPosition(position);
-    setDragCoords({ x: rect.left - parentRect.left, y: rect.top - parentRect.top });
+    setDragCoords({
+      x: rect.left - parentRect.left,
+      y: rect.top - parentRect.top,
+    });
   };
 
   const handlePointerMove = (event: React.PointerEvent) => {
-    if (!isDraggingRef.current || !dragOffsetRef.current || !toolbarRef.current) return;
-    const parentRect = toolbarRef.current.parentElement?.getBoundingClientRect() ?? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+    if (!isDraggingRef.current || !dragOffsetRef.current || !toolbarRef.current)
+      return;
+    const parentRect =
+      toolbarRef.current.parentElement?.getBoundingClientRect() ?? {
+        left: 0,
+        top: 0,
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
 
     const newX = event.clientX - dragOffsetRef.current.x - parentRect.left;
     const newY = event.clientY - dragOffsetRef.current.y - parentRect.top;
     setDragCoords({ x: newX, y: newY });
 
-    const closest = getToolbarDockPosition(event.clientX, event.clientY, parentRect);
+    const closest = getToolbarDockPosition(
+      event.clientX,
+      event.clientY,
+      parentRect,
+    );
     pendingPositionRef.current = closest;
     setPreviewPosition(closest);
   };
@@ -201,8 +220,10 @@ export function Toolbar({
     dragOffsetRef.current = null;
   };
 
-  const activePosition = (isDraggingRef.current && previewPosition) ? previewPosition : position;
-  const showToolbarText = activePosition === 'top' || activePosition === 'bottom';
+  const activePosition =
+    isDraggingRef.current && previewPosition ? previewPosition : position;
+  const showToolbarText =
+    activePosition === 'top' || activePosition === 'bottom';
   const dragStyles: React.CSSProperties = dragCoords
     ? {
         top: dragCoords.y,
@@ -260,7 +281,9 @@ export function Toolbar({
               }}
             >
               <span className="tool-icon">{tool.icon}</span>
-              {showToolbarText ? <span className="tool-label">{tool.label}</span> : null}
+              {showToolbarText ? (
+                <span className="tool-label">{tool.label}</span>
+              ) : null}
             </button>
           ))}
         </div>

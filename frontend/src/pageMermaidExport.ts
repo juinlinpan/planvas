@@ -69,7 +69,11 @@ function getItemLabel(item: BoardItem): string {
   const t = item.title?.trim();
   if (t) return t;
   const c = item.content?.trim();
-  if (c) return c.split('\n')[0].replace(/^#+\s*/, '').trim();
+  if (c)
+    return c
+      .split('\n')[0]
+      .replace(/^#+\s*/, '')
+      .trim();
   return item.type;
 }
 
@@ -162,7 +166,9 @@ export function exportPageAsMarkdown(boardData: PageBoardData): string {
   // Legacy connector_links
   for (const link of connector_links) {
     if (link.from_item_id && link.to_item_id) {
-      const arrowItem = board_items.find((i) => i.id === link.connector_item_id);
+      const arrowItem = board_items.find(
+        (i) => i.id === link.connector_item_id,
+      );
       addEdge(
         link.from_item_id,
         link.to_item_id,

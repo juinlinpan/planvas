@@ -36,6 +36,11 @@ On startup the service creates any missing `.planvas`, `project_store`, and
 `logs/` directories and fails fast if the configured roots or files are not
 writable.
 
+Runtime diagnostics are written to `<backend_root>/logs/app.log`. The backend
+records slow HTTP requests, event loop lag, uncaught exceptions, and unhandled
+promise rejections so local stalls and backend exits can be diagnosed from the
+log after a run.
+
 `POST /projects` creates new projects under `project_store`. `POST
 /projects/open-dialog` opens the Windows native folder picker and registers the
 selected path, creating `.pv_project/` and `.pv_project/metadata.json` only when

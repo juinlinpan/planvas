@@ -45,7 +45,7 @@ import {
   MAGNET_TOLERANCE,
   CONNECTOR_SNAP_THRESHOLD,
 } from './canvasConstants';
-import { deleteConnector, updateBoardItem } from './api';
+import { deleteConnector, replacePageBoardState, updateBoardItem } from './api';
 import {
   persistItems,
   syncConnectorAnchorsForItems,
@@ -97,7 +97,12 @@ import {
   getRootCellAt,
   TABLE_MAX_DIMENSION,
 } from './tableData';
-import { ITEM_DEFAULT_SIZE, ITEM_TYPE, type ActiveTool, type Viewport } from './types';
+import {
+  ITEM_DEFAULT_SIZE,
+  ITEM_TYPE,
+  type ActiveTool,
+  type Viewport,
+} from './types';
 import {
   getTableInsertCanvasDimensions,
   getTableInsertCanvasSize,
@@ -147,6 +152,8 @@ function isScrollableWheelTarget(
 }
 
 export type UseCanvasMouseHandlersParams = {
+  pageId: string;
+
   // Current state values (re-captured every render)
   magnetEnabled: boolean;
   activeTool: ActiveTool;
@@ -197,7 +204,9 @@ export type UseCanvasMouseHandlersParams = {
   // Selection / editing
   setSelection: (ids: string[]) => void;
   setEditingId: (id: string | null) => void;
-  setSegmentDraft: React.Dispatch<React.SetStateAction<SegmentDraftState | null>>;
+  setSegmentDraft: React.Dispatch<
+    React.SetStateAction<SegmentDraftState | null>
+  >;
   setActiveTool: (tool: ActiveTool) => void;
 
   // History
@@ -215,7 +224,10 @@ export type UseCanvasMouseHandlersParams = {
     dataJson?: string | null;
   }) => Promise<void>;
   handleCreateSegmentItem: (draft: SegmentDraftState) => Promise<void>;
-  triggerFrameItemAnimation: (itemIds: string[], type: 'ingest' | 'eject') => void;
+  triggerFrameItemAnimation: (
+    itemIds: string[],
+    type: 'ingest' | 'eject',
+  ) => void;
 
   // Helpers (stable callbacks from Canvas)
   clearSelection: () => void;
@@ -226,6 +238,7 @@ export type UseCanvasMouseHandlersParams = {
 
 export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
   const {
+    pageId,
     magnetEnabled,
     activeTool,
     segmentDraft,
@@ -409,7 +422,8 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     e: React.MouseEvent,
     options: { preventDefault?: boolean } = {},
   ) {
-    const shouldStartPan = e.button === 1 || (e.button === 0 && isSpaceRef.current);
+    const shouldStartPan =
+      e.button === 1 || (e.button === 0 && isSpaceRef.current);
     if (!shouldStartPan) {
       return false;
     }
@@ -464,7 +478,9 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     const currentSelection = selectedIdsRef.current;
     if (isModifierSelection) {
       if (currentSelection.includes(itemId)) {
-        setSelection(currentSelection.filter((currentId) => currentId !== itemId));
+        setSelection(
+          currentSelection.filter((currentId) => currentId !== itemId),
+        );
         if (editingId === itemId) {
           setEditingId(null);
         }
@@ -498,7 +514,8 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
 
     // Segment items (line/arrow) cannot be moved by dragging the body —
     // only endpoints and waypoints are draggable.
-    const isSegmentItem = item.type === ITEM_TYPE.line || item.type === ITEM_TYPE.arrow;
+    const isSegmentItem =
+      item.type === ITEM_TYPE.line || item.type === ITEM_TYPE.arrow;
     if (isSegmentItem && !canTranslateSegmentItem(item)) {
       return;
     }
@@ -520,7 +537,10 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
             ? null
             : { id: selectedItem.id, x: selectedItem.x, y: selectedItem.y };
         })
-        .filter((entry): entry is { id: string; x: number; y: number } => entry !== null),
+        .filter(
+          (entry): entry is { id: string; x: number; y: number } =>
+            entry !== null,
+        ),
       snapshot: captureBoardSnapshot(),
       detachedConnectorIds: [],
       hasDetachedSegments: false,
@@ -657,7 +677,8 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
         return;
       }
 
-      const left = Math.min(marqueeSelection.startClientX, e.clientX) - rect.left;
+      const left =
+        Math.min(marqueeSelection.startClientX, e.clientX) - rect.left;
       const top = Math.min(marqueeSelection.startClientY, e.clientY) - rect.top;
       const width = Math.abs(e.clientX - marqueeSelection.startClientX);
       const height = Math.abs(e.clientY - marqueeSelection.startClientY);
@@ -688,7 +709,10 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
         .map((item) => item.id);
       setSelection(
         marqueeSelection.appendToSelection
-          ? getUniqueItemIds([...marqueeSelection.baseSelectionIds, ...enclosedIds])
+          ? getUniqueItemIds([
+              ...marqueeSelection.baseSelectionIds,
+              ...enclosedIds,
+            ])
           : enclosedIds,
       );
       return;
@@ -835,7 +859,9 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
       setActiveAnchorHit(anchorHit);
 
       setSegmentDraft((current) =>
-        current === null ? null : { ...current, end: nextPoint, endConnection: nextConn },
+        current === null
+          ? null
+          : { ...current, end: nextPoint, endConnection: nextConn },
       );
       return;
     }
@@ -956,7 +982,8 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                 : { id: selectedItem.id, x: selectedItem.x, y: selectedItem.y };
             })
             .filter(
-              (entry): entry is { id: string; x: number; y: number } => entry !== null,
+              (entry): entry is { id: string; x: number; y: number } =>
+                entry !== null,
             );
         }
       }
@@ -999,7 +1026,11 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
         let nextItems = current.map((item) => {
           const itemStart = itemStartMap.get(item.id);
           if (itemStart) {
-            return { ...item, x: itemStart.x + offsetX, y: itemStart.y + offsetY };
+            return {
+              ...item,
+              x: itemStart.x + offsetX,
+              y: itemStart.y + offsetY,
+            };
           }
 
           return item;
@@ -1052,7 +1083,9 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
             if (target) {
               newEnd = getAnchorPoint(
                 target,
-                isAnchor(conns.endConnection.anchor) ? conns.endConnection.anchor : null,
+                isAnchor(conns.endConnection.anchor)
+                  ? conns.endConnection.anchor
+                  : null,
               );
             }
           }
@@ -1132,7 +1165,6 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
       });
       return;
     }
-
   }
 
   function handleMouseUp(e?: React.MouseEvent) {
@@ -1213,8 +1245,11 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
         }
 
         if (shouldDelete && worldPts !== null) {
-          const { startConnection, endConnection } = getSegmentConnections(item);
-          const newWaypoints = waypoints.filter((_, i) => i !== waypointDrag.waypointIndex);
+          const { startConnection, endConnection } =
+            getSegmentConnections(item);
+          const newWaypoints = waypoints.filter(
+            (_, i) => i !== waypointDrag.waypointIndex,
+          );
           const newWorldWaypoints = newWaypoints.map((w) => ({
             x: item.x + w.x,
             y: item.y + w.y,
@@ -1261,10 +1296,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
       let finalEndConn = pendingSegmentDraft.endConnection;
       if (e !== undefined) {
         const rawEnd = screenToWorld(e.clientX, e.clientY);
-        const snappedEnd = getSnappedPoint(
-          rawEnd,
-          magnetEnabled && !e.altKey,
-        );
+        const snappedEnd = getSnappedPoint(rawEnd, magnetEnabled && !e.altKey);
         const excludeIds = new Set<string>();
         if (pendingSegmentDraft.startConnection) {
           excludeIds.add(pendingSegmentDraft.startConnection.itemId);
@@ -1327,9 +1359,19 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
           }
         }
 
-        persistItems(nextItems.filter((candidate) => changedIds.has(candidate.id)));
-        syncConnectorAnchorsForItems([...changedIds], itemsRef, setConnectorsAndSync);
-        syncSegmentConnectionsForItems([...changedIds], itemsRef, setItemsAndSync);
+        persistItems(
+          nextItems.filter((candidate) => changedIds.has(candidate.id)),
+        );
+        syncConnectorAnchorsForItems(
+          [...changedIds],
+          itemsRef,
+          setConnectorsAndSync,
+        );
+        syncSegmentConnectionsForItems(
+          [...changedIds],
+          itemsRef,
+          setItemsAndSync,
+        );
       }
       recordHistoryCheckpoint(resize.snapshot);
     }
@@ -1370,7 +1412,8 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
         const previousParent =
           movedItem.parent_item_id === null
             ? null
-            : nextItems.find((item) => item.id === movedItem.parent_item_id) ?? null;
+            : (nextItems.find((item) => item.id === movedItem.parent_item_id) ??
+              null);
         const targetFrame = findFrameDropTarget(movedItem, nextItems);
 
         let nextParentId = movedItem.parent_item_id;
@@ -1388,7 +1431,11 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                   getFrameContentBounds(targetFrame).height,
                 )
               : getFrameChildFitSize(movedItem, targetFrame);
-          const clampedPosition = clampItemToFrame(movedItem, targetFrame, fittedSize);
+          const clampedPosition = clampItemToFrame(
+            movedItem,
+            targetFrame,
+            fittedSize,
+          );
 
           nextParentId = targetFrame.id;
           nextWidth = fittedSize.width;
@@ -1490,7 +1537,10 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
             } else {
               // Still within table — check if center moved to a different cell
               const tData = parseTableData(previousParent.data_json);
-              const originalCellHit = findCellByChildItemId(tData, movedItem.id);
+              const originalCellHit = findCellByChildItemId(
+                tData,
+                movedItem.id,
+              );
 
               // Determine which cell the center is hovering over now
               const itemCenterX = movedItem.x + movedItem.width / 2;
@@ -1512,7 +1562,8 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
               let cumY = 0;
               for (let r = 0; r < tData.rows; r++) {
                 const rowH =
-                  (tData.rowHeights[r] ?? 1 / tData.rows) * previousParent.height;
+                  (tData.rowHeights[r] ?? 1 / tData.rows) *
+                  previousParent.height;
                 if (localY >= cumY && localY < cumY + rowH) {
                   hoverRow = r;
                   break;
@@ -1540,14 +1591,20 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                   originalCellHit?.cell.childItemIds.filter(
                     (id) => id !== movedItem.id,
                   ) ?? [];
-                const newTargetIds = [...hoverRoot.cell.childItemIds, movedItem.id];
+                const newTargetIds = [
+                  ...hoverRoot.cell.childItemIds,
+                  movedItem.id,
+                ];
 
                 const updatedTData = {
                   ...tData,
                   cells: tData.cells.map((row) =>
                     row.map((c) => {
                       if (!c) return c;
-                      if (originalCellHit !== null && c.id === originalCellHit.cell.id)
+                      if (
+                        originalCellHit !== null &&
+                        c.id === originalCellHit.cell.id
+                      )
                         return { ...c, childItemIds: oldRemainingIds };
                       if (c.id === hoverRoot.cell.id)
                         return { ...c, childItemIds: newTargetIds };
@@ -1660,7 +1717,9 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                   originalCellHit.cell.rowSpan,
                   originalCellHit.cell.colSpan,
                 );
-                const myIndex = originalCellHit.cell.childItemIds.indexOf(movedItem.id);
+                const myIndex = originalCellHit.cell.childItemIds.indexOf(
+                  movedItem.id,
+                );
                 const myLayout = computeCellChildLayout(
                   cellBounds,
                   Math.max(0, myIndex),
@@ -1683,14 +1742,17 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
 
         const parentChanged = nextParentId !== movedItem.parent_item_id;
         const positionChanged = nextX !== movedItem.x || nextY !== movedItem.y;
-        const sizeChanged = nextWidth !== movedItem.width || nextHeight !== movedItem.height;
+        const sizeChanged =
+          nextWidth !== movedItem.width || nextHeight !== movedItem.height;
 
         if (!parentChanged && !positionChanged && !sizeChanged) {
           continue;
         }
 
         if (movedItem.parent_item_id !== null) {
-          const prevParent = nextItems.find((it) => it.id === movedItem.parent_item_id);
+          const prevParent = nextItems.find(
+            (it) => it.id === movedItem.parent_item_id,
+          );
           if (!prevParent || isFrame(prevParent)) {
             frameIdsToRelayout.add(movedItem.parent_item_id);
           }
@@ -1726,7 +1788,9 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
         );
       }
 
-      const relayoutResult = relayoutFrameItems(nextItems, [...frameIdsToRelayout]);
+      const relayoutResult = relayoutFrameItems(nextItems, [
+        ...frameIdsToRelayout,
+      ]);
       nextItems = relayoutResult.items;
       for (const changedId of relayoutResult.changedIds) {
         changedIds.add(changedId);
@@ -1739,13 +1803,23 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
       persistItems(nextItems.filter((item) => changedIds.has(item.id)));
       if (drag.detachedConnectorIds.length > 0) {
         void Promise.all(
-          drag.detachedConnectorIds.map((connectorId) => deleteConnector(connectorId)),
+          drag.detachedConnectorIds.map((connectorId) =>
+            deleteConnector(connectorId),
+          ),
         ).catch((err) => {
           console.error('[Canvas] Failed to delete detached connectors', err);
         });
       }
-      syncConnectorAnchorsForItems([...changedIds], itemsRef, setConnectorsAndSync);
-      syncSegmentConnectionsForItems([...changedIds], itemsRef, setItemsAndSync);
+      syncConnectorAnchorsForItems(
+        [...changedIds],
+        itemsRef,
+        setConnectorsAndSync,
+      );
+      syncSegmentConnectionsForItems(
+        [...changedIds],
+        itemsRef,
+        setItemsAndSync,
+      );
       triggerFrameItemAnimation(ingestedItemIds, 'ingest');
       triggerFrameItemAnimation(ejectedItemIds, 'eject');
       // ── Table cell absorption ─────────────────────────────────────────
@@ -1755,7 +1829,9 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
         if (drag.selectedItemIds.length !== 1) return null;
         const draggedItemId = drag.selectedItemIds[0];
         if (!draggedItemId) return null;
-        const draggedItem = nextItems.find((candidate) => candidate.id === draggedItemId);
+        const draggedItem = nextItems.find(
+          (candidate) => candidate.id === draggedItemId,
+        );
         if (!draggedItem || !isSmallItem(draggedItem)) return null;
         // Items already parented to a table/frame were handled above — skip re-absorption.
         if (draggedItem.parent_item_id !== null) return null;
@@ -1766,11 +1842,15 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
         const absorbedItemId = drag.selectedItemIds[0];
         if (!absorbedItemId) return;
         const absorbedItem = nextItems.find((it) => it.id === absorbedItemId);
-        const tableItem = nextItems.find((it) => it.id === tableCellHit.tableId);
+        const tableItem = nextItems.find(
+          (it) => it.id === tableCellHit.tableId,
+        );
 
         if (absorbedItem && tableItem) {
           const tableData = parseTableData(tableItem.data_json);
-          const cell = tableData.cells.flat().find((c) => c?.id === tableCellHit.cellId);
+          const cell = tableData.cells
+            .flat()
+            .find((c) => c?.id === tableCellHit.cellId);
           const rowSpan = cell?.rowSpan ?? 1;
           const colSpan = cell?.colSpan ?? 1;
           const existingChildIds = cell?.childItemIds ?? [];
@@ -1785,9 +1865,13 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
           );
 
           const newChildIds = [...existingChildIds, absorbedItemId];
-          const nextTableData = updateTableCell(tableData, tableCellHit.cellId, {
-            childItemIds: newChildIds,
-          });
+          const nextTableData = updateTableCell(
+            tableData,
+            tableCellHit.cellId,
+            {
+              childItemIds: newChildIds,
+            },
+          );
           const updatedTableItem = {
             ...tableItem,
             data_json: serializeTableData(nextTableData),
@@ -1807,7 +1891,10 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
             CELL_INSET,
             getEffectiveTableCellChildLayoutDirection(
               nextTableData,
-              cell ?? { childLayoutDirection: undefined, childLayoutUpdatedAt: undefined },
+              cell ?? {
+                childLayoutDirection: undefined,
+                childLayoutUpdatedAt: undefined,
+              },
             ),
           );
           const updatedAbsorbedItem = {
@@ -1836,7 +1923,10 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                 CELL_INSET,
                 getEffectiveTableCellChildLayoutDirection(
                   nextTableData,
-                  cell ?? { childLayoutDirection: undefined, childLayoutUpdatedAt: undefined },
+                  cell ?? {
+                    childLayoutDirection: undefined,
+                    childLayoutUpdatedAt: undefined,
+                  },
                 ),
               );
               nextItems = nextItems.map((it) =>
@@ -1856,13 +1946,35 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
 
           setItemsAndSync(nextItems);
 
-          // Persist all changed items
-          const itemsToPersist = [tableCellHit.tableId, absorbedItemId, ...existingChildIds];
-          for (const itemId of itemsToPersist) {
-            const latestItem = nextItems.find((it) => it.id === itemId);
+          // Persist the table absorption as one board-state write. Persisting
+          // each touched item separately makes the backend rewrite the same
+          // Page XML multiple times in quick succession.
+          const itemsToPersist = [
+            tableCellHit.tableId,
+            absorbedItemId,
+            ...existingChildIds,
+          ];
+          if (itemsToPersist.length > 1) {
+            void replacePageBoardState(pageId, {
+              board_items: nextItems,
+              connector_links: connectorsRef.current,
+            }).catch((err) =>
+              console.error(
+                '[Canvas] Failed to update items after absorb',
+                err,
+              ),
+            );
+          } else {
+            const latestItem = nextItems.find(
+              (it) => it.id === tableCellHit.tableId,
+            );
             if (latestItem) {
-              void updateBoardItem(itemId, toPayload(latestItem)).catch((err) =>
-                console.error('[Canvas] Failed to update item after absorb', err),
+              void updateBoardItem(latestItem.id, toPayload(latestItem)).catch(
+                (err) =>
+                  console.error(
+                    '[Canvas] Failed to update item after absorb',
+                    err,
+                  ),
               );
             }
           }

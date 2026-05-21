@@ -8,4 +8,3 @@ export {
   sanitizeTableName,
   serializeTableData,
 } from './core';
-

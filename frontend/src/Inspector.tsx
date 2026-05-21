@@ -317,7 +317,9 @@ export function Inspector({
           <div className="inspector-title-row">
             <div>
               <h3>{selectionCount} selected</h3>
-              <p className="inspector-meta">Multi-select editing is limited to delete and layer actions.</p>
+              <p className="inspector-meta">
+                Multi-select editing is limited to delete and layer actions.
+              </p>
             </div>
             <button className="ghost-button danger-button" onClick={onDelete}>
               Delete
@@ -327,7 +329,8 @@ export function Inspector({
           <section className="inspector-section">
             <p className="meta-label">Primary Selection</p>
             <p className="inspector-meta">
-              {ITEM_TYPE_LABEL[item.type as keyof typeof ITEM_TYPE_LABEL] ?? item.type}
+              {ITEM_TYPE_LABEL[item.type as keyof typeof ITEM_TYPE_LABEL] ??
+                item.type}
             </p>
           </section>
         </div>
@@ -345,7 +348,10 @@ export function Inspector({
   const supportsTextStyling = !isArrow && !isLine;
   const supportsLineStyling = isLine || isArrow;
   const tableData = isTable ? parseTableData(selectedItem.data_json) : null;
-  const resolvedStyle = resolveBoardItemStyle(selectedItem, projectDefaultStyle);
+  const resolvedStyle = resolveBoardItemStyle(
+    selectedItem,
+    projectDefaultStyle,
+  );
   const parsedStyle = parseBoardItemStyle(selectedItem.style_json);
   const segmentTextBackgroundColor =
     parsedStyle.backgroundColor ?? 'transparent';
@@ -599,7 +605,7 @@ export function Inspector({
                 selectedItem.type as keyof typeof ITEM_TYPE_LABEL
               ] ?? selectedItem.type}
             </h3>
-                        <p className="inspector-meta">
+            <p className="inspector-meta">
               {isSegmentItem
                 ? 'Segment connector with editable endpoints and bends.'
                 : summarizeContent(selectedItem)}
@@ -671,9 +677,7 @@ export function Inspector({
         {isTable && tableData !== null ? (
           <section className="inspector-section">
             <p className="meta-label">Table</p>
-            <p className="inspector-meta">
-              {summarizeContent(selectedItem)}
-            </p>
+            <p className="inspector-meta">{summarizeContent(selectedItem)}</p>
             <label className="inspector-field">
               名子
               <input
@@ -697,9 +701,7 @@ export function Inspector({
                 }`}
                 min={TABLE_LABEL_FONT_SIZE_MIN}
                 max={TABLE_LABEL_FONT_SIZE_MAX}
-                value={
-                  tableData.labelFontSize ?? DEFAULT_TABLE_LABEL_FONT_SIZE
-                }
+                value={tableData.labelFontSize ?? DEFAULT_TABLE_LABEL_FONT_SIZE}
                 onCommit={handleTableLabelFontSizeChange}
               />
             </label>
@@ -1050,7 +1052,7 @@ export function Inspector({
                 </div>
               </>
             ) : null}
-                        <p className="inspector-meta">
+            <p className="inspector-meta">
               {isSegmentItem
                 ? 'Segment connector with editable endpoints and bends.'
                 : summarizeContent(selectedItem)}
@@ -1133,9 +1135,7 @@ export function Inspector({
                     min={8}
                     max={40}
                     defaultValue={resolvedStyle.arrowHeadSize}
-                    onBlur={(e) =>
-                      handleArrowHeadSizeCommit(e.target.value)
-                    }
+                    onBlur={(e) => handleArrowHeadSizeCommit(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.currentTarget.blur();
@@ -1145,7 +1145,7 @@ export function Inspector({
                 </label>
               ) : null}
             </div>
-                        <p className="inspector-meta">
+            <p className="inspector-meta">
               {isSegmentItem
                 ? 'Segment connector with editable endpoints and bends.'
                 : summarizeContent(selectedItem)}
@@ -1153,7 +1153,7 @@ export function Inspector({
           </section>
         ) : null}
 
-        {(isLine || isArrow) ? (
+        {isLine || isArrow ? (
           <section className="inspector-section">
             <div className="inspector-title-row">
               <p className="meta-label">Label Text</p>

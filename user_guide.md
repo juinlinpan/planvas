@@ -51,9 +51,11 @@ http://127.0.0.1:5173
 ```
 
 > 如果啟動失敗、提示 port 被佔用，先執行：
+>
 > ```powershell
 > npm run dev:stop
 > ```
+>
 > 再重新 `npm run dev`。
 
 ---
@@ -100,15 +102,15 @@ http://127.0.0.1:18000
 
 ### 白板物件
 
-| 物件類型 | 說明 |
-|---|---|
-| `text_box` | 文字方塊 |
-| `sticky_note` | 便利貼 |
-| `note_paper` | Markdown 筆記（對應一個 `.md` 檔） |
-| `frame` | 容器框，可收合展開，可容納 small_item |
-| `line` | 線條 |
-| `table` | 表格 |
-| `arrow` | 箭頭連接器，可連結任何物件 |
+| 物件類型      | 說明                                  |
+| ------------- | ------------------------------------- |
+| `text_box`    | 文字方塊                              |
+| `sticky_note` | 便利貼                                |
+| `note_paper`  | Markdown 筆記（對應一個 `.md` 檔）    |
+| `frame`       | 容器框，可收合展開，可容納 small_item |
+| `line`        | 線條                                  |
+| `table`       | 表格                                  |
+| `arrow`       | 箭頭連接器，可連結任何物件            |
 
 ### Frame 收合行為
 
@@ -131,12 +133,12 @@ Frame 收合後，其中的物件顯示如下：
 
 在工作區頂部 header 可操作：
 
-| 功能 | 說明 |
-|---|---|
-| **Export JSON** | 匯出目前頁面為 `.whiteboard-page.json` |
+| 功能            | 說明                                                        |
+| --------------- | ----------------------------------------------------------- |
+| **Export JSON** | 匯出目前頁面為 `.whiteboard-page.json`                      |
 | **Import JSON** | 將 `.whiteboard-page.json` 匯入目前頁面（疊加模式，不覆蓋） |
-| **Export PNG** | 匯出目前頁面為 `.png` 圖片（自動裁切至有內容區域） |
-| **Export PPTX** | 匯出目前頁面為 `.pptx` 簡報（單張投影片） |
+| **Export PNG**  | 匯出目前頁面為 `.png` 圖片（自動裁切至有內容區域）          |
+| **Export PPTX** | 匯出目前頁面為 `.pptx` 簡報（單張投影片）                   |
 
 ---
 
@@ -197,6 +199,7 @@ npm run backup
 
 **Q：想驗證安裝是否正常**
 執行 smoke test：
+
 ```powershell
 npm run smoke
 ```

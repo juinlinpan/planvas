@@ -10,6 +10,7 @@ import {
 import { createPortal } from 'react-dom';
 import {
   type BoardItem,
+  type BoardItemPayload,
   type ConnectorLink,
   createBoardItem,
   deleteBoardItem,
@@ -134,10 +135,7 @@ import {
   getResetZoom,
   zoomViewportAroundPoint,
 } from './viewport';
-import {
-  parseProjectDefaultStyle,
-  resolveBoardItemStyle,
-} from './itemStyles';
+import { parseProjectDefaultStyle, resolveBoardItemStyle } from './itemStyles';
 import { getMinimapLayout, worldToMinimap } from './minimap';
 import { syncMarkdownBackedItems } from './noteSync';
 
@@ -166,8 +164,7 @@ type TableInspectorSelection = {
   cellIds: string[];
 };
 
-const INSPECTOR_COLLAPSED_STORAGE_KEY =
-  'whiteboard.canvasInspectorCollapsed';
+const INSPECTOR_COLLAPSED_STORAGE_KEY = 'whiteboard.canvasInspectorCollapsed';
 const RESET_ZOOM_STORAGE_KEY = 'whiteboard.resetZoomTarget';
 
 function readStoredBoolean(key: string, fallbackValue: boolean): boolean {
@@ -201,6 +198,25 @@ function readStoredNumber(key: string, fallbackValue: number): number {
   return Number.isFinite(storedValue) ? storedValue : fallbackValue;
 }
 
+function createOptimisticId(): string {
+  return `optimistic-${globalThis.crypto?.randomUUID?.() ?? Date.now().toString(36)}`;
+}
+
+function createOptimisticItem(
+  payload: BoardItemPayload,
+  contentOverride?: string | null,
+): BoardItem {
+  const timestamp = new Date().toISOString();
+  return {
+    ...payload,
+    id: createOptimisticId(),
+    content:
+      contentOverride !== undefined ? contentOverride : payload.content,
+    created_at: timestamp,
+    updated_at: timestamp,
+  };
+}
+
 export function resolveSidebarNoteDragFile(
   projectNotes: ProjectNote[],
   draggedProjectNoteFile: string | null,
@@ -215,9 +231,7 @@ export function resolveSidebarNoteDragFile(
     }
   }
 
-  return projectNotes.some(
-    (note) => note.note_file === draggedProjectNoteFile,
-  )
+  return projectNotes.some((note) => note.note_file === draggedProjectNoteFile)
     ? draggedProjectNoteFile
     : null;
 }
@@ -264,22 +278,38 @@ export function Canvas({
   const [segmentDraft, setSegmentDraft] = useState<SegmentDraftState | null>(
     null,
   );
-  const [anchorIndicatorItems, setAnchorIndicatorItems] = useState<BoardItem[]>([]);
-  const [activeAnchorHit, setActiveAnchorHit] = useState<AnchorHit | null>(null);
-  const [deletingWaypointInfo, setDeletingWaypointInfo] = useState<{ itemId: string; waypointIndex: number } | null>(null);
-  const [activeFrameDropTargetId, setActiveFrameDropTargetId] = useState<string | null>(null);
-  const [activeTableDropTarget, setActiveTableDropTarget] = useState<TableCellHit | null>(null);
-  const [tableInsertPreview, setTableInsertPreview] = useState<TableInsertPreviewState | null>(null);
-  const [toolbarTableInsertPreview, setToolbarTableInsertPreview] = useState<TableInsertPreviewState | null>(null);
+  const [anchorIndicatorItems, setAnchorIndicatorItems] = useState<BoardItem[]>(
+    [],
+  );
+  const [activeAnchorHit, setActiveAnchorHit] = useState<AnchorHit | null>(
+    null,
+  );
+  const [deletingWaypointInfo, setDeletingWaypointInfo] = useState<{
+    itemId: string;
+    waypointIndex: number;
+  } | null>(null);
+  const [activeFrameDropTargetId, setActiveFrameDropTargetId] = useState<
+    string | null
+  >(null);
+  const [activeTableDropTarget, setActiveTableDropTarget] =
+    useState<TableCellHit | null>(null);
+  const [tableInsertPreview, setTableInsertPreview] =
+    useState<TableInsertPreviewState | null>(null);
+  const [toolbarTableInsertPreview, setToolbarTableInsertPreview] =
+    useState<TableInsertPreviewState | null>(null);
   const [tableInspectorSelection, setTableInspectorSelection] =
     useState<TableInspectorSelection | null>(null);
-  const [tableCellSelectionResetKey, setTableCellSelectionResetKey] = useState(0);
-  const [marqueeSelection, setMarqueeSelection] = useState<MarqueeSelectionState | null>(null);
+  const [tableCellSelectionResetKey, setTableCellSelectionResetKey] =
+    useState(0);
+  const [marqueeSelection, setMarqueeSelection] =
+    useState<MarqueeSelectionState | null>(null);
   const [containerSize, setContainerSize] = useState({ width: 1, height: 1 });
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(() =>
     readStoredBoolean(INSPECTOR_COLLAPSED_STORAGE_KEY, false),
   );
-  const [contextMenu, setContextMenu] = useState<CanvasContextMenuState | null>(null);
+  const [contextMenu, setContextMenu] = useState<CanvasContextMenuState | null>(
+    null,
+  );
   const [utilityMenuOpen, setUtilityMenuOpen] = useState<UtilityMenuId>(null);
   const [isExportSubmenuOpen, setIsExportSubmenuOpen] = useState(false);
   const [isImportSubmenuOpen, setIsImportSubmenuOpen] = useState(false);
@@ -368,7 +398,9 @@ export function Canvas({
     let nextTableHit: TableCellHit | null = null;
 
     for (const draggedItemId of drag.selectedItemIds) {
-      const draggedItem = items.find((candidate) => candidate.id === draggedItemId);
+      const draggedItem = items.find(
+        (candidate) => candidate.id === draggedItemId,
+      );
       if (!draggedItem || !isSmallItem(draggedItem)) {
         continue;
       }
@@ -592,10 +624,7 @@ export function Canvas({
       return;
     }
 
-    window.localStorage.setItem(
-      CANVAS_BACKGROUND_STORAGE_KEY,
-      backgroundMode,
-    );
+    window.localStorage.setItem(CANVAS_BACKGROUND_STORAGE_KEY, backgroundMode);
   }, [backgroundMode]);
 
   useEffect(() => {
@@ -768,7 +797,10 @@ export function Canvas({
     return childrenById;
   }, [items]);
   const frameChildSummariesById = useMemo(() => {
-    const summariesById = new Map<string, ReturnType<typeof summarizeFrameChild>[]>();
+    const summariesById = new Map<
+      string,
+      ReturnType<typeof summarizeFrameChild>[]
+    >();
     for (const [frameId, childItems] of frameChildrenById) {
       summariesById.set(frameId, childItems.map(summarizeFrameChild));
     }
@@ -781,12 +813,17 @@ export function Canvas({
       return null;
     }
 
-    const geometry = buildSegmentGeometry(segmentDraft.start, segmentDraft.end, null);
+    const geometry = buildSegmentGeometry(
+      segmentDraft.start,
+      segmentDraft.end,
+      null,
+    );
     return {
       id: '__segment-draft__',
       page_id: page.id,
       parent_item_id: null,
-      category: ITEM_CATEGORY_FOR_TYPE[segmentDraft.type] ?? ITEM_CATEGORY.shape,
+      category:
+        ITEM_CATEGORY_FOR_TYPE[segmentDraft.type] ?? ITEM_CATEGORY.shape,
       type: segmentDraft.type,
       title: null,
       content: null,
@@ -807,15 +844,10 @@ export function Canvas({
 
   const minimapLayout = useMemo(
     () =>
-      getMinimapLayout(
-        items,
-        viewport,
-        containerSize,
-        {
-          width: MINIMAP_WIDTH,
-          height: MINIMAP_HEIGHT,
-        },
-      ),
+      getMinimapLayout(items, viewport, containerSize, {
+        width: MINIMAP_WIDTH,
+        height: MINIMAP_HEIGHT,
+      }),
     [containerSize, items, viewport],
   );
 
@@ -881,105 +913,112 @@ export function Canvas({
     [],
   );
 
-  const handleDeleteTableCells = useCallback(async (
-    tableId: string,
-    cellIds: string[],
-  ): Promise<boolean> => {
-    if (cellIds.length === 0) {
-      return false;
-    }
+  const handleDeleteTableCells = useCallback(
+    async (tableId: string, cellIds: string[]): Promise<boolean> => {
+      if (cellIds.length === 0) {
+        return false;
+      }
 
-    const tableItem = itemsRef.current.find(
-      (item) => item.id === tableId && item.type === ITEM_TYPE.table,
-    );
-    if (tableItem === undefined) {
+      const tableItem = itemsRef.current.find(
+        (item) => item.id === tableId && item.type === ITEM_TYPE.table,
+      );
+      if (tableItem === undefined) {
+        setTableInspectorSelection(null);
+        setTableCellSelectionResetKey((current) => current + 1);
+        return false;
+      }
+
+      const tableData = parseTableData(tableItem.data_json);
+      const operation = getTableCellDeleteOperation(tableData, cellIds);
+      if (operation === null) {
+        setTableInspectorSelection(null);
+        setTableCellSelectionResetKey((current) => current + 1);
+        return false;
+      }
+
+      let nextTableData = tableData;
+      let nextWidth = tableItem.width;
+      let nextHeight = tableItem.height;
+      let clearedChildItemIds: string[] = [];
+
+      if (operation.type === 'rows') {
+        const removedFraction = operation.rowIndexes.reduce(
+          (sum, rowIndex) => sum + (tableData.rowHeights[rowIndex] ?? 0),
+          0,
+        );
+        nextTableData = deleteRows(tableData, operation.rowIndexes);
+        nextHeight = Math.max(1, tableItem.height * (1 - removedFraction));
+        clearedChildItemIds = getChildItemIdsInRows(
+          tableData,
+          operation.rowIndexes,
+        );
+      } else if (operation.type === 'cols') {
+        const removedFraction = operation.colIndexes.reduce(
+          (sum, colIndex) => sum + (tableData.colWidths[colIndex] ?? 0),
+          0,
+        );
+        nextTableData = deleteCols(tableData, operation.colIndexes);
+        nextWidth = Math.max(1, tableItem.width * (1 - removedFraction));
+        clearedChildItemIds = getChildItemIdsInCols(
+          tableData,
+          operation.colIndexes,
+        );
+      } else {
+        const clearedCells = clearTableCells(tableData, operation.cellIds);
+        nextTableData = clearedCells.data;
+        clearedChildItemIds = clearedCells.clearedChildItemIds;
+      }
+
+      const updatedTableItem = {
+        ...tableItem,
+        width: nextWidth,
+        height: nextHeight,
+        data_json: serializeTableData(nextTableData),
+      };
+      const clearedChildIdSet = new Set(clearedChildItemIds);
+      const snapshotBeforeDelete = captureBoardSnapshot();
+
+      pushUndoSnapshot(snapshotBeforeDelete);
+      setItemsAndSync((current) =>
+        current
+          .filter((item) => !clearedChildIdSet.has(item.id))
+          .map((item) => (item.id === tableItem.id ? updatedTableItem : item)),
+      );
+      setSelection([tableItem.id]);
+      setEditingId(tableItem.id);
       setTableInspectorSelection(null);
       setTableCellSelectionResetKey((current) => current + 1);
-      return false;
-    }
 
-    const tableData = parseTableData(tableItem.data_json);
-    const operation = getTableCellDeleteOperation(tableData, cellIds);
-    if (operation === null) {
-      setTableInspectorSelection(null);
-      setTableCellSelectionResetKey((current) => current + 1);
-      return false;
-    }
+      try {
+        await Promise.all([
+          updateBoardItem(updatedTableItem.id, toPayload(updatedTableItem)),
+          ...clearedChildItemIds.map((itemId) => deleteBoardItem(itemId)),
+        ]);
+      } catch (err) {
+        console.error('[Canvas] Failed to delete selected table cells', err);
+      }
 
-    let nextTableData = tableData;
-    let nextWidth = tableItem.width;
-    let nextHeight = tableItem.height;
-    let clearedChildItemIds: string[] = [];
+      return true;
+    },
+    [
+      captureBoardSnapshot,
+      itemsRef,
+      pushUndoSnapshot,
+      setEditingId,
+      setItemsAndSync,
+      setSelection,
+    ],
+  );
 
-    if (operation.type === 'rows') {
-      const removedFraction = operation.rowIndexes.reduce(
-        (sum, rowIndex) => sum + (tableData.rowHeights[rowIndex] ?? 0),
-        0,
-      );
-      nextTableData = deleteRows(tableData, operation.rowIndexes);
-      nextHeight = Math.max(1, tableItem.height * (1 - removedFraction));
-      clearedChildItemIds = getChildItemIdsInRows(tableData, operation.rowIndexes);
-    } else if (operation.type === 'cols') {
-      const removedFraction = operation.colIndexes.reduce(
-        (sum, colIndex) => sum + (tableData.colWidths[colIndex] ?? 0),
-        0,
-      );
-      nextTableData = deleteCols(tableData, operation.colIndexes);
-      nextWidth = Math.max(1, tableItem.width * (1 - removedFraction));
-      clearedChildItemIds = getChildItemIdsInCols(tableData, operation.colIndexes);
-    } else {
-      const clearedCells = clearTableCells(tableData, operation.cellIds);
-      nextTableData = clearedCells.data;
-      clearedChildItemIds = clearedCells.clearedChildItemIds;
-    }
+  const handleDeleteSelectedTableCells =
+    useCallback(async (): Promise<boolean> => {
+      const selection = tableInspectorSelection;
+      if (selection === null) {
+        return false;
+      }
 
-    const updatedTableItem = {
-      ...tableItem,
-      width: nextWidth,
-      height: nextHeight,
-      data_json: serializeTableData(nextTableData),
-    };
-    const clearedChildIdSet = new Set(clearedChildItemIds);
-    const snapshotBeforeDelete = captureBoardSnapshot();
-
-    pushUndoSnapshot(snapshotBeforeDelete);
-    setItemsAndSync((current) =>
-      current
-        .filter((item) => !clearedChildIdSet.has(item.id))
-        .map((item) => (item.id === tableItem.id ? updatedTableItem : item)),
-    );
-    setSelection([tableItem.id]);
-    setEditingId(tableItem.id);
-    setTableInspectorSelection(null);
-    setTableCellSelectionResetKey((current) => current + 1);
-
-    try {
-      await Promise.all([
-        updateBoardItem(updatedTableItem.id, toPayload(updatedTableItem)),
-        ...clearedChildItemIds.map((itemId) => deleteBoardItem(itemId)),
-      ]);
-    } catch (err) {
-      console.error('[Canvas] Failed to delete selected table cells', err);
-    }
-
-    return true;
-  }, [
-    captureBoardSnapshot,
-    itemsRef,
-    pushUndoSnapshot,
-    setEditingId,
-    setItemsAndSync,
-    setSelection,
-  ]);
-
-  const handleDeleteSelectedTableCells = useCallback(async (): Promise<boolean> => {
-    const selection = tableInspectorSelection;
-    if (selection === null) {
-      return false;
-    }
-
-    return handleDeleteTableCells(selection.tableId, selection.cellIds);
-  }, [handleDeleteTableCells, tableInspectorSelection]);
+      return handleDeleteTableCells(selection.tableId, selection.cellIds);
+    }, [handleDeleteTableCells, tableInspectorSelection]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -1192,34 +1231,48 @@ export function Canvas({
     const zIndexes = itemsRef.current.map((item) => item.z_index);
     const maxZ = zIndexes.length > 0 ? Math.max(...zIndexes) : 0;
 
+    const payload: BoardItemPayload = {
+      page_id: page.id,
+      parent_item_id: null,
+      category: ITEM_CATEGORY.small_item,
+      type: ITEM_TYPE.note_paper,
+      title: note.title,
+      content: null,
+      content_format: 'markdown',
+      x: worldPoint.x,
+      y: worldPoint.y,
+      width: 264,
+      height: 216,
+      rotation: 0,
+      z_index: maxZ + 1,
+      is_collapsed: false,
+      style_json: null,
+      data_json: JSON.stringify({
+        noteFile: note.note_file,
+        noteFileManaged: false,
+      }),
+    };
+    const optimisticItem = createOptimisticItem(payload, note.content);
+
+    setItemsAndSync((current) => [...current, optimisticItem]);
+    setSelection([optimisticItem.id]);
+    setEditingId(null);
+
     try {
-      const created = await createBoardItem({
-        page_id: page.id,
-        parent_item_id: null,
-        category: ITEM_CATEGORY.small_item,
-        type: ITEM_TYPE.note_paper,
-        title: note.title,
-        content: null,
-        content_format: 'markdown',
-        x: worldPoint.x,
-        y: worldPoint.y,
-        width: 264,
-        height: 216,
-        rotation: 0,
-        z_index: maxZ + 1,
-        is_collapsed: false,
-        style_json: null,
-        data_json: JSON.stringify({
-          noteFile: note.note_file,
-          noteFileManaged: false,
-        }),
-      });
+      const created = await createBoardItem(payload);
       pushUndoSnapshot(snapshotBeforeCreate);
-      setItemsAndSync((current) => [...current, created]);
+      setItemsAndSync((current) =>
+        current.map((item) =>
+          item.id === optimisticItem.id ? created : item,
+        ),
+      );
       setSelection([created.id]);
-      setEditingId(null);
       onProjectNotesChanged?.();
     } catch (err) {
+      setItemsAndSync((current) =>
+        current.filter((item) => item.id !== optimisticItem.id),
+      );
+      setSelection([]);
       console.error('[Canvas] Failed to place project note', err);
     }
   }
@@ -1252,7 +1305,9 @@ export function Canvas({
       if (!isSelectedItem) {
         setSelection([itemId]);
       }
-      const targetSelectionCount = isSelectedItem ? selectedIdsRef.current.length : 1;
+      const targetSelectionCount = isSelectedItem
+        ? selectedIdsRef.current.length
+        : 1;
       const ordered = sortItemsByLayer(itemsRef.current);
       const targetId = isSelectedItem
         ? getPrimarySelectionId(selectedIdsRef.current)
@@ -1261,15 +1316,22 @@ export function Canvas({
         targetId === null ? [] : getLayerBlockIds(ordered, targetId);
       const movingSet = new Set(movingIds);
       const lastMovingIndex = ordered.reduce(
-        (lastIndex, item, index) => (movingSet.has(item.id) ? index : lastIndex),
+        (lastIndex, item, index) =>
+          movingSet.has(item.id) ? index : lastIndex,
         -1,
       );
       const canBringForward = lastMovingIndex < ordered.length - 1;
-      const canSendBackward = ordered.findIndex((item) => movingSet.has(item.id)) > 0;
+      const canSendBackward =
+        ordered.findIndex((item) => movingSet.has(item.id)) > 0;
 
       const isStickyNoteOnly = isSelectedItem
-        ? selectedIdsRef.current.every(id => itemsRef.current.find(it => it.id === id)?.type === ITEM_TYPE.sticky_note)
-        : itemsRef.current.find(it => it.id === itemId)?.type === ITEM_TYPE.sticky_note;
+        ? selectedIdsRef.current.every(
+            (id) =>
+              itemsRef.current.find((it) => it.id === id)?.type ===
+              ITEM_TYPE.sticky_note,
+          )
+        : itemsRef.current.find((it) => it.id === itemId)?.type ===
+          ITEM_TYPE.sticky_note;
 
       setEditingId(null);
       setContextMenu({
@@ -1369,9 +1431,13 @@ export function Canvas({
     }
 
     const viewportWidth =
-      typeof window === 'undefined' ? contextMenu.clientX + 232 : window.innerWidth;
+      typeof window === 'undefined'
+        ? contextMenu.clientX + 232
+        : window.innerWidth;
     const viewportHeight =
-      typeof window === 'undefined' ? contextMenu.clientY + 188 : window.innerHeight;
+      typeof window === 'undefined'
+        ? contextMenu.clientY + 188
+        : window.innerHeight;
 
     return getCanvasContextMenuPosition(
       contextMenu,
@@ -1419,17 +1485,18 @@ export function Canvas({
     transformToNote: '轉換為筆記 (Note)',
   };
 
-  const contextMenuActionShortcuts: Record<CanvasContextMenuActionKey, string> = {
-    cut: 'Ctrl/Cmd+X',
-    copy: 'Ctrl/Cmd+C',
-    paste: 'Ctrl/Cmd+V',
-    delete: 'Delete',
-    bringForward: '',
-    sendBackward: '',
-    bringToFront: '',
-    sendToBack: '',
-    transformToNote: '',
-  };
+  const contextMenuActionShortcuts: Record<CanvasContextMenuActionKey, string> =
+    {
+      cut: 'Ctrl/Cmd+X',
+      copy: 'Ctrl/Cmd+C',
+      paste: 'Ctrl/Cmd+V',
+      delete: 'Delete',
+      bringForward: '',
+      sendBackward: '',
+      bringToFront: '',
+      sendToBack: '',
+      transformToNote: '',
+    };
 
   const contextMenuNode =
     contextMenu !== null &&
@@ -1452,7 +1519,10 @@ export function Canvas({
                   action === 'delete' ? 'danger' : ''
                 }`}
                 onClick={contextMenuActionHandlers[action]}
-                disabled={isCanvasContextMenuActionDisabled(contextMenu, action)}
+                disabled={isCanvasContextMenuActionDisabled(
+                  contextMenu,
+                  action,
+                )}
               >
                 <span>{contextMenuActionLabels[action]}</span>
                 <span className="canvas-context-menu-shortcut">
@@ -1517,7 +1587,9 @@ export function Canvas({
 
   function toggleUtilityMenu(targetMenu: Exclude<UtilityMenuId, null>) {
     setIsExportSubmenuOpen(false);
-    setUtilityMenuOpen((current) => (current === targetMenu ? null : targetMenu));
+    setUtilityMenuOpen((current) =>
+      current === targetMenu ? null : targetMenu,
+    );
   }
 
   function startSegmentDraft(
@@ -1571,6 +1643,7 @@ export function Canvas({
     handleMouseUp,
     handleItemDoubleClick,
   } = useCanvasMouseHandlers({
+    pageId: page.id,
     magnetEnabled,
     activeTool,
     segmentDraft,
@@ -1627,7 +1700,9 @@ export function Canvas({
   const worldTransform = `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`;
 
   return (
-    <div className={`canvas-root ${isInspectorCollapsed ? 'is-inspector-collapsed' : ''}`}>
+    <div
+      className={`canvas-root ${isInspectorCollapsed ? 'is-inspector-collapsed' : ''}`}
+    >
       {toolbarTableInsertPreview !== null ? (
         <div
           className={`table-insert-preview table-insert-preview-fixed ${
@@ -1650,8 +1725,7 @@ export function Canvas({
           >
             {Array.from({
               length:
-                toolbarTableInsertPreview.rows *
-                toolbarTableInsertPreview.cols,
+                toolbarTableInsertPreview.rows * toolbarTableInsertPreview.cols,
             }).map((_, index) => (
               <span key={index} className="table-insert-preview-cell" />
             ))}
@@ -1667,10 +1741,7 @@ export function Canvas({
         onToolChange={handleToolChange}
         onTableToolClick={handleToolbarTableClick}
       />
-      <div
-        className="canvas-ribbon"
-        ref={utilityMenuRef}
-      >
+      <div className="canvas-ribbon" ref={utilityMenuRef}>
         <div className="canvas-ribbon-bar">
           {/* File menu */}
           <div className="canvas-rbn-menu-wrap" aria-label="File">
@@ -1684,7 +1755,11 @@ export function Canvas({
               檔案
             </button>
             {utilityMenuOpen === 'file' ? (
-              <div className="toolbar-dropdown-panel" role="menu" aria-label="File menu">
+              <div
+                className="toolbar-dropdown-panel"
+                role="menu"
+                aria-label="File menu"
+              >
                 <div
                   className="toolbar-dropdown-item-submenu"
                   onMouseEnter={() => {
@@ -1716,7 +1791,11 @@ export function Canvas({
                     <span className="toolbar-submenu-chevron">&gt;</span>
                   </button>
                   {isImportSubmenuOpen ? (
-                    <div className="toolbar-submenu-panel" role="menu" aria-label="Import formats">
+                    <div
+                      className="toolbar-submenu-panel"
+                      role="menu"
+                      aria-label="Import formats"
+                    >
                       <button
                         type="button"
                         className="toolbar-dropdown-item"
@@ -1776,7 +1855,11 @@ export function Canvas({
                     <span className="toolbar-submenu-chevron">&gt;</span>
                   </button>
                   {isExportSubmenuOpen ? (
-                    <div className="toolbar-submenu-panel" role="menu" aria-label="Export formats">
+                    <div
+                      className="toolbar-submenu-panel"
+                      role="menu"
+                      aria-label="Export formats"
+                    >
                       <button
                         type="button"
                         className="toolbar-dropdown-item"
@@ -1835,7 +1918,11 @@ export function Canvas({
               編輯
             </button>
             {utilityMenuOpen === 'edit' ? (
-              <div className="toolbar-dropdown-panel" role="menu" aria-label="Edit menu">
+              <div
+                className="toolbar-dropdown-panel"
+                role="menu"
+                aria-label="Edit menu"
+              >
                 <button
                   type="button"
                   className="toolbar-dropdown-item"
@@ -1874,10 +1961,24 @@ export function Canvas({
             type="button"
             className={`canvas-rbn-ctrl-btn ${magnetEnabled ? 'is-active' : ''}`}
             aria-pressed={magnetEnabled}
-            title={'Magnet ' + (magnetEnabled ? 'on' : 'off') + '; hold Alt to bypass'}
+            title={
+              'Magnet ' +
+              (magnetEnabled ? 'on' : 'off') +
+              '; hold Alt to bypass'
+            }
             onClick={() => setMagnetEnabled((current) => !current)}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
               <path d="M6 15A6 6 0 0 0 18 15" />
               <path d="M6 15V6h12v9" />
               <line x1="6" y1="3" x2="6" y2="6" />
@@ -1896,7 +1997,13 @@ export function Canvas({
               title="Zoom out"
               onClick={handleZoomOut}
             >
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true">
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
+                fill="currentColor"
+                aria-hidden="true"
+              >
                 <rect x="1" y="4.25" width="8" height="1.5" rx="0.75" />
               </svg>
             </button>
@@ -1909,7 +2016,13 @@ export function Canvas({
               title="Zoom in"
               onClick={handleZoomIn}
             >
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true">
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
+                fill="currentColor"
+                aria-hidden="true"
+              >
                 <rect x="4.25" y="1" width="1.5" height="8" rx="0.75" />
                 <rect x="1" y="4.25" width="8" height="1.5" rx="0.75" />
               </svg>
@@ -1938,7 +2051,11 @@ export function Canvas({
               Adjust
             </button>
             {isResetZoomPanelOpen ? (
-              <div className="canvas-rbn-reset-zoom-panel" role="dialog" aria-label="Adjust reset zoom">
+              <div
+                className="canvas-rbn-reset-zoom-panel"
+                role="dialog"
+                aria-label="Adjust reset zoom"
+              >
                 <button
                   type="button"
                   className="canvas-rbn-reset-zoom-step"
@@ -1965,7 +2082,11 @@ export function Canvas({
           <div className="canvas-rbn-sep" aria-hidden="true" />
 
           {/* Background picker */}
-          <div className="canvas-rbn-bg-picker" role="group" aria-label="Background style">
+          <div
+            className="canvas-rbn-bg-picker"
+            role="group"
+            aria-label="Background style"
+          >
             {(
               [
                 ['dots', '點狀'],
@@ -2011,7 +2132,11 @@ export function Canvas({
               }
 
               event.preventDefault();
-              void handleProjectNoteDrop(noteFile, event.clientX, event.clientY);
+              void handleProjectNoteDrop(
+                noteFile,
+                event.clientX,
+                event.clientY,
+              );
             }}
           >
             <div
@@ -2043,7 +2168,11 @@ export function Canvas({
                 }}
               >
                 {items
-                  .filter((item) => item.type !== ITEM_TYPE.arrow && item.type !== ITEM_TYPE.line)
+                  .filter(
+                    (item) =>
+                      item.type !== ITEM_TYPE.arrow &&
+                      item.type !== ITEM_TYPE.line,
+                  )
                   .map((item) => {
                     const style = resolveBoardItemStyle(
                       item,
@@ -2072,8 +2201,10 @@ export function Canvas({
                     left: `${Math.min(
                       Math.max(
                         worldToMinimap(
-                          minimapLayout.viewportBounds.x + minimapLayout.viewportBounds.width / 2,
-                          minimapLayout.viewportBounds.y + minimapLayout.viewportBounds.height / 2,
+                          minimapLayout.viewportBounds.x +
+                            minimapLayout.viewportBounds.width / 2,
+                          minimapLayout.viewportBounds.y +
+                            minimapLayout.viewportBounds.height / 2,
                           minimapLayout,
                         ).x -
                           MINIMAP_VIEWPORT_FRAME_WIDTH / 2,
@@ -2084,8 +2215,10 @@ export function Canvas({
                     top: `${Math.min(
                       Math.max(
                         worldToMinimap(
-                          minimapLayout.viewportBounds.x + minimapLayout.viewportBounds.width / 2,
-                          minimapLayout.viewportBounds.y + minimapLayout.viewportBounds.height / 2,
+                          minimapLayout.viewportBounds.x +
+                            minimapLayout.viewportBounds.width / 2,
+                          minimapLayout.viewportBounds.y +
+                            minimapLayout.viewportBounds.height / 2,
                           minimapLayout,
                         ).y -
                           MINIMAP_VIEWPORT_FRAME_HEIGHT / 2,
@@ -2140,10 +2273,8 @@ export function Canvas({
               <div
                 className="table-insert-canvas-preview"
                 style={{
-                  left:
-                    viewport.x + tableInsertPreview.worldX * viewport.zoom,
-                  top:
-                    viewport.y + tableInsertPreview.worldY * viewport.zoom,
+                  left: viewport.x + tableInsertPreview.worldX * viewport.zoom,
+                  top: viewport.y + tableInsertPreview.worldY * viewport.zoom,
                   width: tableInsertPreview.width * viewport.zoom,
                   height: tableInsertPreview.height * viewport.zoom,
                 }}
@@ -2201,60 +2332,66 @@ export function Canvas({
                   .filter((className) => className.length > 0)
                   .join(' ');
                 return (
-                    <BoardItemRenderer
-                      key={item.id}
-                      item={item}
-                      childCount={childItems.length}
-                      childSummaries={frameChildSummariesById.get(item.id) ?? []}
-                      className={itemClassName}
-                      isSelected={selectedIdSet.has(item.id)}
-                      isEditing={item.id === editingId}
-                      canTranslateSegment={canTranslateSegmentItem(item)}
-                      onMouseDown={(e) => handleItemMouseDown(e, item.id)}
-                      onContextMenu={(e) => handleItemContextMenu(e, item.id)}
-                      onEndpointMouseDown={(e, endpoint) =>
-                        handleSegmentEndpointMouseDown(e, item.id, endpoint)
-                      }
-                      onWaypointMouseDown={(e, waypointIndex) =>
-                        handleSegmentWaypointMouseDown(e, item.id, waypointIndex)
-                      }
-                      onMidpointMouseDown={(e, segmentIndex) =>
-                        handleSegmentMidpointMouseDown(e, item.id, segmentIndex)
-                      }
-                      deletingWaypointIndex={
-                        deletingWaypointInfo?.itemId === item.id
-                          ? deletingWaypointInfo.waypointIndex
-                          : undefined
-                      }
-                      onDoubleClick={() => handleItemDoubleClick(item)}
-                      onResizeMouseDown={(e) => handleResizeMouseDown(e, item.id)}
-                      onToggleCollapse={() => handleToggleFrameCollapse(item.id)}
-                      onUpdate={handleItemUpdate}
-                      onEditEnd={handleEditEnd}
-                      onTableCellInteractionStart={() => handleItemDoubleClick(item)}
-                      onTableSelectedCellsChange={(cellIds) =>
-                        setTableInspectorSelection(
-                          cellIds.length === 0
-                            ? null
-                            : { tableId: item.id, cellIds },
-                        )
-                      }
-                      onTableDeleteSelectedCells={(cellIds) => {
-                        setTableInspectorSelection({ tableId: item.id, cellIds });
-                        void handleDeleteTableCells(item.id, cellIds).catch((err) => {
+                  <BoardItemRenderer
+                    key={item.id}
+                    item={item}
+                    childCount={childItems.length}
+                    childSummaries={frameChildSummariesById.get(item.id) ?? []}
+                    className={itemClassName}
+                    isSelected={selectedIdSet.has(item.id)}
+                    isEditing={item.id === editingId}
+                    canTranslateSegment={canTranslateSegmentItem(item)}
+                    onMouseDown={(e) => handleItemMouseDown(e, item.id)}
+                    onContextMenu={(e) => handleItemContextMenu(e, item.id)}
+                    onEndpointMouseDown={(e, endpoint) =>
+                      handleSegmentEndpointMouseDown(e, item.id, endpoint)
+                    }
+                    onWaypointMouseDown={(e, waypointIndex) =>
+                      handleSegmentWaypointMouseDown(e, item.id, waypointIndex)
+                    }
+                    onMidpointMouseDown={(e, segmentIndex) =>
+                      handleSegmentMidpointMouseDown(e, item.id, segmentIndex)
+                    }
+                    deletingWaypointIndex={
+                      deletingWaypointInfo?.itemId === item.id
+                        ? deletingWaypointInfo.waypointIndex
+                        : undefined
+                    }
+                    onDoubleClick={() => handleItemDoubleClick(item)}
+                    onResizeMouseDown={(e) => handleResizeMouseDown(e, item.id)}
+                    onToggleCollapse={() => handleToggleFrameCollapse(item.id)}
+                    onUpdate={handleItemUpdate}
+                    onEditEnd={handleEditEnd}
+                    onTableCellInteractionStart={() =>
+                      handleItemDoubleClick(item)
+                    }
+                    onTableSelectedCellsChange={(cellIds) =>
+                      setTableInspectorSelection(
+                        cellIds.length === 0
+                          ? null
+                          : { tableId: item.id, cellIds },
+                      )
+                    }
+                    onTableDeleteSelectedCells={(cellIds) => {
+                      setTableInspectorSelection({ tableId: item.id, cellIds });
+                      void handleDeleteTableCells(item.id, cellIds).catch(
+                        (err) => {
                           console.error(
                             '[Canvas] Failed to handle table delete shortcut',
                             err,
                           );
-                        });
-                      }}
-                      tableCellSelectionResetKey={tableCellSelectionResetKey}
-                      magnetEnabled={magnetEnabled}
-                      tableDropTargetCellId={
-                        isTableDropTarget ? activeTableDropTarget?.cellId ?? null : null
-                      }
-                      projectDefaultStyle={projectDefaultStyle}
-                    />
+                        },
+                      );
+                    }}
+                    tableCellSelectionResetKey={tableCellSelectionResetKey}
+                    magnetEnabled={magnetEnabled}
+                    tableDropTargetCellId={
+                      isTableDropTarget
+                        ? (activeTableDropTarget?.cellId ?? null)
+                        : null
+                    }
+                    projectDefaultStyle={projectDefaultStyle}
+                  />
                 );
               })}
               {segmentDraftPreviewItem !== null ? (
@@ -2302,7 +2439,6 @@ export function Canvas({
                 }),
               )}
             </div>
-
           </div>
         </div>
 

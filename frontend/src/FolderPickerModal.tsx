@@ -142,7 +142,9 @@ export function FolderPickerModal({ onConfirm, onCancel, isBusy }: Props) {
           {isLoading ? (
             <div className="folder-picker-status">Loading…</div>
           ) : error !== null ? (
-            <div className="folder-picker-status folder-picker-error">{error}</div>
+            <div className="folder-picker-status folder-picker-error">
+              {error}
+            </div>
           ) : dirs.length === 0 ? (
             <div className="folder-picker-status">No subfolders</div>
           ) : (

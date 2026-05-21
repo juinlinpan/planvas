@@ -107,9 +107,10 @@ export function parseRelativeSegmentData(
   }
 }
 
-export function getSegmentConnections(
-  item: BoardItem,
-): { startConnection: SegmentConnection | null; endConnection: SegmentConnection | null } {
+export function getSegmentConnections(item: BoardItem): {
+  startConnection: SegmentConnection | null;
+  endConnection: SegmentConnection | null;
+} {
   const parsed = parseRelativeSegmentData(item.data_json);
   return {
     startConnection: parsed?.startConnection ?? null,
@@ -121,7 +122,10 @@ export function canTranslateSegmentItem(item: BoardItem): boolean {
   return item.type === ITEM_TYPE.line || item.type === ITEM_TYPE.arrow;
 }
 
-function getLegacyLineLocalPoints(item: BoardItem): { start: Point; end: Point } {
+function getLegacyLineLocalPoints(item: BoardItem): {
+  start: Point;
+  end: Point;
+} {
   const centerX = item.width / 2;
   const centerY = item.height / 2;
   const halfLength = Math.max(item.width / 2 - LEGACY_LINE_INSET, 0);
@@ -368,8 +372,10 @@ export function updateSegmentEndpoint(
     x: item.x + wp.x,
     y: item.y + wp.y,
   }));
-  const startConn = endpoint === 'start' ? (connection ?? null) : existing.startConnection;
-  const endConn = endpoint === 'end' ? (connection ?? null) : existing.endConnection;
+  const startConn =
+    endpoint === 'start' ? (connection ?? null) : existing.startConnection;
+  const endConn =
+    endpoint === 'end' ? (connection ?? null) : existing.endConnection;
 
   return buildSegmentGeometry(
     endpoint === 'start' ? nextPoint : currentPoints.start,

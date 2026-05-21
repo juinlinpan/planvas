@@ -631,6 +631,11 @@ Log 儲存路徑：
 - 300 個白板物件的 Page 不應有明顯卡頓
 - 所有操作應即時同步儲存至 Planvas file storage
 - 儲存操作不應阻塞 UI 渲染
+- Backend must log slow HTTP requests, event loop lag, uncaught exceptions, and unhandled promise rejections to `<backend_root>/logs/app.log` so local performance stalls and crashes can be diagnosed after the fact.
+- Frontend write paths that update multiple board items as one user action should prefer one `PUT /pages/{page_id}/board-state` persistence call over parallel per-item `PATCH /board-items/{id}` calls, because each per-item write rewrites the Page XML files.
+- Creating board items should update the canvas optimistically before the backend persistence round trip completes. If persistence fails, the temporary item is removed and the error is logged.
+- Autosave debounce for item and viewport updates may be second-level rather than sub-second to reduce write pressure during continuous editing.
+- Markdown note editing should autosave about every 5 seconds, flush immediately when the browser window/tab is left, and flush when leaving the markdown editor view. Returning to a Page should not remount or save the Page just because markdown notes were refreshed.
 
 ## 12. MVP 範圍
 

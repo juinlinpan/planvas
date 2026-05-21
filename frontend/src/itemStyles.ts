@@ -319,9 +319,7 @@ export function serializeBoardItemStyle(style: BoardItemStyle): string | null {
     segmentTextOrientation: sanitizeSegmentTextOrientation(
       style.segmentTextOrientation,
     ),
-    textHorizontalAlign: sanitizeTextHorizontalAlign(
-      style.textHorizontalAlign,
-    ),
+    textHorizontalAlign: sanitizeTextHorizontalAlign(style.textHorizontalAlign),
     textVerticalAlign: sanitizeTextVerticalAlign(style.textVerticalAlign),
   };
 
@@ -465,7 +463,9 @@ export function resolveBoardItemStyle(
     fontStyle: parsed.fontStyle ?? 'normal',
     strokeColor:
       parsed.strokeColor ??
-      (isLink ? (projectDefaultStyle.linkColor ?? DEFAULT_STROKE_COLOR) : DEFAULT_STROKE_COLOR),
+      (isLink
+        ? (projectDefaultStyle.linkColor ?? DEFAULT_STROKE_COLOR)
+        : DEFAULT_STROKE_COLOR),
     strokeWidth: parsed.strokeWidth ?? projectDefaultStyle.strokeWidth ?? 3,
     strokeStyle: parsed.strokeStyle ?? 'solid',
     lineCornerType: parsed.lineCornerType ?? 'sharp',

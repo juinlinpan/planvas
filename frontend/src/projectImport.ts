@@ -111,11 +111,7 @@ function readOptionalString(
   return trim && nextValue.length === 0 ? null : nextValue;
 }
 
-function readNumber(
-  value: unknown,
-  label: string,
-  fallback?: number,
-): number {
+function readNumber(value: unknown, label: string, fallback?: number): number {
   if (value === undefined) {
     if (fallback !== undefined) {
       return fallback;
@@ -131,11 +127,7 @@ function readNumber(
   return value;
 }
 
-function readInteger(
-  value: unknown,
-  label: string,
-  fallback?: number,
-): number {
+function readInteger(value: unknown, label: string, fallback?: number): number {
   const nextValue = readNumber(value, label, fallback);
   if (!Number.isInteger(nextValue)) {
     throw new Error(`${label} must be an integer.`);
@@ -144,11 +136,7 @@ function readInteger(
   return nextValue;
 }
 
-function readBoolean(
-  value: unknown,
-  label: string,
-  fallback = false,
-): boolean {
+function readBoolean(value: unknown, label: string, fallback = false): boolean {
   if (value === undefined) {
     return fallback;
   }
@@ -302,8 +290,10 @@ function parseImportedPage(value: unknown, index: number): ImportedPage {
       0,
     ),
     zoom: readNumber(viewport.zoom, `${label}.zoom`, 1),
-    board_items: readArray(page.board_items, `${label}.board_items`, (item, itemIndex) =>
-      parseImportedBoardItem(item, label, itemIndex),
+    board_items: readArray(
+      page.board_items,
+      `${label}.board_items`,
+      (item, itemIndex) => parseImportedBoardItem(item, label, itemIndex),
     ),
     connector_links: readArray(
       page.connector_links,
@@ -321,17 +311,16 @@ function validateImportedPage(page: ImportedPage, label: string): void {
   const itemIds = new Set<string>();
   for (const item of page.board_items) {
     if (itemIds.has(item.id)) {
-      throw new Error(`${label} contains duplicate board item id "${item.id}".`);
+      throw new Error(
+        `${label} contains duplicate board item id "${item.id}".`,
+      );
     }
 
     itemIds.add(item.id);
   }
 
   for (const item of page.board_items) {
-    if (
-      item.parent_item_id !== null &&
-      !itemIds.has(item.parent_item_id)
-    ) {
+    if (item.parent_item_id !== null && !itemIds.has(item.parent_item_id)) {
       throw new Error(
         `${label} item "${item.id}" references missing parent "${item.parent_item_id}".`,
       );
@@ -389,7 +378,10 @@ function remapSegmentDataJson(
 
     const nextConnection = { ...(connection as JsonObject) };
     const currentItemId = nextConnection.itemId;
-    if (typeof currentItemId !== 'string' || currentItemId.trim().length === 0) {
+    if (
+      typeof currentItemId !== 'string' ||
+      currentItemId.trim().length === 0
+    ) {
       continue;
     }
 
@@ -448,9 +440,7 @@ export function parseProjectImportText(
       typeof versionValue === 'boolean'
         ? String(versionValue)
         : 'non-scalar';
-    throw new Error(
-      `Unsupported import format version "${printableVersion}".`,
-    );
+    throw new Error(`Unsupported import format version "${printableVersion}".`);
   }
 
   return {
@@ -464,7 +454,10 @@ export function prepareImportedPageBoardState(
   pageId: string,
   importedPage: ImportedPage,
   options: PrepareImportedPageOptions = {},
-): Pick<{ board_items: BoardItem[]; connector_links: ConnectorLink[] }, 'board_items' | 'connector_links'> {
+): Pick<
+  { board_items: BoardItem[]; connector_links: ConnectorLink[] },
+  'board_items' | 'connector_links'
+> {
   const createId = options.createId ?? (() => crypto.randomUUID());
   const now = options.now ?? new Date().toISOString();
   const itemIdMap = new Map(

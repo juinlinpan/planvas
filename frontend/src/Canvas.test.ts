@@ -364,7 +364,10 @@ describe('connector geometry helpers', () => {
       height: 100,
     });
 
-    const beforeMove = getConnectorPoints(createConnector(), [fromItem, toItem]);
+    const beforeMove = getConnectorPoints(createConnector(), [
+      fromItem,
+      toItem,
+    ]);
     const afterMove = getConnectorPoints(createConnector(), [
       fromItem,
       {
@@ -409,7 +412,9 @@ describe('connector geometry helpers', () => {
       height: 100,
     });
 
-    expect(getConnectorPoints(createConnector(), [frame, child, target])).toBeNull();
+    expect(
+      getConnectorPoints(createConnector(), [frame, child, target]),
+    ).toBeNull();
   });
 
   it('migrates connector-link arrows into segment arrow geometry', () => {

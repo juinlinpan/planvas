@@ -70,7 +70,9 @@ describe('tableData merge and split semantics', () => {
       ).labelFontSize,
     ).toBe(32);
     expect(serializeTableData(createTableData())).not.toContain('"name"');
-    expect(serializeTableData(createTableData())).not.toContain('"labelFontSize"');
+    expect(serializeTableData(createTableData())).not.toContain(
+      '"labelFontSize"',
+    );
   });
 
   it('detects a full-row cell selection as a row delete operation', () => {
@@ -148,7 +150,10 @@ describe('tableData merge and split semantics', () => {
     const data = createTableData(3, 2);
     const originalIds = [data.cells[1]?.[0]?.id, data.cells[1]?.[1]?.id];
 
-    const merged = mergeCells(data, [[1, 0], [1, 1]]);
+    const merged = mergeCells(data, [
+      [1, 0],
+      [1, 1],
+    ]);
     const mergedCellId = merged.cells[1]?.[0]?.id;
     expect(mergedCellId).toBeTruthy();
 
@@ -171,7 +176,10 @@ describe('tableData merge and split semantics', () => {
     const data = createTableData(1, 3);
     data.colWidths = [0.2, 0.5, 0.3];
 
-    const merged = mergeCells(data, [[0, 0], [0, 1]]);
+    const merged = mergeCells(data, [
+      [0, 0],
+      [0, 1],
+    ]);
     const split = splitCellVertical(merged, merged.cells[0]?.[0]?.id!);
 
     expect(split.colDividerPositions?.['c0r0']).toBeCloseTo(0.35, 5);
@@ -183,7 +191,10 @@ describe('tableData merge and split semantics', () => {
     const data = createTableData(2, 3);
     const originalId = data.cells[0]?.[1]?.id;
 
-    const merged = mergeCells(data, [[0, 1], [1, 1]]);
+    const merged = mergeCells(data, [
+      [0, 1],
+      [1, 1],
+    ]);
     const mergedCellId = merged.cells[0]?.[1]?.id;
     expect(mergedCellId).toBeTruthy();
 
@@ -211,7 +222,9 @@ describe('tableData merge and split semantics', () => {
       c0r1: 0.6,
     };
 
-    const oldPixels = [0, 1].map((row) => getEffectiveColEdge(data, 1, row) * oldWidth);
+    const oldPixels = [0, 1].map(
+      (row) => getEffectiveColEdge(data, 1, row) * oldWidth,
+    );
 
     const expanded = scaleTableDividerPositions(
       addCol(data, data.cols - 1),
@@ -219,14 +232,20 @@ describe('tableData merge and split semantics', () => {
       1,
     );
 
-    const newPixels = [0, 1].map((row) =>
-      getEffectiveColEdge(expanded, 1, row) * nextWidth,
+    const newPixels = [0, 1].map(
+      (row) => getEffectiveColEdge(expanded, 1, row) * nextWidth,
     );
 
     expect(newPixels[0]).toBeCloseTo(oldPixels[0], 5);
     expect(newPixels[1]).toBeCloseTo(oldPixels[1], 5);
-    expect(getEffectiveColEdge(expanded, 2, 0) * nextWidth).toBeCloseTo(oldWidth, 5);
-    expect(getEffectiveColEdge(expanded, 2, 1) * nextWidth).toBeCloseTo(oldWidth, 5);
+    expect(getEffectiveColEdge(expanded, 2, 0) * nextWidth).toBeCloseTo(
+      oldWidth,
+      5,
+    );
+    expect(getEffectiveColEdge(expanded, 2, 1) * nextWidth).toBeCloseTo(
+      oldWidth,
+      5,
+    );
   });
 
   it('keeps existing y positions exact when adding an outer row', () => {
@@ -238,7 +257,9 @@ describe('tableData merge and split semantics', () => {
       r0c1: 0.7,
     };
 
-    const oldPixels = [0, 1].map((col) => getEffectiveRowEdge(data, 1, col) * oldHeight);
+    const oldPixels = [0, 1].map(
+      (col) => getEffectiveRowEdge(data, 1, col) * oldHeight,
+    );
 
     const expanded = scaleTableDividerPositions(
       addRow(data, data.rows - 1),
@@ -246,14 +267,20 @@ describe('tableData merge and split semantics', () => {
       oldHeight / nextHeight,
     );
 
-    const newPixels = [0, 1].map((col) =>
-      getEffectiveRowEdge(expanded, 1, col) * nextHeight,
+    const newPixels = [0, 1].map(
+      (col) => getEffectiveRowEdge(expanded, 1, col) * nextHeight,
     );
 
     expect(newPixels[0]).toBeCloseTo(oldPixels[0], 5);
     expect(newPixels[1]).toBeCloseTo(oldPixels[1], 5);
-    expect(getEffectiveRowEdge(expanded, 2, 0) * nextHeight).toBeCloseTo(oldHeight, 5);
-    expect(getEffectiveRowEdge(expanded, 2, 1) * nextHeight).toBeCloseTo(oldHeight, 5);
+    expect(getEffectiveRowEdge(expanded, 2, 0) * nextHeight).toBeCloseTo(
+      oldHeight,
+      5,
+    );
+    expect(getEffectiveRowEdge(expanded, 2, 1) * nextHeight).toBeCloseTo(
+      oldHeight,
+      5,
+    );
   });
 
   it('preserves exact default and moved column layout after outer add with rounded width', () => {
@@ -274,10 +301,22 @@ describe('tableData merge and split semantics', () => {
       nextWidth,
     );
 
-    expect(getEffectiveColEdge(expanded, 1, 0) * nextWidth).toBeCloseTo(explicitOldPx, 5);
-    expect(getEffectiveColEdge(expanded, 1, 1) * nextWidth).toBeCloseTo(defaultOldPx, 5);
-    expect(getEffectiveColEdge(expanded, 2, 0) * nextWidth).toBeCloseTo(oldWidth, 5);
-    expect(getEffectiveColEdge(expanded, 2, 1) * nextWidth).toBeCloseTo(oldWidth, 5);
+    expect(getEffectiveColEdge(expanded, 1, 0) * nextWidth).toBeCloseTo(
+      explicitOldPx,
+      5,
+    );
+    expect(getEffectiveColEdge(expanded, 1, 1) * nextWidth).toBeCloseTo(
+      defaultOldPx,
+      5,
+    );
+    expect(getEffectiveColEdge(expanded, 2, 0) * nextWidth).toBeCloseTo(
+      oldWidth,
+      5,
+    );
+    expect(getEffectiveColEdge(expanded, 2, 1) * nextWidth).toBeCloseTo(
+      oldWidth,
+      5,
+    );
   });
 
   it('preserves exact default and moved row layout after outer add with rounded height', () => {
@@ -298,18 +337,39 @@ describe('tableData merge and split semantics', () => {
       nextHeight,
     );
 
-    expect(getEffectiveRowEdge(expanded, 1, 0) * nextHeight).toBeCloseTo(explicitOldPx, 5);
-    expect(getEffectiveRowEdge(expanded, 1, 1) * nextHeight).toBeCloseTo(defaultOldPx, 5);
-    expect(getEffectiveRowEdge(expanded, 2, 0) * nextHeight).toBeCloseTo(oldHeight, 5);
-    expect(getEffectiveRowEdge(expanded, 2, 1) * nextHeight).toBeCloseTo(oldHeight, 5);
+    expect(getEffectiveRowEdge(expanded, 1, 0) * nextHeight).toBeCloseTo(
+      explicitOldPx,
+      5,
+    );
+    expect(getEffectiveRowEdge(expanded, 1, 1) * nextHeight).toBeCloseTo(
+      defaultOldPx,
+      5,
+    );
+    expect(getEffectiveRowEdge(expanded, 2, 0) * nextHeight).toBeCloseTo(
+      oldHeight,
+      5,
+    );
+    expect(getEffectiveRowEdge(expanded, 2, 1) * nextHeight).toBeCloseTo(
+      oldHeight,
+      5,
+    );
   });
 
   it('preserves every existing boundary across merged layout after adding outer columns twice', () => {
     const originalWidth = 480;
     const base = createTableData(3, 4);
-    const mergedTop = mergeCells(base, [[0, 1], [0, 2]]);
-    const mergedMiddle = mergeCells(mergedTop, [[1, 1], [1, 2]]);
-    const data = mergeCells(mergedMiddle, [[2, 1], [2, 2]]);
+    const mergedTop = mergeCells(base, [
+      [0, 1],
+      [0, 2],
+    ]);
+    const mergedMiddle = mergeCells(mergedTop, [
+      [1, 1],
+      [1, 2],
+    ]);
+    const data = mergeCells(mergedMiddle, [
+      [2, 1],
+      [2, 2],
+    ]);
     data.colDividerPositions = {
       c0r0: 0.22,
       c0r1: 0.22,
@@ -324,7 +384,10 @@ describe('tableData merge and split semantics', () => {
     const baseline = new Map<string, number>();
     for (let row = 0; row < data.rows; row += 1) {
       for (let edge = 1; edge < data.cols; edge += 1) {
-        baseline.set(`c${edge}r${row}`, getEffectiveColEdge(data, edge, row) * originalWidth);
+        baseline.set(
+          `c${edge}r${row}`,
+          getEffectiveColEdge(data, edge, row) * originalWidth,
+        );
       }
     }
 
@@ -399,18 +462,18 @@ describe('tableData merge and split semantics', () => {
       childLayoutDirection: 'vertical' as const,
       childLayoutUpdatedAt: getNextTableLayoutUpdatedAt(tableFirst),
     };
-    expect(getEffectiveTableCellChildLayoutDirection(tableFirst, cellAfter)).toBe(
-      'vertical',
-    );
+    expect(
+      getEffectiveTableCellChildLayoutDirection(tableFirst, cellAfter),
+    ).toBe('vertical');
 
     const tableAfter = {
       ...tableFirst,
       childLayoutDirection: 'horizontal' as const,
       childLayoutUpdatedAt: (cellAfter.childLayoutUpdatedAt ?? 0) + 1,
     };
-    expect(getEffectiveTableCellChildLayoutDirection(tableAfter, cellAfter)).toBe(
-      'horizontal',
-    );
+    expect(
+      getEffectiveTableCellChildLayoutDirection(tableAfter, cellAfter),
+    ).toBe('horizontal');
   });
 
   it('keeps table minimum sizes on the canvas grid', () => {

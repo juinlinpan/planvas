@@ -38,7 +38,9 @@ function normalizeBoardSnapshot(
 ): NormalizedBoardSnapshot {
   return {
     items: [...snapshot.items].sort((a, b) => a.id.localeCompare(b.id)),
-    connectors: [...snapshot.connectors].sort((a, b) => a.id.localeCompare(b.id)),
+    connectors: [...snapshot.connectors].sort((a, b) =>
+      a.id.localeCompare(b.id),
+    ),
     selectedIds: [...snapshot.selectedIds].sort((a, b) => a.localeCompare(b)),
   };
 }
@@ -64,7 +66,9 @@ export function areBoardSnapshotsEqual(
   const leftSignature =
     'signature' in left ? left.signature : createBoardSnapshotSignature(left);
   const rightSignature =
-    'signature' in right ? right.signature : createBoardSnapshotSignature(right);
+    'signature' in right
+      ? right.signature
+      : createBoardSnapshotSignature(right);
   return leftSignature === rightSignature;
 }
 
@@ -83,7 +87,10 @@ export function pushUndoHistory(
 ): { undoStack: BoardHistoryEntry[]; added: boolean } {
   const nextEntry = createBoardHistoryEntry(snapshot);
   const previousEntry = undoStack[undoStack.length - 1] ?? null;
-  if (previousEntry !== null && previousEntry.signature === nextEntry.signature) {
+  if (
+    previousEntry !== null &&
+    previousEntry.signature === nextEntry.signature
+  ) {
     return {
       undoStack,
       added: false,

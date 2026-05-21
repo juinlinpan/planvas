@@ -47,8 +47,11 @@ export function MermaidImportModal({ onConfirm, onCancel, isBusy }: Props) {
             X
           </button>
         </div>
-        
-        <div className="confirmation-dialog-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+        <div
+          className="confirmation-dialog-body"
+          style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+        >
           <label className="confirmation-dialog-label">
             Page Title
             <input
@@ -66,12 +69,12 @@ export function MermaidImportModal({ onConfirm, onCancel, isBusy }: Props) {
             Mermaid Code
             <textarea
               className="confirmation-dialog-input"
-              style={{ 
-                width: '100%', 
-                height: '300px', 
-                marginTop: '4px', 
+              style={{
+                width: '100%',
+                height: '300px',
+                marginTop: '4px',
                 fontFamily: 'monospace',
-                resize: 'vertical'
+                resize: 'vertical',
               }}
               value={code}
               onChange={(e) => setCode(e.target.value)}

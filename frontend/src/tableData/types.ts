@@ -16,4 +16,3 @@ export {
   TABLE_MAX_DIMENSION,
   TABLE_MIN_DIMENSION,
 } from './core';
-

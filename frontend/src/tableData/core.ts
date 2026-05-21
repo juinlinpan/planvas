@@ -22,14 +22,14 @@ export type TableChildLayoutDirection = 'vertical' | 'horizontal';
 // null = position is covered by a spanning cell from another grid location
 export type TableCellData = {
   id: string;
-  content: string;       // plain text label for the cell
+  content: string; // plain text label for the cell
   backgroundColor?: string;
   textHorizontalAlign?: TextHorizontalAlign;
   textVerticalAlign?: TextVerticalAlign;
   childLayoutDirection?: TableChildLayoutDirection;
   childLayoutUpdatedAt?: number;
-  rowSpan: number;       // >= 1
-  colSpan: number;       // >= 1
+  rowSpan: number; // >= 1
+  colSpan: number; // >= 1
   isCollapsed: boolean;
   /** IDs of board items attached to this cell (max 2) */
   childItemIds: string[];
@@ -40,8 +40,8 @@ export type TableData = {
   labelFontSize?: number;
   rows: number;
   cols: number;
-  colWidths: number[];   // fractions summing to ~1.0 (one entry per column)
-  rowHeights: number[];  // fractions summing to ~1.0 (one entry per row)
+  colWidths: number[]; // fractions summing to ~1.0 (one entry per column)
+  rowHeights: number[]; // fractions summing to ~1.0 (one entry per row)
   cells: (TableCellData | null)[][];
   /** Per-segment column divider position overrides.
    *  Key: "c{boundaryIdx}r{row}", Value: absolute position fraction (0-1) */
@@ -101,7 +101,10 @@ function makeCell(): TableCellData {
 
 function clampDim(value: number, fallback: number): number {
   if (!Number.isFinite(value)) return fallback;
-  return Math.min(TABLE_MAX_DIMENSION, Math.max(TABLE_MIN_DIMENSION, Math.round(value)));
+  return Math.min(
+    TABLE_MAX_DIMENSION,
+    Math.max(TABLE_MIN_DIMENSION, Math.round(value)),
+  );
 }
 
 export function getTableMinSize(
@@ -117,9 +120,10 @@ export function getTableMinSize(
   };
 }
 
-export function getTableMinSizeFromDataJson(
-  dataJson: string | null,
-): { width: number; height: number } {
+export function getTableMinSizeFromDataJson(dataJson: string | null): {
+  width: number;
+  height: number;
+} {
   const tableData = parseTableData(dataJson);
   return getTableMinSize(tableData.rows, tableData.cols);
 }
@@ -182,7 +186,9 @@ export function serializeTableData(data: TableData): string {
 // ── Parse (handles both old string[][] and new format) ─────────────────────
 
 function hasNewFormat(parsed: Record<string, unknown>): boolean {
-  return Array.isArray(parsed['colWidths']) || Array.isArray(parsed['rowHeights']);
+  return (
+    Array.isArray(parsed['colWidths']) || Array.isArray(parsed['rowHeights'])
+  );
 }
 
 function parseNewFormat(parsed: Record<string, unknown>): TableData {
@@ -194,8 +200,12 @@ function parseNewFormat(parsed: Record<string, unknown>): TableData {
     typeof parsed['cols'] === 'number' ? parsed['cols'] : DEFAULT_TABLE_COLS,
     DEFAULT_TABLE_COLS,
   );
-  const rawCW = Array.isArray(parsed['colWidths']) ? (parsed['colWidths'] as unknown[]) : [];
-  const rawRH = Array.isArray(parsed['rowHeights']) ? (parsed['rowHeights'] as unknown[]) : [];
+  const rawCW = Array.isArray(parsed['colWidths'])
+    ? (parsed['colWidths'] as unknown[])
+    : [];
+  const rawRH = Array.isArray(parsed['rowHeights'])
+    ? (parsed['rowHeights'] as unknown[])
+    : [];
   const colWidths = normalizeFractions(
     Array.from({ length: cols }, (_, i) => {
       const v = rawCW[i];
@@ -208,43 +218,59 @@ function parseNewFormat(parsed: Record<string, unknown>): TableData {
       return typeof v === 'number' && v > 0 ? v : 1 / rows;
     }),
   );
-  const rawCells = Array.isArray(parsed['cells']) ? (parsed['cells'] as unknown[][]) : [];
-  const cells: (TableCellData | null)[][] = Array.from({ length: rows }, (_, ri) => {
-    const rawRow = rawCells[ri];
-    return Array.from({ length: cols }, (_, ci): TableCellData | null => {
-      if (!Array.isArray(rawRow)) return makeCell();
-      const raw = rawRow[ci];
-      if (raw === null) return null;
-      if (typeof raw !== 'object' || raw === null) return makeCell();
-      const obj = raw as Record<string, unknown>;
-      return {
-        id: typeof obj['id'] === 'string' ? obj['id'] : makeCellId(),
-        content: typeof obj['content'] === 'string' ? obj['content'] : '',
-        backgroundColor:
-          typeof obj['backgroundColor'] === 'string'
-            ? obj['backgroundColor']
-            : undefined,
-        textHorizontalAlign: sanitizeTextHorizontalAlign(
-          obj['textHorizontalAlign'],
-        ),
-        textVerticalAlign: sanitizeTextVerticalAlign(obj['textVerticalAlign']),
-        childLayoutDirection: sanitizeTableChildLayoutDirection(
-          obj['childLayoutDirection'],
-        ),
-        childLayoutUpdatedAt: sanitizeTableLayoutUpdatedAt(
-          obj['childLayoutUpdatedAt'],
-        ),
-        rowSpan: typeof obj['rowSpan'] === 'number' && obj['rowSpan'] >= 1 ? obj['rowSpan'] : 1,
-        colSpan: typeof obj['colSpan'] === 'number' && obj['colSpan'] >= 1 ? obj['colSpan'] : 1,
-        isCollapsed: typeof obj['isCollapsed'] === 'boolean' ? obj['isCollapsed'] : true,
-        childItemIds: Array.isArray(obj['childItemIds'])
-          ? (obj['childItemIds'] as unknown[]).filter((v): v is string => typeof v === 'string')
-          : typeof obj['childItemId'] === 'string'
-            ? [obj['childItemId']]
-            : [],
-      };
-    });
-  });
+  const rawCells = Array.isArray(parsed['cells'])
+    ? (parsed['cells'] as unknown[][])
+    : [];
+  const cells: (TableCellData | null)[][] = Array.from(
+    { length: rows },
+    (_, ri) => {
+      const rawRow = rawCells[ri];
+      return Array.from({ length: cols }, (_, ci): TableCellData | null => {
+        if (!Array.isArray(rawRow)) return makeCell();
+        const raw = rawRow[ci];
+        if (raw === null) return null;
+        if (typeof raw !== 'object' || raw === null) return makeCell();
+        const obj = raw as Record<string, unknown>;
+        return {
+          id: typeof obj['id'] === 'string' ? obj['id'] : makeCellId(),
+          content: typeof obj['content'] === 'string' ? obj['content'] : '',
+          backgroundColor:
+            typeof obj['backgroundColor'] === 'string'
+              ? obj['backgroundColor']
+              : undefined,
+          textHorizontalAlign: sanitizeTextHorizontalAlign(
+            obj['textHorizontalAlign'],
+          ),
+          textVerticalAlign: sanitizeTextVerticalAlign(
+            obj['textVerticalAlign'],
+          ),
+          childLayoutDirection: sanitizeTableChildLayoutDirection(
+            obj['childLayoutDirection'],
+          ),
+          childLayoutUpdatedAt: sanitizeTableLayoutUpdatedAt(
+            obj['childLayoutUpdatedAt'],
+          ),
+          rowSpan:
+            typeof obj['rowSpan'] === 'number' && obj['rowSpan'] >= 1
+              ? obj['rowSpan']
+              : 1,
+          colSpan:
+            typeof obj['colSpan'] === 'number' && obj['colSpan'] >= 1
+              ? obj['colSpan']
+              : 1,
+          isCollapsed:
+            typeof obj['isCollapsed'] === 'boolean' ? obj['isCollapsed'] : true,
+          childItemIds: Array.isArray(obj['childItemIds'])
+            ? (obj['childItemIds'] as unknown[]).filter(
+                (v): v is string => typeof v === 'string',
+              )
+            : typeof obj['childItemId'] === 'string'
+              ? [obj['childItemId']]
+              : [],
+        };
+      });
+    },
+  );
   return {
     name: sanitizeTableName(parsed['name']),
     labelFontSize: sanitizeTableLabelFontSize(parsed['labelFontSize']),
@@ -264,9 +290,15 @@ function parseNewFormat(parsed: Record<string, unknown>): TableData {
   };
 }
 
-function parseDividerPositions(parsed: Record<string, unknown>): Pick<TableData, 'colDividerPositions' | 'rowDividerPositions'> {
-  const result: Pick<TableData, 'colDividerPositions' | 'rowDividerPositions'> = {};
-  if (parsed['colDividerPositions'] && typeof parsed['colDividerPositions'] === 'object') {
+function parseDividerPositions(
+  parsed: Record<string, unknown>,
+): Pick<TableData, 'colDividerPositions' | 'rowDividerPositions'> {
+  const result: Pick<TableData, 'colDividerPositions' | 'rowDividerPositions'> =
+    {};
+  if (
+    parsed['colDividerPositions'] &&
+    typeof parsed['colDividerPositions'] === 'object'
+  ) {
     const raw = parsed['colDividerPositions'] as Record<string, unknown>;
     const cleaned: Record<string, number> = {};
     for (const [k, v] of Object.entries(raw)) {
@@ -274,7 +306,10 @@ function parseDividerPositions(parsed: Record<string, unknown>): Pick<TableData,
     }
     if (Object.keys(cleaned).length > 0) result.colDividerPositions = cleaned;
   }
-  if (parsed['rowDividerPositions'] && typeof parsed['rowDividerPositions'] === 'object') {
+  if (
+    parsed['rowDividerPositions'] &&
+    typeof parsed['rowDividerPositions'] === 'object'
+  ) {
     const raw = parsed['rowDividerPositions'] as Record<string, unknown>;
     const cleaned: Record<string, number> = {};
     for (const [k, v] of Object.entries(raw)) {
@@ -285,9 +320,14 @@ function parseDividerPositions(parsed: Record<string, unknown>): Pick<TableData,
   return result;
 }
 
-function parseDividerBreaks(parsed: Record<string, unknown>): Pick<TableData, 'colDividerBreaks' | 'rowDividerBreaks'> {
+function parseDividerBreaks(
+  parsed: Record<string, unknown>,
+): Pick<TableData, 'colDividerBreaks' | 'rowDividerBreaks'> {
   const result: Pick<TableData, 'colDividerBreaks' | 'rowDividerBreaks'> = {};
-  if (parsed['colDividerBreaks'] && typeof parsed['colDividerBreaks'] === 'object') {
+  if (
+    parsed['colDividerBreaks'] &&
+    typeof parsed['colDividerBreaks'] === 'object'
+  ) {
     const raw = parsed['colDividerBreaks'] as Record<string, unknown>;
     const cleaned: Record<string, true> = {};
     for (const [k, v] of Object.entries(raw)) {
@@ -295,7 +335,10 @@ function parseDividerBreaks(parsed: Record<string, unknown>): Pick<TableData, 'c
     }
     if (Object.keys(cleaned).length > 0) result.colDividerBreaks = cleaned;
   }
-  if (parsed['rowDividerBreaks'] && typeof parsed['rowDividerBreaks'] === 'object') {
+  if (
+    parsed['rowDividerBreaks'] &&
+    typeof parsed['rowDividerBreaks'] === 'object'
+  ) {
     const raw = parsed['rowDividerBreaks'] as Record<string, unknown>;
     const cleaned: Record<string, true> = {};
     for (const [k, v] of Object.entries(raw)) {
@@ -316,7 +359,9 @@ function parseOldFormat(parsed: Record<string, unknown>): TableData {
     DEFAULT_TABLE_COLS,
   );
   const base = createTableData(rows, cols);
-  const rawCells = Array.isArray(parsed['cells']) ? (parsed['cells'] as unknown[][]) : [];
+  const rawCells = Array.isArray(parsed['cells'])
+    ? (parsed['cells'] as unknown[][])
+    : [];
   base.cells = base.cells.map((row, ri) =>
     row.map((cell, ci): TableCellData | null => {
       if (cell === null) {
@@ -384,7 +429,9 @@ export function updateTableCell(
   return {
     ...data,
     cells: data.cells.map((row) =>
-      row.map((cell) => (cell && cell.id === cellId ? { ...cell, ...patch } : cell)),
+      row.map((cell) =>
+        cell && cell.id === cellId ? { ...cell, ...patch } : cell,
+      ),
     ),
   };
 }
@@ -396,7 +443,9 @@ export function sanitizeTableChildLayoutDirection(
 }
 
 function sanitizeTableLayoutUpdatedAt(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
 export function getEffectiveTableCellChildLayoutDirection(
@@ -407,7 +456,10 @@ export function getEffectiveTableCellChildLayoutDirection(
   const tableUpdatedAt = data.childLayoutUpdatedAt ?? 0;
   const cellUpdatedAt = cell.childLayoutUpdatedAt ?? -1;
 
-  if (cell.childLayoutDirection !== undefined && cellUpdatedAt >= tableUpdatedAt) {
+  if (
+    cell.childLayoutDirection !== undefined &&
+    cellUpdatedAt >= tableUpdatedAt
+  ) {
     return cell.childLayoutDirection;
   }
 
@@ -417,10 +469,7 @@ export function getEffectiveTableCellChildLayoutDirection(
 export function getNextTableLayoutUpdatedAt(data: TableData): number {
   const cellMax = data.cells
     .flat()
-    .reduce(
-      (max, cell) => Math.max(max, cell?.childLayoutUpdatedAt ?? 0),
-      0,
-    );
+    .reduce((max, cell) => Math.max(max, cell?.childLayoutUpdatedAt ?? 0), 0);
   return Math.max(data.childLayoutUpdatedAt ?? 0, cellMax) + 1;
 }
 
@@ -470,7 +519,10 @@ function getRootCellPositionById(
   return null;
 }
 
-function getSelectedGridPositions(data: TableData, cellIds: string[]): Set<string> {
+function getSelectedGridPositions(
+  data: TableData,
+  cellIds: string[],
+): Set<string> {
   const positions = new Set<string>();
   const uniqueCellIds = [...new Set(cellIds)];
 
@@ -588,13 +640,11 @@ export function getTableCellSummary(cell: TableCellData): string {
 }
 
 export function countFilledTableCells(data: TableData): number {
-  return data.cells
-    .flat()
-    .filter((c) => {
-      if (!c) return false;
-      if (c.childItemIds.length > 0) return true;
-      return c.content.trim().length > 0;
-    }).length;
+  return data.cells.flat().filter((c) => {
+    if (!c) return false;
+    if (c.childItemIds.length > 0) return true;
+    return c.content.trim().length > 0;
+  }).length;
 }
 
 // ── Merge cells ──────────────────────────────────────────────────────────
@@ -628,7 +678,10 @@ function getBoundingRect(
   return { minRow, maxRow, minCol, maxCol };
 }
 
-export function mergeCells(data: TableData, positions: CellPosition[]): TableData {
+export function mergeCells(
+  data: TableData,
+  positions: CellPosition[],
+): TableData {
   const rect = getBoundingRect(data, positions);
   if (!rect) return data;
   const { minRow, maxRow, minCol, maxCol } = rect;
@@ -671,14 +724,19 @@ export function mergeCells(data: TableData, positions: CellPosition[]): TableDat
   const nextCells = data.cells.map((row, ri) =>
     row.map((cell, ci) => {
       if (ri === minRow && ci === minCol) return mergedCell;
-      if (ri >= minRow && ri <= maxRow && ci >= minCol && ci <= maxCol) return null;
+      if (ri >= minRow && ri <= maxRow && ci >= minCol && ci <= maxCol)
+        return null;
       return cell;
     }),
   );
 
   // Clean up divider position overrides for boundaries now internal to the merged cell
-  let nextColPos = data.colDividerPositions ? { ...data.colDividerPositions } : undefined;
-  let nextRowPos = data.rowDividerPositions ? { ...data.rowDividerPositions } : undefined;
+  let nextColPos = data.colDividerPositions
+    ? { ...data.colDividerPositions }
+    : undefined;
+  let nextRowPos = data.rowDividerPositions
+    ? { ...data.rowDividerPositions }
+    : undefined;
   if (nextColPos) {
     for (let b = minCol; b < maxCol; b++) {
       for (let r = minRow; r <= maxRow; r++) {
@@ -696,7 +754,12 @@ export function mergeCells(data: TableData, positions: CellPosition[]): TableDat
     if (Object.keys(nextRowPos).length === 0) nextRowPos = undefined;
   }
 
-  return { ...data, cells: nextCells, colDividerPositions: nextColPos, rowDividerPositions: nextRowPos };
+  return {
+    ...data,
+    cells: nextCells,
+    colDividerPositions: nextColPos,
+    rowDividerPositions: nextRowPos,
+  };
 }
 
 // ── Find cell by child item ID ───────────────────────────────────────────
@@ -708,7 +771,8 @@ export function findCellByChildItemId(
   for (let r = 0; r < data.rows; r++) {
     for (let c = 0; c < data.cols; c++) {
       const cell = data.cells[r]?.[c];
-      if (cell?.childItemIds.includes(childItemId)) return { cell, row: r, col: c };
+      if (cell?.childItemIds.includes(childItemId))
+        return { cell, row: r, col: c };
     }
   }
   return null;
@@ -760,13 +824,22 @@ function getRowSplitPosition(
   return top + (bottom - top) * (splitTopSpan / rowSpan);
 }
 
-export function splitCellHorizontal(data: TableData, cellId: string): TableData {
+export function splitCellHorizontal(
+  data: TableData,
+  cellId: string,
+): TableData {
   const found = findCellById(data, cellId);
   if (!found || found.cell.rowSpan <= 1) return data;
   const { cell: target, row, col } = found;
   const half = Math.floor(target.rowSpan / 2);
   const splitBoundaryIndex = row + half - 1;
-  const splitPosition = getRowSplitPosition(data, row, col, target.rowSpan, half);
+  const splitPosition = getRowSplitPosition(
+    data,
+    row,
+    col,
+    target.rowSpan,
+    half,
+  );
   const topCell: TableCellData = { ...target, id: makeCellId(), rowSpan: half };
   const bottomCell: TableCellData = {
     ...target,
@@ -813,8 +886,18 @@ export function splitCellVertical(data: TableData, cellId: string): TableData {
   const { cell: target, row, col } = found;
   const half = Math.floor(target.colSpan / 2);
   const splitBoundaryIndex = col + half - 1;
-  const splitPosition = getColumnSplitPosition(data, row, col, target.colSpan, half);
-  const leftCell: TableCellData = { ...target, id: makeCellId(), colSpan: half };
+  const splitPosition = getColumnSplitPosition(
+    data,
+    row,
+    col,
+    target.colSpan,
+    half,
+  );
+  const leftCell: TableCellData = {
+    ...target,
+    id: makeCellId(),
+    colSpan: half,
+  };
   const rightCell: TableCellData = {
     ...target,
     id: makeCellId(),
@@ -860,7 +943,8 @@ function remapPositionsForAddRow(
   data: TableData,
   insertAt: number,
 ): Pick<TableData, 'colDividerPositions' | 'rowDividerPositions'> {
-  const result: Pick<TableData, 'colDividerPositions' | 'rowDividerPositions'> = {};
+  const result: Pick<TableData, 'colDividerPositions' | 'rowDividerPositions'> =
+    {};
   if (data.colDividerPositions) {
     const next: Record<string, number> = {};
     for (const [key, val] of Object.entries(data.colDividerPositions)) {
@@ -908,7 +992,8 @@ function remapPositionsForAddCol(
   data: TableData,
   insertAt: number,
 ): Pick<TableData, 'colDividerPositions' | 'rowDividerPositions'> {
-  const result: Pick<TableData, 'colDividerPositions' | 'rowDividerPositions'> = {};
+  const result: Pick<TableData, 'colDividerPositions' | 'rowDividerPositions'> =
+    {};
   if (data.colDividerPositions) {
     const next: Record<string, number> = {};
     for (const [key, val] of Object.entries(data.colDividerPositions)) {
@@ -980,7 +1065,13 @@ export function addRow(data: TableData, afterRowIndex: number): TableData {
       return cell;
     }),
   );
-  return { ...data, rows: data.rows + 1, rowHeights: nextRowHeights, cells: finalCells, ...remapPositionsForAddRow(data, insertAt) };
+  return {
+    ...data,
+    rows: data.rows + 1,
+    rowHeights: nextRowHeights,
+    cells: finalCells,
+    ...remapPositionsForAddRow(data, insertAt),
+  };
 }
 
 export function addCol(data: TableData, afterColIndex: number): TableData {
@@ -1007,7 +1098,13 @@ export function addCol(data: TableData, afterColIndex: number): TableData {
       return cell;
     }),
   );
-  return { ...data, cols: data.cols + 1, colWidths: nextColWidths, cells: finalCells, ...remapPositionsForAddCol(data, insertAt) };
+  return {
+    ...data,
+    cols: data.cols + 1,
+    colWidths: nextColWidths,
+    cells: finalCells,
+    ...remapPositionsForAddCol(data, insertAt),
+  };
 }
 
 // ── Resize col / row (drag divider) ─────────────────────────────────────
@@ -1022,7 +1119,10 @@ export function resizeColumn(
   if (colIndex + 1 >= data.colWidths.length) return data;
   const widths = [...data.colWidths];
   const total = (widths[colIndex] ?? 0) + (widths[colIndex + 1] ?? 0);
-  const newA = Math.min(total - MIN_FRAC, Math.max(MIN_FRAC, (widths[colIndex] ?? 0) + deltaFraction));
+  const newA = Math.min(
+    total - MIN_FRAC,
+    Math.max(MIN_FRAC, (widths[colIndex] ?? 0) + deltaFraction),
+  );
   widths[colIndex] = newA;
   widths[colIndex + 1] = total - newA;
   return { ...data, colWidths: widths };
@@ -1036,7 +1136,10 @@ export function resizeRow(
   if (rowIndex + 1 >= data.rowHeights.length) return data;
   const heights = [...data.rowHeights];
   const total = (heights[rowIndex] ?? 0) + (heights[rowIndex + 1] ?? 0);
-  const newA = Math.min(total - MIN_FRAC, Math.max(MIN_FRAC, (heights[rowIndex] ?? 0) + deltaFraction));
+  const newA = Math.min(
+    total - MIN_FRAC,
+    Math.max(MIN_FRAC, (heights[rowIndex] ?? 0) + deltaFraction),
+  );
   heights[rowIndex] = newA;
   heights[rowIndex + 1] = total - newA;
   return { ...data, rowHeights: heights };
@@ -1044,7 +1147,11 @@ export function resizeRow(
 
 // ── Legacy compat (Inspector resize UI) ─────────────────────────────────
 
-export function resizeTableData(data: TableData, rows: number, cols: number): TableData {
+export function resizeTableData(
+  data: TableData,
+  rows: number,
+  cols: number,
+): TableData {
   return createTableData(rows, cols);
 }
 
@@ -1261,7 +1368,8 @@ export function computeColSegmentGroups(data: TableData): SegmentGroup[] {
     for (let r = 0; r < data.rows; r++) {
       const rootLeft = getRootCellAt(data, r, b);
       const rootRight = getRootCellAt(data, r, b + 1);
-      if (rootLeft && rootRight && rootLeft.cell.id === rootRight.cell.id) continue;
+      if (rootLeft && rootRight && rootLeft.cell.id === rootRight.cell.id)
+        continue;
       const key = `c${b}r${r}`;
       const pos = data.colDividerPositions?.[key] ?? defaultCum[b + 1] ?? 0;
       segs.push({ row: r, pos });
@@ -1284,8 +1392,11 @@ export function computeColSegmentGroups(data: TableData): SegmentGroup[] {
         const rightBelow = getRootCellAt(data, r, b + 1);
         const structurallyConnected =
           (leftAbove && leftBelow && leftAbove.cell.id === leftBelow.cell.id) ||
-          (rightAbove && rightBelow && rightAbove.cell.id === rightBelow.cell.id);
-        const hasExplicitBreak = data.colDividerBreaks?.[`c${b}r${prevR}`] === true;
+          (rightAbove &&
+            rightBelow &&
+            rightAbove.cell.id === rightBelow.cell.id);
+        const hasExplicitBreak =
+          data.colDividerBreaks?.[`c${b}r${prevR}`] === true;
 
         if (
           structurallyConnected ||
@@ -1297,12 +1408,24 @@ export function computeColSegmentGroups(data: TableData): SegmentGroup[] {
       }
 
       // Flush current group
-      groups.push({ type: 'col', boundaryIndex: b, segments: [...group], position: groupPos, key: `c${b}g${group[0]}` });
+      groups.push({
+        type: 'col',
+        boundaryIndex: b,
+        segments: [...group],
+        position: groupPos,
+        key: `c${b}g${group[0]}`,
+      });
       group = [r];
       groupPos = pos;
     }
 
-    groups.push({ type: 'col', boundaryIndex: b, segments: [...group], position: groupPos, key: `c${b}g${group[0]}` });
+    groups.push({
+      type: 'col',
+      boundaryIndex: b,
+      segments: [...group],
+      position: groupPos,
+      key: `c${b}g${group[0]}`,
+    });
   }
 
   return groups;
@@ -1317,7 +1440,8 @@ export function computeRowSegmentGroups(data: TableData): SegmentGroup[] {
     for (let c = 0; c < data.cols; c++) {
       const rootTop = getRootCellAt(data, b, c);
       const rootBottom = getRootCellAt(data, b + 1, c);
-      if (rootTop && rootBottom && rootTop.cell.id === rootBottom.cell.id) continue;
+      if (rootTop && rootBottom && rootTop.cell.id === rootBottom.cell.id)
+        continue;
       const key = `r${b}c${c}`;
       const pos = data.rowDividerPositions?.[key] ?? defaultCum[b + 1] ?? 0;
       segs.push({ col: c, pos });
@@ -1339,8 +1463,11 @@ export function computeRowSegmentGroups(data: TableData): SegmentGroup[] {
         const bottomRight = getRootCellAt(data, b + 1, c);
         const structurallyConnected =
           (topLeft && topRight && topLeft.cell.id === topRight.cell.id) ||
-          (bottomLeft && bottomRight && bottomLeft.cell.id === bottomRight.cell.id);
-        const hasExplicitBreak = data.rowDividerBreaks?.[`r${b}c${prevC}`] === true;
+          (bottomLeft &&
+            bottomRight &&
+            bottomLeft.cell.id === bottomRight.cell.id);
+        const hasExplicitBreak =
+          data.rowDividerBreaks?.[`r${b}c${prevC}`] === true;
 
         if (
           structurallyConnected ||
@@ -1351,12 +1478,24 @@ export function computeRowSegmentGroups(data: TableData): SegmentGroup[] {
         }
       }
 
-      groups.push({ type: 'row', boundaryIndex: b, segments: [...group], position: groupPos, key: `r${b}g${group[0]}` });
+      groups.push({
+        type: 'row',
+        boundaryIndex: b,
+        segments: [...group],
+        position: groupPos,
+        key: `r${b}g${group[0]}`,
+      });
       group = [c];
       groupPos = pos;
     }
 
-    groups.push({ type: 'row', boundaryIndex: b, segments: [...group], position: groupPos, key: `r${b}g${group[0]}` });
+    groups.push({
+      type: 'row',
+      boundaryIndex: b,
+      segments: [...group],
+      position: groupPos,
+      key: `r${b}g${group[0]}`,
+    });
   }
 
   return groups;
@@ -1366,10 +1505,16 @@ export function computeRowSegmentGroups(data: TableData): SegmentGroup[] {
 
 type DividerState = Pick<
   TableData,
-  'colDividerPositions' | 'rowDividerPositions' | 'colDividerBreaks' | 'rowDividerBreaks'
+  | 'colDividerPositions'
+  | 'rowDividerPositions'
+  | 'colDividerBreaks'
+  | 'rowDividerBreaks'
 >;
 
-function remapPositionsForDeleteRow(data: TableData, rowIndex: number): DividerState {
+function remapPositionsForDeleteRow(
+  data: TableData,
+  rowIndex: number,
+): DividerState {
   const colPos: Record<string, number> = {};
   if (data.colDividerPositions) {
     for (const [key, val] of Object.entries(data.colDividerPositions)) {
@@ -1390,8 +1535,9 @@ function remapPositionsForDeleteRow(data: TableData, rowIndex: number): DividerS
       const b = parseInt(m[1]!, 10);
       const c = parseInt(m[2]!, 10);
       if (b < rowIndex - 1) rowPos[key] = val;
-      else if (b <= rowIndex) { /* skip boundaries adjacent to deleted row */ }
-      else rowPos[`r${b - 1}c${c}`] = val;
+      else if (b <= rowIndex) {
+        /* skip boundaries adjacent to deleted row */
+      } else rowPos[`r${b - 1}c${c}`] = val;
     }
   }
 
@@ -1415,8 +1561,9 @@ function remapPositionsForDeleteRow(data: TableData, rowIndex: number): DividerS
       const b = parseInt(m[1]!, 10);
       const c = parseInt(m[2]!, 10);
       if (b < rowIndex - 1) rowBreaks[key] = true;
-      else if (b <= rowIndex) { /* skip */ }
-      else rowBreaks[`r${b - 1}c${c}`] = true;
+      else if (b <= rowIndex) {
+        /* skip */
+      } else rowBreaks[`r${b - 1}c${c}`] = true;
     }
   }
 
@@ -1428,7 +1575,10 @@ function remapPositionsForDeleteRow(data: TableData, rowIndex: number): DividerS
   };
 }
 
-function remapPositionsForDeleteCol(data: TableData, colIndex: number): DividerState {
+function remapPositionsForDeleteCol(
+  data: TableData,
+  colIndex: number,
+): DividerState {
   const colPos: Record<string, number> = {};
   if (data.colDividerPositions) {
     for (const [key, val] of Object.entries(data.colDividerPositions)) {
@@ -1437,8 +1587,9 @@ function remapPositionsForDeleteCol(data: TableData, colIndex: number): DividerS
       const b = parseInt(m[1]!, 10);
       const r = parseInt(m[2]!, 10);
       if (b < colIndex - 1) colPos[key] = val;
-      else if (b <= colIndex) { /* skip boundaries adjacent to deleted col */ }
-      else colPos[`c${b - 1}r${r}`] = val;
+      else if (b <= colIndex) {
+        /* skip boundaries adjacent to deleted col */
+      } else colPos[`c${b - 1}r${r}`] = val;
     }
   }
 
@@ -1462,8 +1613,9 @@ function remapPositionsForDeleteCol(data: TableData, colIndex: number): DividerS
       const b = parseInt(m[1]!, 10);
       const r = parseInt(m[2]!, 10);
       if (b < colIndex - 1) colBreaks[key] = true;
-      else if (b <= colIndex) { /* skip */ }
-      else colBreaks[`c${b - 1}r${r}`] = true;
+      else if (b <= colIndex) {
+        /* skip */
+      } else colBreaks[`c${b - 1}r${r}`] = true;
     }
   }
 
@@ -1515,7 +1667,9 @@ export function deleteRow(data: TableData, rowIndex: number): TableData {
 
   adjusted.splice(rowIndex, 1);
 
-  const nextRowHeights = normalizeFractions(data.rowHeights.filter((_, i) => i !== rowIndex));
+  const nextRowHeights = normalizeFractions(
+    data.rowHeights.filter((_, i) => i !== rowIndex),
+  );
   const remapped = remapPositionsForDeleteRow(data, rowIndex);
 
   return {
@@ -1556,8 +1710,12 @@ export function deleteCol(data: TableData, colIndex: number): TableData {
     }
   }
 
-  const nextCells = adjusted.map((row) => row.filter((_, ci) => ci !== colIndex));
-  const nextColWidths = normalizeFractions(data.colWidths.filter((_, i) => i !== colIndex));
+  const nextCells = adjusted.map((row) =>
+    row.filter((_, ci) => ci !== colIndex),
+  );
+  const nextColWidths = normalizeFractions(
+    data.colWidths.filter((_, i) => i !== colIndex),
+  );
   const remapped = remapPositionsForDeleteCol(data, colIndex);
 
   return {

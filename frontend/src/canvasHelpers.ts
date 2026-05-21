@@ -6,4 +6,3 @@ export * from './canvasHelpers/tableLayout';
 export * from './canvasHelpers/connectorAnchors';
 export * from './canvasHelpers/layerOrdering';
 export * from './canvasHelpers/payloadConversion';
-

@@ -143,8 +143,7 @@ const tests: TestCase[] = [
         {
           method: 'PATCH',
           ...jsonBody({
-            default_style_json:
-              '{"textColor":"#1d4ed8","linkColor":"#ef4444"}',
+            default_style_json: '{"textColor":"#1d4ed8","linkColor":"#ef4444"}',
           }),
         },
       );
@@ -395,7 +394,9 @@ const tests: TestCase[] = [
     run: async () => {
       const previousHome = process.env.HOME;
       const previousUserProfile = process.env.USERPROFILE;
-      const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'whiteboard-home-'));
+      const fakeHome = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'whiteboard-home-'),
+      );
       try {
         process.env.HOME = fakeHome;
         process.env.USERPROFILE = fakeHome;
@@ -414,7 +415,9 @@ const tests: TestCase[] = [
 
         assert.equal(opened.data.path, expectedPath);
         assert.equal(
-          fs.existsSync(path.join(expectedPath, '.pv_project', 'metadata.json')),
+          fs.existsSync(
+            path.join(expectedPath, '.pv_project', 'metadata.json'),
+          ),
           true,
         );
       } finally {
@@ -624,7 +627,9 @@ const tests: TestCase[] = [
       );
       assert.match(
         presentationXml,
-        new RegExp(`<item ref="${note.id}"[^>]*x="${note.x}"[^>]*y="${note.y}"`),
+        new RegExp(
+          `<item ref="${note.id}"[^>]*x="${note.x}"[^>]*y="${note.y}"`,
+        ),
       );
 
       const stray = await createBoardItem(baseUrl, {
@@ -809,8 +814,11 @@ const tests: TestCase[] = [
       assert.equal(mainBoardAfterRename.board_items.length, 2);
       assert.equal(otherBoardAfterRename.board_items.length, 1);
       assert.ok(
-        [...mainBoardAfterRename.board_items, ...otherBoardAfterRename.board_items].every(
-          (item) => item.data_json?.includes('"noteFile":"Renamed-note.md"'),
+        [
+          ...mainBoardAfterRename.board_items,
+          ...otherBoardAfterRename.board_items,
+        ].every((item) =>
+          item.data_json?.includes('"noteFile":"Renamed-note.md"'),
         ),
       );
 

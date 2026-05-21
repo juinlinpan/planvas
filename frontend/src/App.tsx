@@ -766,16 +766,10 @@ export function App() {
 
     try {
       await refreshProjectNotes(selectedProjectId);
-      if (selectedPageId !== null) {
-        setPageRefreshTokenById((current) => ({
-          ...current,
-          [selectedPageId]: (current[selectedPageId] ?? 0) + 1,
-        }));
-      }
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     }
-  }, [refreshProjectNotes, selectedPageId, selectedProjectId]);
+  }, [refreshProjectNotes, selectedProjectId]);
 
   useEffect(() => {
     if (appView !== 'workspace' || selectedProjectId === null) {
@@ -1090,8 +1084,6 @@ export function App() {
     });
   }
 
-
-
   function openProjectDeleteDialog(): void {
     if (selectedProject === null || isMutating) {
       return;
@@ -1359,9 +1351,7 @@ export function App() {
     void handlePageDrop(currentDragState.itemId, targetId, position);
   }
 
-  function handleExportPageClick(
-    format: 'png' | 'pptx' | 'mermaid',
-  ): void {
+  function handleExportPageClick(format: 'png' | 'pptx' | 'mermaid'): void {
     if (selectedPage === null || isMutating) {
       return;
     }
@@ -2324,10 +2314,6 @@ export function App() {
                   if (selectedProjectId !== null) {
                     void refreshProjectNotes(selectedProjectId);
                   }
-                  setPageRefreshTokenById((current) => ({
-                    ...current,
-                    [selectedPage.id]: (current[selectedPage.id] ?? 0) + 1,
-                  }));
                 }}
               />
             )}
@@ -2651,7 +2637,11 @@ export function App() {
           projects={projects}
           isBusy={isMutating}
           onConfirm={(pageIds, noteFiles, sourceProjectId) =>
-            void handleCrossProjectImportConfirm(pageIds, noteFiles, sourceProjectId)
+            void handleCrossProjectImportConfirm(
+              pageIds,
+              noteFiles,
+              sourceProjectId,
+            )
           }
           onCancel={() => setCrossProjectImportOpen(false)}
         />

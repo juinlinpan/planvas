@@ -115,7 +115,10 @@ export function syncSegmentConnectionsForItems(
   itemsRef: MutableRefObject<BoardItem[]>,
   setItemsAndSync: (updater: ItemsUpdater) => void,
 ): void {
-  const result = syncSegmentConnectionsInItems(itemsRef.current, changedItemIds);
+  const result = syncSegmentConnectionsInItems(
+    itemsRef.current,
+    changedItemIds,
+  );
   if (result.updatedSegments.length === 0) {
     return;
   }
@@ -123,7 +126,9 @@ export function syncSegmentConnectionsForItems(
   setItemsAndSync(result.items);
 
   void Promise.all(
-    result.updatedSegments.map((item) => updateBoardItem(item.id, toPayload(item))),
+    result.updatedSegments.map((item) =>
+      updateBoardItem(item.id, toPayload(item)),
+    ),
   ).catch((err) => {
     console.error('[Canvas] Failed to sync segment connections', err);
   });
@@ -154,7 +159,8 @@ export function syncSegmentConnectionsInItems(
       conns.startConnection !== null &&
       changedIdSet.has(conns.startConnection.itemId);
     const endTouched =
-      conns.endConnection !== null && changedIdSet.has(conns.endConnection.itemId);
+      conns.endConnection !== null &&
+      changedIdSet.has(conns.endConnection.itemId);
 
     if (!startTouched && !endTouched) {
       return item;
@@ -185,7 +191,9 @@ export function syncSegmentConnectionsInItems(
       if (targetItem) {
         newEnd = getAnchorPoint(
           targetItem,
-          isAnchor(conns.endConnection.anchor) ? conns.endConnection.anchor : null,
+          isAnchor(conns.endConnection.anchor)
+            ? conns.endConnection.anchor
+            : null,
         );
       }
     }

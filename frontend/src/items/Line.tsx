@@ -1,15 +1,14 @@
 import { type BoardItem } from '../api';
-import {
-  type ProjectDefaultStyle,
-  resolveBoardItemStyle,
-} from '../itemStyles';
+import { type ProjectDefaultStyle, resolveBoardItemStyle } from '../itemStyles';
 
 type Props = {
   item: BoardItem;
   projectDefaultStyle?: ProjectDefaultStyle;
 };
 
-function getStrokeDasharray(style: 'solid' | 'dashed' | 'dotted'): string | undefined {
+function getStrokeDasharray(
+  style: 'solid' | 'dashed' | 'dotted',
+): string | undefined {
   switch (style) {
     case 'dashed':
       return '14 10';

@@ -9,9 +9,7 @@ import {
 import { buildSegmentGeometry } from './segmentData';
 import { ITEM_CATEGORY, ITEM_TYPE } from './types';
 
-function createBoardItem(
-  overrides: Partial<BoardItem>,
-): BoardItem {
+function createBoardItem(overrides: Partial<BoardItem>): BoardItem {
   return {
     id: 'item-1',
     page_id: 'page-1',
@@ -84,9 +82,21 @@ describe('getSelectionMagnetBounds', () => {
 describe('reorderItemsForLayer', () => {
   it('moves an item one level forward', () => {
     const items = [
-      createBoardItem({ id: 'a', z_index: 0, created_at: '2026-04-20T00:00:00Z' }),
-      createBoardItem({ id: 'b', z_index: 1, created_at: '2026-04-20T00:00:01Z' }),
-      createBoardItem({ id: 'c', z_index: 2, created_at: '2026-04-20T00:00:02Z' }),
+      createBoardItem({
+        id: 'a',
+        z_index: 0,
+        created_at: '2026-04-20T00:00:00Z',
+      }),
+      createBoardItem({
+        id: 'b',
+        z_index: 1,
+        created_at: '2026-04-20T00:00:01Z',
+      }),
+      createBoardItem({
+        id: 'c',
+        z_index: 2,
+        created_at: '2026-04-20T00:00:02Z',
+      }),
     ];
 
     const reordered = reorderItemsForLayer(items, 'b', 'bringForward');
@@ -97,9 +107,21 @@ describe('reorderItemsForLayer', () => {
 
   it('moves an item one level backward', () => {
     const items = [
-      createBoardItem({ id: 'a', z_index: 0, created_at: '2026-04-20T00:00:00Z' }),
-      createBoardItem({ id: 'b', z_index: 1, created_at: '2026-04-20T00:00:01Z' }),
-      createBoardItem({ id: 'c', z_index: 2, created_at: '2026-04-20T00:00:02Z' }),
+      createBoardItem({
+        id: 'a',
+        z_index: 0,
+        created_at: '2026-04-20T00:00:00Z',
+      }),
+      createBoardItem({
+        id: 'b',
+        z_index: 1,
+        created_at: '2026-04-20T00:00:01Z',
+      }),
+      createBoardItem({
+        id: 'c',
+        z_index: 2,
+        created_at: '2026-04-20T00:00:02Z',
+      }),
     ];
 
     const reordered = reorderItemsForLayer(items, 'b', 'sendBackward');

@@ -11,16 +11,13 @@ import {
   type ConnectorLink,
   createBoardItem,
   deleteBoardItem,
+  replacePageBoardState,
   updateBoardItem,
 } from './api';
 import type { BoardSnapshot } from './boardHistory';
 import { PASTE_OFFSET_STEP, ITEM_SAVE_DELAY } from './canvasConstants';
-import {
-  relayoutTableItems,
-} from './canvasHelpers/tableLayout';
-import {
-  clampItemSize,
-} from './canvasHelpers/frameLayout';
+import { relayoutTableItems } from './canvasHelpers/tableLayout';
+import { clampItemSize } from './canvasHelpers/frameLayout';
 import {
   expandSelectionItemIds,
   getPrimarySelectionId,
@@ -146,6 +143,20 @@ function applyTextStylePatch(
   return {
     ...item,
     style_json: serializeBoardItemStyle({ ...currentStyle, ...patch }),
+  };
+}
+
+function createOptimisticId(): string {
+  return `optimistic-${globalThis.crypto?.randomUUID?.() ?? Date.now().toString(36)}`;
+}
+
+function createOptimisticItem(payload: BoardItemPayload): BoardItem {
+  const timestamp = new Date().toISOString();
+  return {
+    ...payload,
+    id: createOptimisticId(),
+    created_at: timestamp,
+    updated_at: timestamp,
   };
 }
 
@@ -316,15 +327,22 @@ export function useCanvasItemActions({
 
       pushUndoSnapshot(snapshotBeforeLayerChange);
       setItemsAndSync(nextItems);
-      void Promise.all(
-        changedItems.map((item) => updateBoardItem(item.id, toPayload(item))),
-      ).catch((err) => {
+      const persistLayerChange =
+        changedItems.length === 1
+          ? updateBoardItem(changedItems[0].id, toPayload(changedItems[0]))
+          : replacePageBoardState(pageId, {
+              board_items: nextItems,
+              connector_links: connectorsRef.current,
+            });
+      void persistLayerChange.catch((err) => {
         console.error('[Canvas] Failed to persist items', err);
       });
     },
     [
+      connectorsRef,
       captureBoardSnapshot,
       itemsRef,
+      pageId,
       primarySelectedId,
       pushUndoSnapshot,
       setItemsAndSync,
@@ -493,16 +511,29 @@ export function useCanvasItemActions({
               : null,
       };
 
+      const optimisticItem = createOptimisticItem(payload);
+      setItemsAndSync((current) => [...current, optimisticItem]);
+      setSelection([optimisticItem.id]);
+      setEditingId(null);
+
       try {
         const created = await createBoardItem(payload);
         pushUndoSnapshot(snapshotBeforeCreate);
-        setItemsAndSync((current) => [...current, created]);
+        setItemsAndSync((current) =>
+          current.map((item) =>
+            item.id === optimisticItem.id ? created : item,
+          ),
+        );
         setSelection([created.id]);
         setEditingId(isInlineEditable(created) ? created.id : null);
         if (created.type === ITEM_TYPE.note_paper) {
           onProjectNotesChanged?.();
         }
       } catch (err) {
+        setItemsAndSync((current) =>
+          current.filter((item) => item.id !== optimisticItem.id),
+        );
+        setSelection([]);
         console.error('[Canvas] Failed to create item', err);
       }
     },
@@ -529,35 +560,48 @@ export function useCanvasItemActions({
       );
       const zIndexes = itemsRef.current.map((item) => item.z_index);
       const maxZ = zIndexes.length > 0 ? Math.max(...zIndexes) : 0;
+      const payload: BoardItemPayload = {
+        page_id: pageId,
+        parent_item_id: null,
+        category: ITEM_CATEGORY_FOR_TYPE[draft.type] ?? ITEM_CATEGORY.shape,
+        type: draft.type,
+        title: null,
+        content: null,
+        content_format: null,
+        x: geometry.x,
+        y: geometry.y,
+        width: geometry.width,
+        height: geometry.height,
+        rotation: geometry.rotation,
+        z_index: maxZ + 1,
+        is_collapsed: false,
+        style_json: null,
+        data_json: geometry.data_json,
+      };
+      const optimisticItem = createOptimisticItem(payload);
+
+      setItemsAndSync((current) => [...current, optimisticItem]);
+      setSelection([optimisticItem.id]);
+      setEditingId(null);
+      setActiveTool('select');
+      setAnchorIndicatorItems([]);
+      setActiveAnchorHit(null);
 
       try {
-        const created = await createBoardItem({
-          page_id: pageId,
-          parent_item_id: null,
-          category: ITEM_CATEGORY_FOR_TYPE[draft.type] ?? ITEM_CATEGORY.shape,
-          type: draft.type,
-          title: null,
-          content: null,
-          content_format: null,
-          x: geometry.x,
-          y: geometry.y,
-          width: geometry.width,
-          height: geometry.height,
-          rotation: geometry.rotation,
-          z_index: maxZ + 1,
-          is_collapsed: false,
-          style_json: null,
-          data_json: geometry.data_json,
-        });
+        const created = await createBoardItem(payload);
 
         pushUndoSnapshot(draft.snapshot);
-        setItemsAndSync((current) => [...current, created]);
+        setItemsAndSync((current) =>
+          current.map((item) =>
+            item.id === optimisticItem.id ? created : item,
+          ),
+        );
         setSelection([created.id]);
-        setEditingId(null);
-        setActiveTool('select');
-        setAnchorIndicatorItems([]);
-        setActiveAnchorHit(null);
       } catch (err) {
+        setItemsAndSync((current) =>
+          current.filter((item) => item.id !== optimisticItem.id),
+        );
+        setSelection([]);
         console.error('[Canvas] Failed to create segment item', err);
       }
     },
@@ -676,12 +720,14 @@ export function useCanvasItemActions({
                   itemsRef.current.find((item) => item.id === childId),
                 )
                 .filter((item): item is BoardItem => item !== undefined);
-        void Promise.all([
-          updateBoardItem(latestUpdated.id, toPayload(latestUpdated)),
-          ...latestChildren.map((child) =>
-            updateBoardItem(child.id, toPayload(child)),
-          ),
-        ])
+        const savePromise =
+          latestChildren.length > 0
+            ? replacePageBoardState(pageId, {
+                board_items: itemsRef.current,
+                connector_links: connectorsRef.current,
+              })
+            : updateBoardItem(latestUpdated.id, toPayload(latestUpdated));
+        void savePromise
           .then(() => {
             if (latestUpdated.type === ITEM_TYPE.note_paper) {
               onProjectNotesChanged?.();
@@ -697,9 +743,12 @@ export function useCanvasItemActions({
     },
     [
       captureBoardSnapshot,
+      connectorsRef,
       editSessionRef,
       itemSaveTimerRef,
+      itemsRef,
       onProjectNotesChanged,
+      pageId,
       pushUndoSnapshot,
       setItemsAndSync,
     ],
@@ -717,12 +766,14 @@ export function useCanvasItemActions({
       latestItem.type === ITEM_TYPE.table
         ? itemsRef.current.filter((item) => item.parent_item_id === pendingId)
         : [];
-    void Promise.all([
-      updateBoardItem(latestItem.id, toPayload(latestItem)),
-      ...latestChildren.map((child) =>
-        updateBoardItem(child.id, toPayload(child)),
-      ),
-    ])
+    const savePromise =
+      latestChildren.length > 0
+        ? replacePageBoardState(pageId, {
+            board_items: itemsRef.current,
+            connector_links: connectorsRef.current,
+          })
+        : updateBoardItem(latestItem.id, toPayload(latestItem));
+    void savePromise
       .then(() => {
         if (latestItem.type === ITEM_TYPE.note_paper) {
           onProjectNotesChanged?.();
@@ -731,7 +782,13 @@ export function useCanvasItemActions({
       .catch((err) => {
         console.error('[Canvas] Failed to flush item save', err);
       });
-  }, [itemSaveTimerRef, itemsRef, onProjectNotesChanged]);
+  }, [
+    connectorsRef,
+    itemSaveTimerRef,
+    itemsRef,
+    onProjectNotesChanged,
+    pageId,
+  ]);
 
   const handleEditEnd = useCallback(() => {
     editSessionRef.current = null;

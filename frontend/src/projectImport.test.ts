@@ -104,12 +104,7 @@ describe('parseProjectImportText', () => {
 
 describe('prepareImportedPageBoardState', () => {
   it('remaps item ids, parent ids, connector ids, and segment data connections', () => {
-    const nextIds = [
-      'note-new',
-      'frame-new',
-      'arrow-new',
-      'connector-new',
-    ];
+    const nextIds = ['note-new', 'frame-new', 'arrow-new', 'connector-new'];
     const createId = () => {
       const nextId = nextIds.shift();
       if (nextId === undefined) {

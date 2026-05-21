@@ -61,7 +61,10 @@ async function parseError(response: Response): Promise<string> {
   const contentType = response.headers.get('content-type') ?? '';
   if (contentType.includes('application/json')) {
     const payload = (await response.json()) as ErrorResponse;
-    if (typeof payload.error?.message === 'string' && payload.error.message.length > 0) {
+    if (
+      typeof payload.error?.message === 'string' &&
+      payload.error.message.length > 0
+    ) {
       return payload.error.message;
     }
     if (typeof payload.message === 'string' && payload.message.length > 0) {
@@ -95,7 +98,10 @@ async function requestJson<T>(
   return payload.data;
 }
 
-async function requestVoid(path: string, options: RequestOptions = {}): Promise<void> {
+async function requestVoid(
+  path: string,
+  options: RequestOptions = {},
+): Promise<void> {
   const response = await fetch(`${apiBaseUrl}${path}`, options);
 
   if (!response.ok) {
@@ -161,7 +167,9 @@ export async function revealProject(id: string): Promise<void> {
   await requestVoid(`/projects/${id}/reveal`, { method: 'POST' });
 }
 
-export async function reorderProjects(orderedIds: string[]): Promise<Project[]> {
+export async function reorderProjects(
+  orderedIds: string[],
+): Promise<Project[]> {
   return requestJson<Project[]>('/projects/reorder', {
     method: 'POST',
     body: JSON.stringify({ ordered_ids: orderedIds }),
@@ -222,7 +230,10 @@ export async function deleteProjectNote(
   );
 }
 
-export async function createPage(projectId: string, name: string): Promise<Page> {
+export async function createPage(
+  projectId: string,
+  name: string,
+): Promise<Page> {
   return requestJson<Page>(`/projects/${projectId}/pages`, {
     method: 'POST',
     body: JSON.stringify({ name }),
@@ -306,7 +317,10 @@ export type BoardItem = {
   updated_at: string;
 };
 
-export type BoardItemPayload = Omit<BoardItem, 'id' | 'created_at' | 'updated_at'>;
+export type BoardItemPayload = Omit<
+  BoardItem,
+  'id' | 'created_at' | 'updated_at'
+>;
 
 export type ConnectorLink = {
   id: string;
@@ -348,7 +362,9 @@ export async function replacePageBoardState(
 }
 
 // Backend: POST /board-items（page_id in body）
-export async function createBoardItem(payload: BoardItemPayload): Promise<BoardItem> {
+export async function createBoardItem(
+  payload: BoardItemPayload,
+): Promise<BoardItem> {
   return requestJson<BoardItem>('/board-items', {
     method: 'POST',
     body: JSON.stringify(payload),

@@ -100,7 +100,9 @@ describe('pagePptxExport', () => {
       width: 480,
       height: 240,
     });
-    writeMock.mockResolvedValue(new Blob(['pptx'], { type: 'application/zip' }));
+    writeMock.mockResolvedValue(
+      new Blob(['pptx'], { type: 'application/zip' }),
+    );
 
     const result = await exportPageAsPptx({
       ...boardData,
@@ -127,24 +129,26 @@ describe('pagePptxExport', () => {
             cols: 2,
             colWidths: [0.5, 0.5],
             rowHeights: [1],
-            cells: [[
-              {
-                id: 'c1',
-                content: 'A1',
-                rowSpan: 1,
-                colSpan: 1,
-                isCollapsed: true,
-                childItemIds: [],
-              },
-              {
-                id: 'c2',
-                content: 'B1',
-                rowSpan: 1,
-                colSpan: 1,
-                isCollapsed: true,
-                childItemIds: [],
-              },
-            ]],
+            cells: [
+              [
+                {
+                  id: 'c1',
+                  content: 'A1',
+                  rowSpan: 1,
+                  colSpan: 1,
+                  isCollapsed: true,
+                  childItemIds: [],
+                },
+                {
+                  id: 'c2',
+                  content: 'B1',
+                  rowSpan: 1,
+                  colSpan: 1,
+                  isCollapsed: true,
+                  childItemIds: [],
+                },
+              ],
+            ],
           }),
           created_at: '2026-04-27T00:00:00.000Z',
           updated_at: '2026-04-27T00:00:00.000Z',
@@ -207,7 +211,9 @@ describe('pagePptxExport', () => {
         shapeName: 'rect',
       }),
     );
-    expect(addNotesMock).toHaveBeenCalledWith('Whiteboard page export: Sprint Plan');
+    expect(addNotesMock).toHaveBeenCalledWith(
+      'Whiteboard page export: Sprint Plan',
+    );
     expect(writeMock).toHaveBeenCalledWith({
       compression: true,
       outputType: 'blob',

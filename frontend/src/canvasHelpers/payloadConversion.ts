@@ -1,5 +1,1 @@
-export {
-  toConnectorPayload,
-  toPayload,
-} from './core';
-
+export { toConnectorPayload, toPayload } from './core';

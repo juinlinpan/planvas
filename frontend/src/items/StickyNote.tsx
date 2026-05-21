@@ -58,7 +58,9 @@ export function StickyNote({
 
   return (
     <div className="sticky-note-display" style={cardStyle}>
-      {item.content ? <span className="sticky-note-content">{item.content}</span> : null}
+      {item.content ? (
+        <span className="sticky-note-content">{item.content}</span>
+      ) : null}
     </div>
   );
 }

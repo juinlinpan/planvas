@@ -142,7 +142,8 @@ function latestProject(projects: Project[]): Project | null {
       .filter((project) => project.path_exists !== false)
       .sort(
         (left, right) =>
-          new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime(),
+          new Date(right.updated_at).getTime() -
+          new Date(left.updated_at).getTime(),
       )[0] ?? null
   );
 }
@@ -186,7 +187,9 @@ export function HomeView({
           <span className="home-project-card-main">
             <strong>{project.name}</strong>
             <span>
-              {project.path_exists === false ? 'Path missing' : formatDate(project.updated_at)}
+              {project.path_exists === false
+                ? 'Path missing'
+                : formatDate(project.updated_at)}
             </span>
             {project.path !== undefined && project.path !== null ? (
               <small>{project.path}</small>
@@ -232,11 +235,19 @@ export function HomeView({
           </div>
 
           <div className="home-actions">
-            <button className="home-create-button" disabled={isBusy} onClick={onCreateProject}>
+            <button
+              className="home-create-button"
+              disabled={isBusy}
+              onClick={onCreateProject}
+            >
               <IconPlus />
               Create Project
             </button>
-            <button className="home-import-button" disabled={isBusy} onClick={onOpenProject}>
+            <button
+              className="home-import-button"
+              disabled={isBusy}
+              onClick={onOpenProject}
+            >
               <IconFolder />
               Open Project
             </button>
@@ -265,7 +276,9 @@ export function HomeView({
           </button>
         </div>
 
-        {errorMessage !== null ? <div className="error-banner">{errorMessage}</div> : null}
+        {errorMessage !== null ? (
+          <div className="error-banner">{errorMessage}</div>
+        ) : null}
 
         {isLoading ? (
           <div className="home-loading" aria-label="Loading projects">

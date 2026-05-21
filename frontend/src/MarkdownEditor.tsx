@@ -1,14 +1,5 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
-import {
-  renameProjectNote,
-  updateProjectNote,
-  type ProjectNote,
-} from './api';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { renameProjectNote, updateProjectNote, type ProjectNote } from './api';
 import { MarkdownPreview } from './markdownPreview';
 
 type Props = {
@@ -22,11 +13,20 @@ type Props = {
 type SaveStatus = 'saved' | 'saving' | 'unsaved' | 'renaming';
 type ViewMode = 'edit' | 'split' | 'preview';
 
-const AUTOSAVE_DELAY_MS = 1500;
+const AUTOSAVE_DELAY_MS = 5000;
 
 function IconBold() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
       <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
     </svg>
@@ -35,7 +35,16 @@ function IconBold() {
 
 function IconItalic() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <line x1="19" y1="4" x2="10" y2="4" />
       <line x1="14" y1="20" x2="5" y2="20" />
       <line x1="15" y1="4" x2="9" y2="20" />
@@ -45,7 +54,16 @@ function IconItalic() {
 
 function IconCode() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <polyline points="16 18 22 12 16 6" />
       <polyline points="8 6 2 12 8 18" />
     </svg>
@@ -54,7 +72,16 @@ function IconCode() {
 
 function IconQuote() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M3 21c3 0 7-1 7-8V5H3v8h4c0 4.48-3.52 8-8 8z" />
       <path d="M13 21c3 0 7-1 7-8V5h-7v8h4c0 4.48-3.52 8-8 8z" />
     </svg>
@@ -63,7 +90,16 @@ function IconQuote() {
 
 function IconList() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <line x1="8" y1="6" x2="21" y2="6" />
       <line x1="8" y1="12" x2="21" y2="12" />
       <line x1="8" y1="18" x2="21" y2="18" />
@@ -147,13 +183,13 @@ export function MarkdownEditor({
     return trimmed.toLowerCase().endsWith('.md') ? trimmed : `${trimmed}.md`;
   }
 
-  async function flushPendingSave(): Promise<void> {
+  const flushPendingSave = useCallback(async (): Promise<void> => {
     if (saveTimerRef.current !== null) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     }
     await performSave(latestContentRef.current);
-  }
+  }, [performSave]);
 
   async function commitFileNameChange(): Promise<void> {
     const nextNoteFile = normalizeFileName(fileNameDraft);
@@ -177,7 +213,11 @@ export function MarkdownEditor({
     setFileNameError(null);
     try {
       await flushPendingSave();
-      const renamed = await renameProjectNote(projectId, noteFile, nextNoteFile);
+      const renamed = await renameProjectNote(
+        projectId,
+        noteFile,
+        nextNoteFile,
+      );
       setIsEditingFileName(false);
       setFileNameDraft(renamed.note_file);
       setSaveStatus('saved');
@@ -197,18 +237,38 @@ export function MarkdownEditor({
     }
   }
 
-  // Flush on unmount: fire an immediate save for any pending unsaved content so
-  // that the title on the Page reflects the latest markdown H1 when the user
-  // switches back from the editor tab.
+  useEffect(() => {
+    function flushIfLeavingWindow(): void {
+      void flushPendingSave();
+    }
+
+    function handleVisibilityChange(): void {
+      if (document.visibilityState === 'hidden') {
+        flushIfLeavingWindow();
+      }
+    }
+
+    window.addEventListener('blur', flushIfLeavingWindow);
+    window.addEventListener('pagehide', flushIfLeavingWindow);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('blur', flushIfLeavingWindow);
+      window.removeEventListener('pagehide', flushIfLeavingWindow);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [flushPendingSave]);
+
+  // Flush on unmount so switching away from the markdown editor tab does not
+  // leave a draft waiting for the next autosave tick.
   useEffect(() => {
     return () => {
       if (saveTimerRef.current !== null) {
         clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
-        const unsaved = latestContentRef.current;
-        if (unsaved !== lastSavedContent.current) {
-          void updateProjectNote(projectId, noteFile, unsaved).catch(() => {});
-        }
+      }
+      const unsaved = latestContentRef.current;
+      if (unsaved !== lastSavedContent.current) {
+        void updateProjectNote(projectId, noteFile, unsaved).catch(() => {});
       }
     };
   }, [projectId, noteFile]);
@@ -253,7 +313,8 @@ export function MarkdownEditor({
     if (!ta) return;
     const pos = ta.selectionStart;
     const lineStart = content.lastIndexOf('\n', pos - 1) + 1;
-    const next = content.slice(0, lineStart) + prefix + content.slice(lineStart);
+    const next =
+      content.slice(0, lineStart) + prefix + content.slice(lineStart);
     handleContentChange(next);
     setTimeout(() => {
       ta.focus();
@@ -273,7 +334,9 @@ export function MarkdownEditor({
   if (note === undefined) {
     return (
       <div className="markdown-editor-missing">
-        <p>Note file not found: <code>{noteFile}</code></p>
+        <p>
+          Note file not found: <code>{noteFile}</code>
+        </p>
       </div>
     );
   }
@@ -373,7 +436,10 @@ export function MarkdownEditor({
           type="button"
           className="markdown-editor-fmt-btn"
           title="Bold"
-          onMouseDown={(e) => { e.preventDefault(); wrapSelection('**', '**'); }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            wrapSelection('**', '**');
+          }}
         >
           <IconBold />
         </button>
@@ -381,7 +447,10 @@ export function MarkdownEditor({
           type="button"
           className="markdown-editor-fmt-btn"
           title="Italic"
-          onMouseDown={(e) => { e.preventDefault(); wrapSelection('*', '*'); }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            wrapSelection('*', '*');
+          }}
         >
           <IconItalic />
         </button>
@@ -390,26 +459,44 @@ export function MarkdownEditor({
           type="button"
           className="markdown-editor-fmt-btn"
           title="Heading 1"
-          onMouseDown={(e) => { e.preventDefault(); prefixCurrentLine('# '); }}
-        >H1</button>
+          onMouseDown={(e) => {
+            e.preventDefault();
+            prefixCurrentLine('# ');
+          }}
+        >
+          H1
+        </button>
         <button
           type="button"
           className="markdown-editor-fmt-btn"
           title="Heading 2"
-          onMouseDown={(e) => { e.preventDefault(); prefixCurrentLine('## '); }}
-        >H2</button>
+          onMouseDown={(e) => {
+            e.preventDefault();
+            prefixCurrentLine('## ');
+          }}
+        >
+          H2
+        </button>
         <button
           type="button"
           className="markdown-editor-fmt-btn"
           title="Heading 3"
-          onMouseDown={(e) => { e.preventDefault(); prefixCurrentLine('### '); }}
-        >H3</button>
+          onMouseDown={(e) => {
+            e.preventDefault();
+            prefixCurrentLine('### ');
+          }}
+        >
+          H3
+        </button>
         <span className="markdown-editor-fmt-sep" />
         <button
           type="button"
           className="markdown-editor-fmt-btn markdown-editor-fmt-mono"
           title="Inline code"
-          onMouseDown={(e) => { e.preventDefault(); wrapSelection('`', '`'); }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            wrapSelection('`', '`');
+          }}
         >
           <IconCode />
         </button>
@@ -417,7 +504,10 @@ export function MarkdownEditor({
           type="button"
           className="markdown-editor-fmt-btn"
           title="Blockquote"
-          onMouseDown={(e) => { e.preventDefault(); prefixCurrentLine('> '); }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            prefixCurrentLine('> ');
+          }}
         >
           <IconQuote />
         </button>
@@ -425,7 +515,10 @@ export function MarkdownEditor({
           type="button"
           className="markdown-editor-fmt-btn"
           title="Unordered list"
-          onMouseDown={(e) => { e.preventDefault(); prefixCurrentLine('- '); }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            prefixCurrentLine('- ');
+          }}
         >
           <IconList />
         </button>
@@ -433,8 +526,13 @@ export function MarkdownEditor({
           type="button"
           className="markdown-editor-fmt-btn"
           title="Ordered list"
-          onMouseDown={(e) => { e.preventDefault(); prefixCurrentLine('1. '); }}
-        >1. List</button>
+          onMouseDown={(e) => {
+            e.preventDefault();
+            prefixCurrentLine('1. ');
+          }}
+        >
+          1. List
+        </button>
       </div>
 
       {/* Body: write + preview panes */}

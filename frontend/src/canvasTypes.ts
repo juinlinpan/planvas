@@ -98,7 +98,9 @@ export type EditSessionState = {
   itemId: string;
 };
 
-export type ItemsUpdater = BoardItem[] | ((current: BoardItem[]) => BoardItem[]);
+export type ItemsUpdater =
+  | BoardItem[]
+  | ((current: BoardItem[]) => BoardItem[]);
 
 export type ConnectorsUpdater =
   | ConnectorLink[]

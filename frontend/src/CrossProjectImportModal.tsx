@@ -1,11 +1,21 @@
 import { useEffect, useState } from 'react';
-import { listPages, listProjectNotes, type Page, type Project, type ProjectNote } from './api';
+import {
+  listPages,
+  listProjectNotes,
+  type Page,
+  type Project,
+  type ProjectNote,
+} from './api';
 
 type Props = {
   currentProjectId: string;
   projects: Project[];
   isBusy: boolean;
-  onConfirm: (pageIds: string[], noteFiles: string[], sourceProjectId: string) => void;
+  onConfirm: (
+    pageIds: string[],
+    noteFiles: string[],
+    sourceProjectId: string,
+  ) => void;
   onCancel: () => void;
 };
 
@@ -27,8 +37,12 @@ export function CrossProjectImportModal({
   const [sourceNotes, setSourceNotes] = useState<ProjectNote[]>([]);
   const [loadingSource, setLoadingSource] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [selectedPageIds, setSelectedPageIds] = useState<Set<string>>(new Set());
-  const [selectedNoteFiles, setSelectedNoteFiles] = useState<Set<string>>(new Set());
+  const [selectedPageIds, setSelectedPageIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [selectedNoteFiles, setSelectedNoteFiles] = useState<Set<string>>(
+    new Set(),
+  );
 
   useEffect(() => {
     if (!sourceProjectId) {
@@ -42,16 +56,15 @@ export function CrossProjectImportModal({
     setSelectedPageIds(new Set());
     setSelectedNoteFiles(new Set());
 
-    Promise.all([
-      listPages(sourceProjectId),
-      listProjectNotes(sourceProjectId),
-    ])
+    Promise.all([listPages(sourceProjectId), listProjectNotes(sourceProjectId)])
       .then(([pages, notes]) => {
         setSourcePages(pages);
         setSourceNotes(notes);
       })
       .catch((err: unknown) => {
-        setLoadError(err instanceof Error ? err.message : 'Failed to load project data.');
+        setLoadError(
+          err instanceof Error ? err.message : 'Failed to load project data.',
+        );
       })
       .finally(() => {
         setLoadingSource(false);
@@ -92,16 +105,14 @@ export function CrossProjectImportModal({
     }
   }
 
-  const nothingSelected = selectedPageIds.size === 0 && selectedNoteFiles.size === 0;
-  const disabled = isBusy || loadingSource || nothingSelected || !sourceProjectId;
+  const nothingSelected =
+    selectedPageIds.size === 0 && selectedNoteFiles.size === 0;
+  const disabled =
+    isBusy || loadingSource || nothingSelected || !sourceProjectId;
 
   function handleConfirm() {
     if (disabled) return;
-    onConfirm(
-      [...selectedPageIds],
-      [...selectedNoteFiles],
-      sourceProjectId,
-    );
+    onConfirm([...selectedPageIds], [...selectedNoteFiles], sourceProjectId);
   }
 
   return (
@@ -170,12 +181,16 @@ export function CrossProjectImportModal({
                       onClick={toggleAllPages}
                       disabled={isBusy}
                     >
-                      {selectedPageIds.size === sourcePages.length ? '取消全選' : '全選'}
+                      {selectedPageIds.size === sourcePages.length
+                        ? '取消全選'
+                        : '全選'}
                     </button>
                   )}
                 </div>
                 {sourcePages.length === 0 ? (
-                  <p className="cross-project-import-empty">此 Project 沒有 Pages</p>
+                  <p className="cross-project-import-empty">
+                    此 Project 沒有 Pages
+                  </p>
                 ) : (
                   <ul className="cross-project-import-list">
                     {sourcePages.map((page) => (
@@ -206,16 +221,23 @@ export function CrossProjectImportModal({
                       onClick={toggleAllNotes}
                       disabled={isBusy}
                     >
-                      {selectedNoteFiles.size === sourceNotes.length ? '取消全選' : '全選'}
+                      {selectedNoteFiles.size === sourceNotes.length
+                        ? '取消全選'
+                        : '全選'}
                     </button>
                   )}
                 </div>
                 {sourceNotes.length === 0 ? (
-                  <p className="cross-project-import-empty">此 Project 沒有 Notes</p>
+                  <p className="cross-project-import-empty">
+                    此 Project 沒有 Notes
+                  </p>
                 ) : (
                   <ul className="cross-project-import-list">
                     {sourceNotes.map((note) => (
-                      <li key={note.note_file} className="cross-project-import-item">
+                      <li
+                        key={note.note_file}
+                        className="cross-project-import-item"
+                      >
                         <label>
                           <input
                             type="checkbox"
@@ -252,7 +274,9 @@ export function CrossProjectImportModal({
             disabled={disabled}
             onClick={handleConfirm}
           >
-            {isBusy ? '匯入中…' : `匯入${nothingSelected ? '' : ` (${selectedPageIds.size + selectedNoteFiles.size})`}`}
+            {isBusy
+              ? '匯入中…'
+              : `匯入${nothingSelected ? '' : ` (${selectedPageIds.size + selectedNoteFiles.size})`}`}
           </button>
         </div>
       </div>

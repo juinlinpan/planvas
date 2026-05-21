@@ -5,4 +5,3 @@ export {
   sortItemsByLayer,
   sortItemsForClipboard,
 } from './core';
-

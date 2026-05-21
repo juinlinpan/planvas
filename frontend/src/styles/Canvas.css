@@ -129,8 +129,11 @@
   width: 18px;
   height: 18px;
   border-radius: 4px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(219, 234, 254, 0.92));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.96),
+    rgba(219, 234, 254, 0.92)
+  );
   border: 1px solid rgba(37, 99, 235, 0.18);
 }
 
@@ -169,8 +172,11 @@
   min-height: 0;
   border-right: 1px solid rgba(37, 99, 235, 0.2);
   border-bottom: 1px solid rgba(37, 99, 235, 0.2);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(191, 219, 254, 0.18));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.2),
+    rgba(191, 219, 254, 0.18)
+  );
   box-sizing: border-box;
 }
 
@@ -208,15 +214,8 @@
 
 .canvas-background-grid {
   background-image:
-    linear-gradient(
-      rgba(15, 23, 42, 0.12) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      90deg,
-      rgba(15, 23, 42, 0.12) 1px,
-      transparent 1px
-    );
+    linear-gradient(rgba(15, 23, 42, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.12) 1px, transparent 1px);
 }
 
 .canvas-zero-axis {
@@ -427,7 +426,9 @@
   background: transparent;
   color: #64748b;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 .canvas-rbn-toggle:hover {
   background: rgba(25, 115, 119, 0.08);
@@ -470,7 +471,9 @@
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 .canvas-rbn-menu-btn:hover,
 .canvas-rbn-menu-btn.is-active {
@@ -494,7 +497,9 @@
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 .canvas-rbn-ctrl-btn:hover {
   background: rgba(25, 115, 119, 0.08);
@@ -572,7 +577,9 @@
   background: transparent;
   color: #475569;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 .canvas-rbn-zoom-btn:hover {
   background: rgba(25, 115, 119, 0.08);
@@ -615,7 +622,10 @@
   font-size: 0.82rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease;
 }
 .canvas-rbn-bg-btn:hover {
   color: #17262b;

@@ -29,10 +29,7 @@ const FIXED_WORLD_BOUNDS: Rect = {
   height: MAX_CANVAS_EDGE * 2,
 };
 
-export function getViewportWorldBounds(
-  viewport: Viewport,
-  size: Size,
-): Rect {
+export function getViewportWorldBounds(viewport: Viewport, size: Size): Rect {
   const width = Math.max(size.width, 1) / viewport.zoom;
   const height = Math.max(size.height, 1) / viewport.zoom;
   return {

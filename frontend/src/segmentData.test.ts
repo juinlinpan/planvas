@@ -40,12 +40,12 @@ function createBoardItem(overrides: Partial<BoardItem> = {}): BoardItem {
 
 describe('segmentData', () => {
   it('expands click-only drafts into a short horizontal segment', () => {
-    expect(
-      normalizeSegmentDraft({ x: 120, y: 80 }, { x: 120, y: 80 }),
-    ).toEqual({
-      start: { x: 120, y: 80 },
-      end: { x: 240, y: 80 },
-    });
+    expect(normalizeSegmentDraft({ x: 120, y: 80 }, { x: 120, y: 80 })).toEqual(
+      {
+        start: { x: 120, y: 80 },
+        end: { x: 240, y: 80 },
+      },
+    );
   });
 
   it('stores freeform segment endpoints in data_json and bounding box', () => {
@@ -169,10 +169,15 @@ describe('segmentData', () => {
       ),
     });
 
-    const updated = updateSegmentEndpoint(item, 'end', { x: 320, y: 140 }, {
-      itemId: 'box-c',
-      anchor: 'top',
-    });
+    const updated = updateSegmentEndpoint(
+      item,
+      'end',
+      { x: 320, y: 140 },
+      {
+        itemId: 'box-c',
+        anchor: 'top',
+      },
+    );
 
     expect(updated).not.toBeNull();
     const updatedItem = createBoardItem({ ...updated! });

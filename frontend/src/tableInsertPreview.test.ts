@@ -105,21 +105,28 @@ describe('tableInsertPreview', () => {
   });
 
   it('anchors the fixed toolbar preview on the requested corner', () => {
-    expect(getTableInsertPreviewPosition(100, 80, { x: 1, y: 1 }, 3, 2)).toEqual({
+    expect(
+      getTableInsertPreviewPosition(100, 80, { x: 1, y: 1 }, 3, 2),
+    ).toEqual({
       left: 100 - TABLE_INSERT_PREVIEW_PADDING,
       top: 80 - TABLE_INSERT_PREVIEW_PADDING,
     });
-    expect(getTableInsertPreviewPosition(100, 80, { x: 1, y: -1 }, 3, 2)).toEqual({
+    expect(
+      getTableInsertPreviewPosition(100, 80, { x: 1, y: -1 }, 3, 2),
+    ).toEqual({
       left: 100 - TABLE_INSERT_PREVIEW_PADDING,
       top:
         80 -
         (TABLE_INSERT_PREVIEW_CELL_HEIGHT * 2 + TABLE_INSERT_PREVIEW_CELL_GAP) -
         TABLE_INSERT_PREVIEW_PADDING,
     });
-    expect(getTableInsertPreviewPosition(100, 80, { x: -1, y: 1 }, 3, 2)).toEqual({
+    expect(
+      getTableInsertPreviewPosition(100, 80, { x: -1, y: 1 }, 3, 2),
+    ).toEqual({
       left:
         100 -
-        (TABLE_INSERT_PREVIEW_CELL_WIDTH * 3 + TABLE_INSERT_PREVIEW_CELL_GAP * 2) -
+        (TABLE_INSERT_PREVIEW_CELL_WIDTH * 3 +
+          TABLE_INSERT_PREVIEW_CELL_GAP * 2) -
         TABLE_INSERT_PREVIEW_PADDING,
       top: 80 - TABLE_INSERT_PREVIEW_PADDING,
     });
@@ -149,7 +156,13 @@ describe('tableInsertPreview', () => {
   it('keeps the preview panel outside a left-docked table button', () => {
     const rect = { left: 86, top: 50, right: 142, bottom: 98 };
     const anchor = getTableInsertAnchorPoint('left', rect);
-    const position = getTableInsertPreviewPosition(anchor.x, anchor.y, { x: 1, y: 1 }, 1, 1);
+    const position = getTableInsertPreviewPosition(
+      anchor.x,
+      anchor.y,
+      { x: 1, y: 1 },
+      1,
+      1,
+    );
 
     expect(position.left).toBe(rect.right + TABLE_INSERT_PREVIEW_TOOL_GAP);
     expect(position.top).toBe(rect.top);

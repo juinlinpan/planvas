@@ -23,6 +23,12 @@
 - [x] Preserve existing backend HTTP API shapes while replacing the underlying storage engine.
 - [x] Update backend tests for Planvas storage initialization and restart persistence.
 - [x] Replace DB access with a filesystem repository.
+- [x] Add backend diagnostics for slow HTTP requests, event loop lag, uncaught exceptions, and unhandled promise rejections.
+- [x] Reduce common multi-item save pressure by batching table-style and table-absorb changes through a single board-state write instead of parallel per-item writes.
+- [x] Make board item creation optimistic so newly created items appear immediately while backend persistence finishes in the background.
+- [x] Stop routine project-note refreshes from remounting the current Canvas, avoiding white flashes after note creation.
+- [x] Move item and viewport autosave debounce to second-level timing to reduce high-frequency write pressure.
+- [x] Change Markdown editor saving to 5-second autosave plus immediate flush on window/tab leave and editor view switch, without remounting the current Page on note refresh.
 
 ## Page XML v2 Semantic Storage Notes
 
@@ -453,6 +459,7 @@
 - [ ] 第四階段：拆分 `frontend/src/useCanvasMouseHandlers.ts`，在前面 helper 邊界穩定後，分離 pan、item drag、item resize、segment drag、table insert、marquee selection 等互動流程。
 - [ ] 第四階段：拆分 mouse handlers 時導入 `requestAnimationFrame` 批次更新策略，降低 drag / resize mousemove 對整個 Canvas 的 render 壓力。
 - [ ] 效能後續：將 PNG / PPTX / viewer export module 改成動態 import，降低首頁與 workspace 初始 bundle parse 成本。
+- [ ] 效能後續：將 backend Page XML 寫入改為非同步 queue / coalescing write path，避免高頻儲存時阻塞 Node event loop。
 - [ ] 驗收條件：每個拆分 PR / commit 應通過相關 frontend tests、backend tests 或 build；若只搬移程式碼，應避免混入功能變更。
 - [ ] 文件條件：拆分後若正式模組責任或檔案結構改變，需同步更新 `spec.md`、`todo_list.md`、`README.md` 或 `backend/README.md` 中受影響的架構 / 操作說明。
 

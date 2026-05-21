@@ -46,13 +46,19 @@ export function getTableInsertAnchorPoint(
   if (toolbarPosition === 'top') {
     return {
       x: toolRect.left,
-      y: toolRect.bottom + TABLE_INSERT_PREVIEW_TOOL_GAP + TABLE_INSERT_PREVIEW_PADDING,
+      y:
+        toolRect.bottom +
+        TABLE_INSERT_PREVIEW_TOOL_GAP +
+        TABLE_INSERT_PREVIEW_PADDING,
     };
   }
 
   if (toolbarPosition === 'left') {
     return {
-      x: toolRect.right + TABLE_INSERT_PREVIEW_TOOL_GAP + TABLE_INSERT_PREVIEW_PADDING,
+      x:
+        toolRect.right +
+        TABLE_INSERT_PREVIEW_TOOL_GAP +
+        TABLE_INSERT_PREVIEW_PADDING,
       y: toolRect.top + TABLE_INSERT_PREVIEW_PADDING,
     };
   }
@@ -60,12 +66,18 @@ export function getTableInsertAnchorPoint(
   if (toolbarPosition === 'bottom') {
     return {
       x: toolRect.left,
-      y: toolRect.top - TABLE_INSERT_PREVIEW_TOOL_GAP - TABLE_INSERT_PREVIEW_PADDING,
+      y:
+        toolRect.top -
+        TABLE_INSERT_PREVIEW_TOOL_GAP -
+        TABLE_INSERT_PREVIEW_PADDING,
     };
   }
 
   return {
-    x: toolRect.left - TABLE_INSERT_PREVIEW_TOOL_GAP - TABLE_INSERT_PREVIEW_PADDING,
+    x:
+      toolRect.left -
+      TABLE_INSERT_PREVIEW_TOOL_GAP -
+      TABLE_INSERT_PREVIEW_PADDING,
     y: toolRect.top + TABLE_INSERT_PREVIEW_PADDING,
   };
 }

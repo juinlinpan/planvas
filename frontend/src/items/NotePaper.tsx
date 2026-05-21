@@ -41,7 +41,11 @@ function serializeNoteDisplayMode(
   if (item.data_json !== null && item.data_json.trim().length > 0) {
     try {
       const parsed = JSON.parse(item.data_json) as unknown;
-      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        !Array.isArray(parsed)
+      ) {
         nextData = parsed as Record<string, unknown>;
       }
     } catch {
@@ -71,7 +75,10 @@ export function NotePaper({
   renderMode = 'interactive',
 }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const title = item.title ?? getMarkdownH1(item.content) ?? getFirstNonEmptyLine(item.content);
+  const title =
+    item.title ??
+    getMarkdownH1(item.content) ??
+    getFirstNonEmptyLine(item.content);
   const displayMode = parseNoteDisplayMode(item.data_json);
   const isTitleOnly = displayMode === 'title';
   const canToggleDisplayMode = renderMode === 'interactive' && !isEditing;
@@ -132,12 +139,16 @@ export function NotePaper({
     >
       <div className="note-paper-header">
         <div className="note-paper-header-row">
-          <strong className="note-paper-title">{title ?? 'Untitled note'}</strong>
+          <strong className="note-paper-title">
+            {title ?? 'Untitled note'}
+          </strong>
           {canToggleDisplayMode ? (
             <button
               type="button"
               className="note-paper-mode-toggle"
-              aria-label={isTitleOnly ? 'Expand note content' : 'Show title only'}
+              aria-label={
+                isTitleOnly ? 'Expand note content' : 'Show title only'
+              }
               title={isTitleOnly ? '展開內容' : '只顯示標題'}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={handleDisplayModeToggle}

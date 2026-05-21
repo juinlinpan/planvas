@@ -12,7 +12,7 @@ export function parseMermaidToBoardData(code: string): {
   board_items: BoardItem[];
   connector_links: ConnectorLink[];
 } {
-  const lines = code.split('\n').map(l => l.trim());
+  const lines = code.split('\n').map((l) => l.trim());
   const board_items: BoardItem[] = [];
   const connector_links: ConnectorLink[] = [];
   const nodeMap = new Map<string, BoardItem>();
@@ -66,7 +66,8 @@ export function parseMermaidToBoardData(code: string): {
   };
 
   // 3. Node Parsing Helper
-  const nodeRegex = /^([\w-]+)\s*(?:(\[\[|\(\(|\{\{|\(\[|\[\(|\[|\(|\{)\s*"?\s*(.+?)\s*"?\s*(?:\]\]|\)\)|\}\)|\]\)|\)\]|\]|\)|\}))?$/;
+  const nodeRegex =
+    /^([\w-]+)\s*(?:(\[\[|\(\(|\{\{|\(\[|\[\(|\[|\(|\{)\s*"?\s*(.+?)\s*"?\s*(?:\]\]|\)\)|\}\)|\]\)|\)\]|\]|\)|\}))?$/;
 
   const ensureNode = (id: string, label?: string, startBracket?: string) => {
     if (!nodeMap.has(id)) {
@@ -75,7 +76,7 @@ export function parseMermaidToBoardData(code: string): {
 
       if (startBracket === '(' || startBracket === '((') {
         type = ITEM_TYPE.sticky_note;
-      } else if (startBracket === '([' || startBracket === '[(' ) {
+      } else if (startBracket === '([' || startBracket === '[(') {
         type = ITEM_TYPE.note_paper;
       }
 
@@ -157,7 +158,7 @@ export function parseMermaidToBoardData(code: string): {
 
           if (fromNode && toNode) {
             const arrowId = `edge-${Math.random().toString(36).substring(2, 11)}`;
-            
+
             let fromAnchor = 'right';
             let toAnchor = 'left';
 
@@ -173,19 +174,29 @@ export function parseMermaidToBoardData(code: string): {
             }
 
             const getAnchorPoint = (node: BoardItem, anchor: string) => {
-               if (anchor === 'left') return { x: node.x, y: node.y + node.height / 2 };
-               if (anchor === 'right') return { x: node.x + node.width, y: node.y + node.height / 2 };
-               if (anchor === 'top') return { x: node.x + node.width / 2, y: node.y };
-               if (anchor === 'bottom') return { x: node.x + node.width / 2, y: node.y + node.height };
-               return { x: node.x + node.width / 2, y: node.y + node.height / 2 };
+              if (anchor === 'left')
+                return { x: node.x, y: node.y + node.height / 2 };
+              if (anchor === 'right')
+                return { x: node.x + node.width, y: node.y + node.height / 2 };
+              if (anchor === 'top')
+                return { x: node.x + node.width / 2, y: node.y };
+              if (anchor === 'bottom')
+                return { x: node.x + node.width / 2, y: node.y + node.height };
+              return {
+                x: node.x + node.width / 2,
+                y: node.y + node.height / 2,
+              };
             };
 
             const sp = getAnchorPoint(fromNode, fromAnchor);
             const ep = getAnchorPoint(toNode, toAnchor);
 
-            const geometry = buildSegmentGeometry(sp, ep, null, 
+            const geometry = buildSegmentGeometry(
+              sp,
+              ep,
+              null,
               { itemId: fromNode.id, anchor: fromAnchor },
-              { itemId: toNode.id, anchor: toAnchor }
+              { itemId: toNode.id, anchor: toAnchor },
             );
 
             const arrowItem: BoardItem = {

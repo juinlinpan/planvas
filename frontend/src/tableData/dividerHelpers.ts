@@ -1,5 +1,1 @@
-export {
-  resizeColGroup,
-  resizeRowGroup,
-} from './core';
-
+export { resizeColGroup, resizeRowGroup } from './core';

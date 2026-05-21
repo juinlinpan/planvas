@@ -56,8 +56,7 @@ function isTableSeparatorLine(line: string): boolean {
 
   const cells = splitMarkdownTableRow(trimmed);
   return (
-    cells.length > 0 &&
-    cells.every((cell) => /^:?-{3,}:?$/.test(cell.trim()))
+    cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell.trim()))
   );
 }
 
@@ -136,7 +135,10 @@ function normalizeTableRow(cells: string[], columnCount: number): string[] {
   if (cells.length > columnCount) {
     return cells.slice(0, columnCount);
   }
-  return [...cells, ...Array.from({ length: columnCount - cells.length }, () => '')];
+  return [
+    ...cells,
+    ...Array.from({ length: columnCount - cells.length }, () => ''),
+  ];
 }
 
 function renderInlineMarkdown(text: string): ReactNode[] {
@@ -153,7 +155,9 @@ function renderInlineMarkdown(text: string): ReactNode[] {
 
     const token = match[0];
     const key = `${match.index}-${token}`;
-    const linkMatch = token.match(/^\[([^\]\n]+)\]\(((?:https?:\/\/|mailto:)[^) \n]+)\)$/);
+    const linkMatch = token.match(
+      /^\[([^\]\n]+)\]\(((?:https?:\/\/|mailto:)[^) \n]+)\)$/,
+    );
     if (linkMatch) {
       segments.push(
         <a
@@ -243,7 +247,10 @@ function parseMarkdownBlocks(content: string | null): MarkdownBlock[] {
 
       while (index < lines.length && isTableCandidateLine(lines[index] ?? '')) {
         rows.push(
-          normalizeTableRow(splitMarkdownTableRow(lines[index] ?? ''), columnCount),
+          normalizeTableRow(
+            splitMarkdownTableRow(lines[index] ?? ''),
+            columnCount,
+          ),
         );
         index += 1;
       }
@@ -389,7 +396,9 @@ export function MarkdownPreview({
         if (block.type === 'code') {
           return (
             <pre key={key} className="markdown-code-block">
-              <code data-language={block.language ?? undefined}>{block.code}</code>
+              <code data-language={block.language ?? undefined}>
+                {block.code}
+              </code>
             </pre>
           );
         }

@@ -4,4 +4,3 @@ export {
   getTableCellBounds,
   relayoutTableItems,
 } from './core';
-

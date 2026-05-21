@@ -11,4 +11,3 @@ export {
   isHiddenByCollapsedFrame,
   isInlineEditable,
 } from './core';
-

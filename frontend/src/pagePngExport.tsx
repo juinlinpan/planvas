@@ -25,7 +25,9 @@ const EXPORT_PADDING = 24;
 const MAX_EXPORT_SCALE = 2;
 
 function getVisibleItems(items: BoardItem[]): BoardItem[] {
-  return sortItemsByLayer(items).filter((item) => !isHiddenByCollapsedFrame(item, items));
+  return sortItemsByLayer(items).filter(
+    (item) => !isHiddenByCollapsedFrame(item, items),
+  );
 }
 
 export function getPagePngExportBounds(items: BoardItem[]): Rect | null {
@@ -37,8 +39,10 @@ export function getPagePngExportBounds(items: BoardItem[]): Rect | null {
   const bounds = visibleItems.map(getItemMagnetBounds);
   const left = Math.min(...bounds.map((item) => item.x)) - EXPORT_PADDING;
   const top = Math.min(...bounds.map((item) => item.y)) - EXPORT_PADDING;
-  const right = Math.max(...bounds.map((item) => item.x + item.width)) + EXPORT_PADDING;
-  const bottom = Math.max(...bounds.map((item) => item.y + item.height)) + EXPORT_PADDING;
+  const right =
+    Math.max(...bounds.map((item) => item.x + item.width)) + EXPORT_PADDING;
+  const bottom =
+    Math.max(...bounds.map((item) => item.y + item.height)) + EXPORT_PADDING;
 
   return {
     x: left,
@@ -194,9 +198,7 @@ async function renderExportSurfaceToBlob(
   }
 }
 
-export async function exportPageAsPng(
-  boardData: PageBoardData,
-): Promise<Blob> {
+export async function exportPageAsPng(boardData: PageBoardData): Promise<Blob> {
   const normalizedItems = normalizeConnectorArrowsToSegments(
     boardData.board_items,
     boardData.connector_links,
@@ -207,10 +209,7 @@ export async function exportPageAsPng(
   }
 
   return renderExportSurfaceToBlob(
-    <ExportSurface
-      boardData={boardData}
-      bounds={bounds}
-    />,
+    <ExportSurface boardData={boardData} bounds={bounds} />,
     bounds,
   );
 }
