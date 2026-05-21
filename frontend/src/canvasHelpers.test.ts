@@ -147,4 +147,44 @@ describe('computeCellChildLayout', () => {
     expect(first).toEqual({ x: 18, y: 28, width: 84, height: 84 });
     expect(second).toEqual({ x: 118, y: 28, width: 84, height: 84 });
   });
+
+  it('keeps children inside very small cell bounds', () => {
+    const layout = computeCellChildLayout(
+      { x: 10, y: 20, width: 12, height: 10 },
+      0,
+      1,
+      8,
+    );
+
+    expect(layout.x).toBeGreaterThanOrEqual(10);
+    expect(layout.y).toBeGreaterThanOrEqual(20);
+    expect(layout.x + layout.width).toBeLessThanOrEqual(22);
+    expect(layout.y + layout.height).toBeLessThanOrEqual(30);
+  });
+
+  it('keeps split children inside very small horizontal slices', () => {
+    const first = computeCellChildLayout(
+      { x: 10, y: 20, width: 20, height: 10 },
+      0,
+      2,
+      8,
+      'horizontal',
+    );
+    const second = computeCellChildLayout(
+      { x: 10, y: 20, width: 20, height: 10 },
+      1,
+      2,
+      8,
+      'horizontal',
+    );
+
+    expect(first.x).toBeGreaterThanOrEqual(10);
+    expect(first.y).toBeGreaterThanOrEqual(20);
+    expect(first.x + first.width).toBeLessThanOrEqual(20);
+    expect(first.y + first.height).toBeLessThanOrEqual(30);
+    expect(second.x).toBeGreaterThanOrEqual(20);
+    expect(second.y).toBeGreaterThanOrEqual(20);
+    expect(second.x + second.width).toBeLessThanOrEqual(30);
+    expect(second.y + second.height).toBeLessThanOrEqual(30);
+  });
 });

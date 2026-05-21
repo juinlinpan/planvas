@@ -393,32 +393,38 @@ export function computeCellChildLayout(
   inset: number,
   direction: TableChildLayoutDirection = 'vertical',
 ): { x: number; y: number; width: number; height: number } {
+  const boundedInsetFor = (width: number, height: number) =>
+    Math.max(0, Math.min(inset, width / 2, height / 2));
+
   if (childCount <= 1) {
+    const boundedInset = boundedInsetFor(cellBounds.width, cellBounds.height);
     return {
-      x: cellBounds.x + inset,
-      y: cellBounds.y + inset,
-      width: Math.max(1, cellBounds.width - inset * 2),
-      height: Math.max(1, cellBounds.height - inset * 2),
+      x: cellBounds.x + boundedInset,
+      y: cellBounds.y + boundedInset,
+      width: Math.max(0, cellBounds.width - boundedInset * 2),
+      height: Math.max(0, cellBounds.height - boundedInset * 2),
     };
   }
   // N items (2 or more): split evenly by the configured cell direction.
   const n = childCount;
   if (direction === 'horizontal') {
     const sliceW = cellBounds.width / n;
+    const boundedInset = boundedInsetFor(sliceW, cellBounds.height);
     return {
-      x: cellBounds.x + sliceW * childIndex + inset,
-      y: cellBounds.y + inset,
-      width: Math.max(1, sliceW - inset * 2),
-      height: Math.max(1, cellBounds.height - inset * 2),
+      x: cellBounds.x + sliceW * childIndex + boundedInset,
+      y: cellBounds.y + boundedInset,
+      width: Math.max(0, sliceW - boundedInset * 2),
+      height: Math.max(0, cellBounds.height - boundedInset * 2),
     };
   }
 
   const sliceH = cellBounds.height / n;
+  const boundedInset = boundedInsetFor(cellBounds.width, sliceH);
   return {
-    x: cellBounds.x + inset,
-    y: cellBounds.y + sliceH * childIndex + inset,
-    width: Math.max(1, cellBounds.width - inset * 2),
-    height: Math.max(1, sliceH - inset * 2),
+    x: cellBounds.x + boundedInset,
+    y: cellBounds.y + sliceH * childIndex + boundedInset,
+    width: Math.max(0, cellBounds.width - boundedInset * 2),
+    height: Math.max(0, sliceH - boundedInset * 2),
   };
 }
 
