@@ -430,15 +430,7 @@ export function useCanvasItemActions({
             pastedRootId,
           ],
     );
-    const pastedRoot =
-      createdItems.find((item) => item.id === pastedRootId) ?? null;
-    setEditingId(
-      createdItems.length === 1 &&
-        pastedRoot !== null &&
-        isInlineEditable(pastedRoot)
-        ? pastedRoot.id
-        : null,
-    );
+    setEditingId(null);
   }, [
     captureBoardSnapshot,
     itemsRef,
