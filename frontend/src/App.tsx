@@ -37,7 +37,14 @@ import { FolderPickerModal } from './FolderPickerModal';
 import { HomeView } from './HomeView';
 import { MarkdownEditor } from './MarkdownEditor';
 import { syncPageViewport } from './pageViewport';
-import { exportPageAsPng } from './pagePngExport';
+import {
+  exportPageAsPng,
+  getPagePngExportBoundsFromBoardData,
+} from './pagePngExport';
+import {
+  ExportImageModal,
+  type ExportImageOptions,
+} from './ExportImageModal';
 import { exportPageAsPptx } from './pagePptxExport';
 import { exportPageAsMarkdown } from './pageMermaidExport';
 import { parseMermaidToBoardData } from './mermaidImport';
@@ -462,6 +469,12 @@ export function App() {
   const [projectDeleteDialogOpen, setProjectDeleteDialogOpen] = useState(false);
   const [mermaidImportDialogOpen, setMermaidImportDialogOpen] = useState(false);
   const [crossProjectImportOpen, setCrossProjectImportOpen] = useState(false);
+  const [exportImageDialogData, setExportImageDialogData] = useState<{
+    naturalWidth: number;
+    naturalHeight: number;
+    pageName: string;
+    boardData: import('./api').PageBoardData;
+  } | null>(null);
   const [projectDeleteConfirmation, setProjectDeleteConfirmation] =
     useState('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() =>
@@ -1361,14 +1374,15 @@ export function App() {
         const boardData = await getPageBoardData(selectedPage.id);
         const safePageName = sanitizeExportName(selectedPage.name);
         if (format === 'png') {
-          const pngBlob = await exportPageAsPng(boardData);
-          await saveFileWithPicker({
-            data: pngBlob,
-            suggestedName: `${safePageName}.png`,
-            description: 'PNG image',
-            accept: {
-              'image/png': ['.png'],
-            },
+          const bounds = getPagePngExportBoundsFromBoardData(boardData);
+          if (bounds === null) {
+            throw new Error('目前 Page 沒有可匯出的物件。');
+          }
+          setExportImageDialogData({
+            naturalWidth: bounds.width,
+            naturalHeight: bounds.height,
+            pageName: safePageName,
+            boardData,
           });
           return;
         }
@@ -1401,6 +1415,30 @@ export function App() {
           return;
         }
 
+        throw error;
+      }
+    });
+  }
+
+  function handleExportImageConfirm(options: ExportImageOptions): void {
+    if (exportImageDialogData === null) return;
+    const { boardData, pageName } = exportImageDialogData;
+    setExportImageDialogData(null);
+    void runMutation(async () => {
+      try {
+        const pngBlob = await exportPageAsPng(boardData, {
+          scale: options.scale,
+        });
+        await saveFileWithPicker({
+          data: pngBlob,
+          suggestedName: `${pageName}.png`,
+          description: 'PNG image',
+          accept: { 'image/png': ['.png'] },
+        });
+      } catch (error) {
+        if (isAbortError(error)) {
+          return;
+        }
         throw error;
       }
     });
@@ -2621,6 +2659,15 @@ export function App() {
             </div>
           </section>
         </div>
+      ) : null}
+      {exportImageDialogData !== null ? (
+        <ExportImageModal
+          naturalWidth={exportImageDialogData.naturalWidth}
+          naturalHeight={exportImageDialogData.naturalHeight}
+          isBusy={isMutating}
+          onConfirm={handleExportImageConfirm}
+          onCancel={() => setExportImageDialogData(null)}
+        />
       ) : null}
       {mermaidImportDialogOpen ? (
         <MermaidImportModal

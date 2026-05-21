@@ -71,15 +71,16 @@ async function renderCanvasToPngBlob(
   content: Element,
   width: number,
   height: number,
+  scaleOverride?: number,
 ): Promise<Blob> {
   if (!(content instanceof HTMLElement)) {
     throw new Error('PNG 匯出失敗，無法建立畫面內容。');
   }
 
-  const scale = Math.min(
-    MAX_EXPORT_SCALE,
-    Math.max(1, window.devicePixelRatio || 1),
-  );
+  const scale =
+    scaleOverride != null
+      ? scaleOverride
+      : Math.min(MAX_EXPORT_SCALE, Math.max(1, window.devicePixelRatio || 1));
   const canvas = await html2canvas(content, {
     backgroundColor: null,
     height,
@@ -178,6 +179,7 @@ function ExportSurface({
 async function renderExportSurfaceToBlob(
   surface: ReactNode,
   bounds: Rect,
+  scaleOverride?: number,
 ): Promise<Blob> {
   const host = createExportHost(bounds.width, bounds.height);
   const root = ReactDOM.createRoot(host);
@@ -191,14 +193,36 @@ async function renderExportSurfaceToBlob(
       throw new Error('PNG 匯出失敗，無法建立畫面內容。');
     }
 
-    return await renderCanvasToPngBlob(content, bounds.width, bounds.height);
+    return await renderCanvasToPngBlob(
+      content,
+      bounds.width,
+      bounds.height,
+      scaleOverride,
+    );
   } finally {
     root.unmount();
     host.remove();
   }
 }
 
-export async function exportPageAsPng(boardData: PageBoardData): Promise<Blob> {
+export function getPagePngExportBoundsFromBoardData(
+  boardData: PageBoardData,
+): Rect | null {
+  const normalizedItems = normalizeConnectorArrowsToSegments(
+    boardData.board_items,
+    boardData.connector_links,
+  ).items;
+  return getPagePngExportBounds(normalizedItems);
+}
+
+export type ExportPngOptions = {
+  scale?: number;
+};
+
+export async function exportPageAsPng(
+  boardData: PageBoardData,
+  options?: ExportPngOptions,
+): Promise<Blob> {
   const normalizedItems = normalizeConnectorArrowsToSegments(
     boardData.board_items,
     boardData.connector_links,
@@ -211,5 +235,6 @@ export async function exportPageAsPng(boardData: PageBoardData): Promise<Blob> {
   return renderExportSurfaceToBlob(
     <ExportSurface boardData={boardData} bounds={bounds} />,
     bounds,
+    options?.scale,
   );
 }

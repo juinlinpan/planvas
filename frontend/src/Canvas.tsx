@@ -1917,7 +1917,7 @@ export function Canvas({
                           setIsExportSubmenuOpen(false);
                         }}
                       >
-                        PNG (.png)
+                        Image…
                       </button>
                       <button
                         type="button"
