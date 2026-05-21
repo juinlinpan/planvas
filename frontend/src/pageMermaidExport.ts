@@ -228,7 +228,7 @@ export function exportPageAsMarkdown(boardData: PageBoardData): string {
   }
 
   // ── 3. Notes as plain text ─────────────────────────────────────────────────
-  // note_paper, sticky_note, text_box — including those inside a table
+  // note_paper and text_box can appear inside a table; sticky_note stays standalone.
   // (they're excluded from the flowchart but their text still belongs here)
   const notes = board_items.filter(
     (i) =>

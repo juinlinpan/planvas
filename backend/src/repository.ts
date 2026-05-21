@@ -16,6 +16,8 @@ import {
   type Page,
   type PageBoardData,
   type PageCreatePayload,
+  type PageRegulateReport,
+  type PageRegulateResult,
   type PageUpdatePayload,
   type PageViewportPayload,
   type Project,
@@ -945,6 +947,33 @@ export class WhiteboardRepository {
     return this.getPageBoardData(pageId);
   }
 
+  regulatePage(pageId: string): PageRegulateResult {
+    const page = this.getPage(pageId);
+    const { boardItems, connectorLinks } = this.readPageXml(pageId);
+    const { boardItems: nextBoardItems, report: itemReport } =
+      regulateBoardItems(boardItems);
+    const itemIds = new Set(nextBoardItems.map((item) => item.id));
+    const nextConnectorLinks = connectorLinks.filter((link) => {
+      if (!itemIds.has(link.connector_item_id)) return false;
+      if (link.from_item_id !== null && !itemIds.has(link.from_item_id)) {
+        return false;
+      }
+      if (link.to_item_id !== null && !itemIds.has(link.to_item_id)) {
+        return false;
+      }
+      return true;
+    });
+    const report: PageRegulateReport = {
+      ...itemReport,
+      removed_connector_links:
+        connectorLinks.length - nextConnectorLinks.length,
+    };
+
+    this.persistPageBoard(page, nextBoardItems, nextConnectorLinks);
+    const regulated = this.getPageBoardData(pageId);
+    return { ...regulated, report };
+  }
+
   getPageBoardData(pageId: string): PageBoardData {
     const nextPage = this.getPage(pageId);
     const { boardItems, connectorLinks } = this.readPageXml(pageId);
@@ -1533,7 +1562,7 @@ export class WhiteboardRepository {
         ? ` parent_item_id="${escapeAttribute(persistedItem.parent_item_id)}"`
         : '';
       semanticLines.push(
-        `    <object id="${escapeAttribute(persistedItem.id)}"${parentAttr} type="${escapeAttribute(persistedItem.type)}">`,
+        `    <object id="${escapeAttribute(persistedItem.id)}"${parentAttr} kind="${escapeAttribute(semanticKindForItem(persistedItem))}" category="${escapeAttribute(persistedItem.category)}" type="${escapeAttribute(persistedItem.type)}">`,
       );
       for (const fieldName of [
         'title',
@@ -2176,6 +2205,116 @@ function parseJsonObject(value: string | null): Record<string, unknown> {
   return {};
 }
 
+function regulateBoardItems(boardItems: BoardItem[]): {
+  boardItems: BoardItem[];
+  report: Omit<PageRegulateReport, 'removed_connector_links'>;
+} {
+  const itemById = new Map(boardItems.map((item) => [item.id, item]));
+  const parentUpdates = new Map<string, string>();
+  let removedTableChildRefs = 0;
+
+  const nextBoardItems = boardItems.map((item) => {
+    if (item.type !== 'table') {
+      return item;
+    }
+
+    const data = parseJsonObject(item.data_json);
+    const rawCells = Array.isArray(data.cells) ? data.cells : [];
+    let tableChanged = false;
+    const nextCells = rawCells.map((rawRow) => {
+      if (!Array.isArray(rawRow)) return rawRow;
+      return rawRow.map((rawCell) => {
+        if (
+          typeof rawCell !== 'object' ||
+          rawCell === null ||
+          Array.isArray(rawCell)
+        ) {
+          return rawCell;
+        }
+        const cell = rawCell as Record<string, unknown>;
+        const rawChildItemIds = Array.isArray(cell.childItemIds)
+          ? cell.childItemIds
+          : [];
+        const keptChildItemIds: string[] = [];
+        const seenChildItemIds = new Set<string>();
+
+        for (const childId of rawChildItemIds) {
+          if (typeof childId !== 'string' || seenChildItemIds.has(childId)) {
+            removedTableChildRefs += 1;
+            tableChanged = true;
+            continue;
+          }
+
+          const child = itemById.get(childId);
+          const canContain =
+            child !== undefined &&
+            ['text_box', 'note_paper'].includes(child.type) &&
+            (child.parent_item_id === item.id || child.parent_item_id === null);
+          if (!canContain) {
+            removedTableChildRefs += 1;
+            tableChanged = true;
+            continue;
+          }
+
+          seenChildItemIds.add(childId);
+          keptChildItemIds.push(childId);
+          if (child.parent_item_id === null) {
+            parentUpdates.set(childId, item.id);
+          }
+        }
+
+        if (keptChildItemIds.length !== rawChildItemIds.length) {
+          return { ...cell, childItemIds: keptChildItemIds };
+        }
+        return rawCell;
+      });
+    });
+
+    if (!tableChanged) {
+      return item;
+    }
+
+    return {
+      ...item,
+      data_json: JSON.stringify({
+        ...data,
+        cells: nextCells,
+      }),
+    };
+  });
+
+  let normalizedItems = 0;
+  const normalizedBoardItems = nextBoardItems.map((item) => {
+    const nextParentId = parentUpdates.get(item.id);
+    const nextCategory = categoryForType(item.type);
+    const shouldClearParent =
+      item.type === 'sticky_note' && item.parent_item_id !== null;
+    if (
+      nextParentId === undefined &&
+      !shouldClearParent &&
+      item.category === nextCategory
+    ) {
+      return item;
+    }
+    normalizedItems += 1;
+    return {
+      ...item,
+      category: nextCategory,
+      parent_item_id: shouldClearParent
+        ? null
+        : (nextParentId ?? item.parent_item_id),
+    };
+  });
+
+  return {
+    boardItems: normalizedBoardItems,
+    report: {
+      removed_table_child_refs: removedTableChildRefs,
+      normalized_items: normalizedItems,
+    },
+  };
+}
+
 function getMarkdownH1(value: string | null): string | null {
   if (!value) return null;
   for (const line of value.split(/\r?\n/)) {
@@ -2282,14 +2421,16 @@ function compareBoardItems(left: BoardItem, right: BoardItem): number {
 function semanticKindForItem(item: BoardItem): string {
   if (item.type === 'frame' || item.type === 'table') return 'large_object';
   if (item.type === 'line' || item.type === 'arrow') return 'link';
+  if (item.type === 'sticky_note') return 'sticky_object';
   return 'small_object';
 }
 
 function categoryForType(type: string): string {
   if (type === 'frame') return 'large_item';
   if (type === 'line' || type === 'table') return 'shape';
+  if (type === 'sticky_note') return 'sticky_item';
   if (type === 'arrow') return 'connector';
-  return 'small_item'; // text_box, sticky_note, note_paper
+  return 'small_item'; // text_box, note_paper
 }
 
 type ConnectionIndexEntry = {

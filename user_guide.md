@@ -107,7 +107,7 @@ http://127.0.0.1:18000
 | `text_box`    | 文字方塊                              |
 | `sticky_note` | 便利貼                                |
 | `note_paper`  | Markdown 筆記（對應一個 `.md` 檔）    |
-| `frame`       | 容器框，可收合展開，可容納 small_item |
+| `frame`       | 容器框，可收合展開，可容納 small_item，但不容納 `sticky_note` |
 | `line`        | 線條                                  |
 | `table`       | 表格                                  |
 | `arrow`       | 箭頭連接器，可連結任何物件            |
@@ -117,8 +117,8 @@ http://127.0.0.1:18000
 Frame 收合後，其中的物件顯示如下：
 
 - `text_box`：顯示完整文字
-- `sticky_note`：顯示部分文字
 - `note_paper`：只顯示第一個 Markdown H1 標題
+- `sticky_note`：維持獨立便利貼，不會被 frame 容納或出現在 frame 收合摘要中
 
 ### Note Paper 筆記
 

@@ -44,23 +44,26 @@ export function StickyNote({
 
   if (isEditing) {
     return (
-      <textarea
-        ref={textareaRef}
-        className="sticky-note-editor"
-        style={cardStyle}
-        value={item.content ?? ''}
-        onChange={handleChange}
-        onBlur={onEditEnd}
-        onMouseDown={(e) => e.stopPropagation()}
-      />
+      <div className="sticky-note-shell" style={cardStyle}>
+        <textarea
+          ref={textareaRef}
+          className="sticky-note-editor"
+          value={item.content ?? ''}
+          onChange={handleChange}
+          onBlur={onEditEnd}
+          onMouseDown={(e) => e.stopPropagation()}
+        />
+      </div>
     );
   }
 
   return (
-    <div className="sticky-note-display" style={cardStyle}>
-      {item.content ? (
-        <span className="sticky-note-content">{item.content}</span>
-      ) : null}
+    <div className="sticky-note-shell" style={cardStyle}>
+      <div className="sticky-note-display">
+        {item.content ? (
+          <span className="sticky-note-content">{item.content}</span>
+        ) : null}
+      </div>
     </div>
   );
 }

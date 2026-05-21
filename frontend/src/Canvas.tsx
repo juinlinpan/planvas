@@ -15,6 +15,7 @@ import {
   createBoardItem,
   deleteBoardItem,
   getPageBoardData,
+  regulatePage,
   replacePageBoardState,
   updateBoardItem,
   updatePageViewport,
@@ -271,6 +272,7 @@ export function Canvas({
     },
   );
   const [magnetEnabled, setMagnetEnabled] = useState(true);
+  const [isRegulatingPage, setIsRegulatingPage] = useState(false);
   const [resetZoomTarget, setResetZoomTarget] = useState(() =>
     getResetZoom(readStoredNumber(RESET_ZOOM_STORAGE_KEY, getResetZoom())),
   );
@@ -896,6 +898,49 @@ export function Canvas({
     page.id,
     resetHistory,
     clearSelection,
+    setConnectorsAndSync,
+    setItemsAndSync,
+    setViewportAndSync,
+  ]);
+
+  const handleRegulatePage = useCallback(async () => {
+    if (isRegulatingPage) return;
+    setIsRegulatingPage(true);
+    try {
+      const data = await regulatePage(page.id);
+      const normalized = normalizeConnectorArrowsToSegments(
+        data.board_items,
+        data.connector_links,
+      );
+      setItemsAndSync(normalized.items);
+      setConnectorsAndSync(data.connector_links);
+      setViewportAndSync({
+        x: data.page.viewport_x,
+        y: data.page.viewport_y,
+        zoom: data.page.zoom,
+      });
+      clearSelection();
+      setEditingId(null);
+      setSegmentDraft(null);
+      resetHistory();
+      if (normalized.migratedIds.length > 0) {
+        void replacePageBoardState(page.id, {
+          board_items: normalized.items,
+          connector_links: data.connector_links,
+        }).catch((err) => {
+          console.error('[Canvas] Failed to persist regulated segments', err);
+        });
+      }
+    } catch (err) {
+      console.error('[Canvas] Failed to regulate page XML', err);
+    } finally {
+      setIsRegulatingPage(false);
+    }
+  }, [
+    clearSelection,
+    isRegulatingPage,
+    page.id,
+    resetHistory,
     setConnectorsAndSync,
     setItemsAndSync,
     setViewportAndSync,
@@ -1986,6 +2031,32 @@ export function Canvas({
               <line x1="18" y1="3" x2="18" y2="6" />
             </svg>
             <span>磁鐵</span>
+          </button>
+
+          <button
+            type="button"
+            className={`canvas-rbn-ctrl-btn ${isRegulatingPage ? 'is-active' : ''}`}
+            title="Regulate Page XML"
+            aria-label="Regulate Page XML"
+            disabled={isRegulatingPage}
+            onClick={() => void handleRegulatePage()}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 12a9 9 0 0 1-15 6.7" />
+              <path d="M3 12a9 9 0 0 1 15-6.7" />
+              <path d="M18 3v5h-5" />
+              <path d="M6 21v-5h5" />
+            </svg>
           </button>
 
           <div className="canvas-rbn-sep" aria-hidden="true" />

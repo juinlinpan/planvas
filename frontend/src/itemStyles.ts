@@ -423,15 +423,16 @@ function getDefaultBackgroundColor(
 
   if (
     item.type === ITEM_TYPE.text_box ||
-    item.type === ITEM_TYPE.sticky_note ||
     item.type === ITEM_TYPE.note_paper
   ) {
     return (
       projectDefaultStyle.smallItemBackgroundColor ??
-      (item.type === ITEM_TYPE.sticky_note
-        ? getStickyNoteColor(item.id)
-        : DEFAULT_BACKGROUND_COLOR)
+      DEFAULT_BACKGROUND_COLOR
     );
+  }
+
+  if (item.type === ITEM_TYPE.sticky_note) {
+    return getStickyNoteColor(item.id);
   }
 
   switch (item.type) {

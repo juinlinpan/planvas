@@ -339,6 +339,16 @@ export type PageBoardData = {
   connector_links: ConnectorLink[];
 };
 
+export type PageRegulateReport = {
+  removed_table_child_refs: number;
+  removed_connector_links: number;
+  normalized_items: number;
+};
+
+export type PageRegulateResult = PageBoardData & {
+  report: PageRegulateReport;
+};
+
 export type PageBoardStatePayload = Pick<
   PageBoardData,
   'board_items' | 'connector_links'
@@ -358,6 +368,12 @@ export async function replacePageBoardState(
   return requestJson<PageBoardData>(`/pages/${pageId}/board-state`, {
     method: 'PUT',
     body: JSON.stringify(payload),
+  });
+}
+
+export async function regulatePage(pageId: string): Promise<PageRegulateResult> {
+  return requestJson<PageRegulateResult>(`/pages/${pageId}/regulate`, {
+    method: 'POST',
   });
 }
 

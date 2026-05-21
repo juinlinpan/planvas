@@ -4,6 +4,7 @@
 export const ITEM_CATEGORY = {
   shape: 'shape',
   small_item: 'small_item',
+  sticky_item: 'sticky_item',
   large_item: 'large_item',
   connector: 'connector',
 } as const;
@@ -40,7 +41,7 @@ export const ITEM_CATEGORY_FOR_TYPE: Record<string, string> = {
   [ITEM_TYPE.line]: ITEM_CATEGORY.shape,
   [ITEM_TYPE.table]: ITEM_CATEGORY.shape,
   [ITEM_TYPE.text_box]: ITEM_CATEGORY.small_item,
-  [ITEM_TYPE.sticky_note]: ITEM_CATEGORY.small_item,
+  [ITEM_TYPE.sticky_note]: ITEM_CATEGORY.sticky_item,
   [ITEM_TYPE.note_paper]: ITEM_CATEGORY.small_item,
   [ITEM_TYPE.frame]: ITEM_CATEGORY.large_item,
   [ITEM_TYPE.arrow]: ITEM_CATEGORY.connector,

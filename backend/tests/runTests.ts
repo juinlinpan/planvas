@@ -16,6 +16,7 @@ import type {
   ConnectorLink,
   Page,
   PageBoardData,
+  PageRegulateResult,
   Project,
   ProjectNote,
 } from '../src/types.js';
@@ -673,6 +674,145 @@ const tests: TestCase[] = [
         false,
       );
       assert.deepEqual(replace.data.connector_links, [connector]);
+    },
+  },
+  {
+    name: 'regulates Page XML and removes stale table child references',
+    run: async () => {
+      const { baseUrl, settings } = await createTestServer();
+      const project = (
+        await requestJson<Project>(baseUrl, '/projects', {
+          method: 'POST',
+          ...jsonBody({ name: 'Regulate' }),
+        })
+      ).data;
+      const page = (
+        await requestJson<Page>(baseUrl, `/projects/${project.id}/pages`, {
+          method: 'POST',
+          ...jsonBody({ name: 'Broken XML' }),
+        })
+      ).data;
+
+      const child = await createBoardItem(baseUrl, {
+        page_id: page.id,
+        parent_item_id: null,
+        category: 'small_item',
+        type: 'text_box',
+        title: null,
+        content: 'Valid child',
+        content_format: 'plain_text',
+        x: 24,
+        y: 24,
+        width: 120,
+        height: 72,
+        rotation: 0,
+        z_index: 1,
+        is_collapsed: false,
+        style_json: null,
+        data_json: null,
+      });
+      const sticky = await createBoardItem(baseUrl, {
+        page_id: page.id,
+        parent_item_id: null,
+        category: 'small_item',
+        type: 'sticky_note',
+        title: null,
+        content: 'Convert me',
+        content_format: 'plain_text',
+        x: 48,
+        y: 48,
+        width: 120,
+        height: 72,
+        rotation: 0,
+        z_index: 2,
+        is_collapsed: false,
+        style_json: null,
+        data_json: null,
+      });
+      const tableData = {
+        rows: 1,
+        cols: 1,
+        colWidths: [1],
+        rowHeights: [1],
+        cells: [
+          [
+            {
+              id: 'cell-regulate',
+              content: '',
+              rowSpan: 1,
+              colSpan: 1,
+              isCollapsed: true,
+              childItemIds: ['missing-child', child.id, child.id, sticky.id],
+            },
+          ],
+        ],
+      };
+      const table = await createBoardItem(baseUrl, {
+        page_id: page.id,
+        parent_item_id: null,
+        category: 'shape',
+        type: 'table',
+        title: 'Regulated table',
+        content: null,
+        content_format: null,
+        x: 0,
+        y: 0,
+        width: 240,
+        height: 120,
+        rotation: 0,
+        z_index: 3,
+        is_collapsed: false,
+        style_json: null,
+        data_json: JSON.stringify(tableData),
+      });
+
+      const regulated = (
+        await requestJson<PageRegulateResult>(
+          baseUrl,
+          `/pages/${page.id}/regulate`,
+          { method: 'POST' },
+        )
+      ).data;
+
+      assert.equal(regulated.report.removed_table_child_refs, 3);
+      assert.equal(regulated.report.normalized_items, 2);
+      const regulatedTable = regulated.board_items.find(
+        (item) => item.id === table.id,
+      );
+      assert.ok(regulatedTable);
+      const regulatedTableData = JSON.parse(
+        regulatedTable.data_json ?? '{}',
+      ) as typeof tableData;
+      assert.deepEqual(
+        regulatedTableData.cells[0]?.[0]?.childItemIds,
+        [child.id],
+      );
+      const regulatedChild = regulated.board_items.find(
+        (item) => item.id === child.id,
+      );
+      assert.equal(regulatedChild?.parent_item_id, table.id);
+      const regulatedSticky = regulated.board_items.find(
+        (item) => item.id === sticky.id,
+      );
+      assert.equal(regulatedSticky?.type, 'sticky_note');
+      assert.equal(regulatedSticky?.category, 'sticky_item');
+      assert.equal(regulatedSticky?.parent_item_id, null);
+
+      const semanticXml = fs.readFileSync(
+        path.join(
+          settings.planvasRoot,
+          'project_store',
+          'Regulate',
+          '.pv_project',
+          'Broken-XML.semantic.xml',
+        ),
+        'utf8',
+      );
+      assert.doesNotMatch(semanticXml, /missing-child/);
+      assert.match(semanticXml, /kind="sticky_object"/);
+      assert.match(semanticXml, /category="sticky_item"/);
+      assert.match(semanticXml, /type="sticky_note"/);
+      assert.match(semanticXml, /<\/page_semantic>/);
     },
   },
   {

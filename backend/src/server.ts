@@ -362,6 +362,12 @@ function buildRoutes(): Route[] {
       },
     },
     {
+      method: 'POST',
+      pattern: /^\/pages\/(?<pageId>[^/]+)\/regulate$/,
+      handler: ({ repository }, { params }) =>
+        repository.regulatePage(params.pageId),
+    },
+    {
       method: 'GET',
       pattern: /^\/pages\/(?<pageId>[^/]+)\/board-items$/,
       handler: ({ repository }, { params }) =>

@@ -126,20 +126,20 @@ Codex 在這個專案中，不只可以閱讀 `spec.md` 與 `todo_list.md`，也
 物件分類規則：
 
 - `line`、`table` 屬於 `shape`
-- `text_box`、`sticky_note`、`note_paper` 屬於 `small_item`
+- `text_box`、`note_paper` 屬於 `small_item`
+- `sticky_note` 屬於獨立的 `sticky_item`，不屬於 `small_item` 或 `large_item`
 - `frame` 屬於 `large_item`
 - `arrow` 屬於 `connector`
 
 重要互動規則：
 
 - 所有類別都可自由擺放
-- `frame` 可容納 `small_item`
+- `frame` 可容納 `small_item`，不可容納 `sticky_note`
 - `frame` 可展開 / 縮回
 - `frame` 縮回時，`text_box` 顯示完整文字
-- `frame` 縮回時，`sticky_note` 顯示部分文字
 - `frame` 縮回時，`note_paper` 只顯示第一個 Markdown H1
 - 白板要有磁鐵對齊功能
-- `arrow` 可連結所有 `small_item` 與 `large_item`
+- `arrow` 可連結所有 `small_item`、`sticky_item` 與 `large_item`
 
 ## 6. 工作方式
 

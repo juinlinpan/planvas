@@ -19,9 +19,10 @@
 - Page XML v2 presentation files must describe geometry, z-order, color, patterns, shape styling, and connector routing.
 - Page-level viewport fields such as `viewport_x`, `viewport_y`, and `zoom` must be stored on the Page XML root attributes rather than in `.pv_project/metadata.json`.
 - AI and automation workflows, including Jira ticket creation, should be able to read page meaning from the semantic file plus referenced markdown files without reading presentation data.
-- Page XML v2 semantic objects are grouped as `large_object`, `small_object`, and `link`.
+- Page XML v2 semantic objects are grouped as `large_object`, `small_object`, `sticky_object`, and `link`.
 - `frame` and `table` are `large_object` types.
-- `text_box`, `sticky_note`, and `note_paper` are `small_object` types.
+- `text_box` and `note_paper` are `small_object` types.
+- `sticky_note` is a standalone `sticky_object` type. It is not a `small_object` or `large_object` and must not be contained by frames or tables.
 - `line` and `arrow` are `link` types only when they express a relationship; purely decorative lines may remain presentation-only.
 - `frame` can contain `small_object` children directly through semantic containment.
 - `table` is a `large_object`, but each `table_cell` is the semantic container that can contain `small_object` children.
@@ -240,8 +241,11 @@
 #### `small_item`
 
 - `text_box`
-- `sticky_note`
 - `note_paper`
+
+#### `sticky_item`
+
+- `sticky_note`
 
 #### `large_item`
 
@@ -288,7 +292,7 @@ Project default item style rules:
 
 - `default_style_json` stores Project-level defaults for canvas item styling. Missing or empty values use app defaults.
 - Project settings must let users change defaults for all object text color, small-object fill color, large-object fill color, link stroke color, and link text color.
-- `text_box`, `sticky_note`, and `note_paper` use the small-object fill default when the item has no item-level fill override.
+- `text_box` and `note_paper` use the small-object fill default when the item has no item-level fill override. `sticky_note` keeps its own sticky color default when it has no item-level fill override.
 - `frame` and `table` use the large-object fill default when the item has no item-level fill override.
 - `line` and `arrow` use the link stroke default and link text default when the item has no item-level style override.
 - Item-level style settings remain more specific than Project defaults; clearing an item style returns that item to the Project defaults.
@@ -400,7 +404,7 @@ Page 匯出備註：
 - 新增欄列時，預設儲存格的 `embed` 為空。
 - 表格支援列欄刪除操作。
 - Inspector 顯示選中的 row/col 的 resize 控制以及對應的文字樣式選項。
-- 儲存格支援嵌入 `small_item`：`text_box`、`sticky_note`、`note_paper`；不支援嵌入 `frame`；物件必須透過 `embed` 機制存在，不可以 item 形式直接嵌入。
+- 儲存格支援嵌入 `small_item`：`text_box`、`note_paper`；不支援嵌入 `sticky_note` 或 `frame`；物件必須透過 `embed` 機制存在，不可以 item 形式直接嵌入。
 - 儲存格內多個 `small_item` 的排列方向可設定為上下分或左右分；預設為上下分。`table` 可設定整張表格的預設格內排列方向，每個儲存格也可單獨設定；當表格層級與儲存格層級都有設定時，以較晚設定者為有效設定。
 - 欄列 resize 時，若儲存格內有 `small_item` 物件，儲存格邊界隨之調整；`small_item` 的相對位置不超出 cell bounds 的情況下會隨之平移。
 - 已嵌入物件可以選取、拖拽或刪除；拖出 table 範圍後，物件脫離 embed 獨立存在於畫布上。
@@ -422,7 +426,11 @@ Page 匯出備註：
 
 - 支援的 connector anchor 位置同其他物件。
 - 支援即時 inline 文字編輯（字元數受限）。
-- 在 `frame` 縮回時顯示部分文字。
+- 支援文字樣式設定，包含文字顏色、字級、粗體、斜體與對齊設定。
+- `sticky_note` 是獨立便利貼物件，不屬於 `small_item` 或 `large_item`。
+- `sticky_note` 不可被 `frame` 或 `table` 容納，亦不參與 `frame` 縮回摘要。
+- 新建 `sticky_note` 預設放在目前最前一層圖層。
+- `sticky_note` 視覺樣式需在右上角顯示三角形摺痕。
 
 ### 5.9 `note_paper`
 
@@ -636,6 +644,9 @@ Log 儲存路徑：
 - Creating board items should update the canvas optimistically before the backend persistence round trip completes. If persistence fails, the temporary item is removed and the error is logged.
 - Autosave debounce for item and viewport updates may be second-level rather than sub-second to reduce write pressure during continuous editing.
 - Markdown note editing should autosave about every 5 seconds, flush immediately when the browser window/tab is left, and flush when leaving the markdown editor view. Returning to a Page should not remount or save the Page just because markdown notes were refreshed.
+- The backend exposes `POST /pages/{page_id}/regulate` as a schema-aware maintenance endpoint. It rereads the current Page XML, normalizes existing `sticky_note` objects to the standalone `sticky_item` / `sticky_object` schema, clears stale sticky containment, removes stale table cell child references, removes connector links pointing to missing items, normalizes item category / table parent references according to the current schema, and rewrites the Page as well-formed Page XML v2.
+- The canvas header exposes a refresh-style regulate action beside `magnet`; clicking it calls the regulate endpoint for the current Page and reloads the returned board data.
+- Any future Page XML schema change must update the regulate function in the same change so maintenance repair behavior stays aligned with the canonical schema.
 
 ## 12. MVP 範圍
 
@@ -698,16 +709,17 @@ The semantic file is the preferred source for AI, automation, Jira ticket genera
 Semantic object kinds:
 
 - `large_object`: `frame`, `table`
-- `small_object`: `text_box`, `sticky_note`, `note_paper`
+- `small_object`: `text_box`, `note_paper`
+- `sticky_object`: `sticky_note`
 - `link`: `line`, `arrow` when the connector expresses a semantic relationship
 
 Containment rules:
 
-- `frame` may contain `small_object` children directly.
+- `frame` may contain `small_object` children directly. `sticky_object` children are not allowed.
 - `table` is a `large_object`; its cells are nested semantic containers.
 - `table_cell` may contain `small_object` children.
 - A `table_cell` should have a stable id so semantic links and presentation layout can reference the cell.
-- MVP table cells should contain only `small_object` children. Allowing nested `large_object` children may be considered later.
+- MVP table cells should contain only `small_object` children. `sticky_object` and nested `large_object` children are not allowed.
 
 Relationship rules:
 

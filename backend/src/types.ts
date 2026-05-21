@@ -83,6 +83,16 @@ export type PageBoardData = {
   connector_links: ConnectorLink[];
 };
 
+export type PageRegulateReport = {
+  removed_table_child_refs: number;
+  removed_connector_links: number;
+  normalized_items: number;
+};
+
+export type PageRegulateResult = PageBoardData & {
+  report: PageRegulateReport;
+};
+
 export type ProjectCreatePayload = {
   name: string;
   theme_color: ProjectThemeColor;

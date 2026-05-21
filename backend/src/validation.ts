@@ -226,6 +226,7 @@ export function validateOrderedIds(value: unknown): OrderedIdsPayload {
 function categoryForType(type: string): string {
   if (type === 'frame') return 'large_item';
   if (type === 'line' || type === 'table') return 'shape';
+  if (type === 'sticky_note') return 'sticky_item';
   if (type === 'arrow') return 'connector';
   return 'small_item';
 }

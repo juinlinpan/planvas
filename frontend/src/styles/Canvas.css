@@ -499,11 +499,15 @@
   white-space: nowrap;
   transition:
     background 120ms ease,
-    color 120ms ease;
+    color 120ms ease,
+    transform 80ms ease;
 }
 .canvas-rbn-ctrl-btn:hover {
   background: rgba(25, 115, 119, 0.08);
   color: #17262b;
+}
+.canvas-rbn-ctrl-btn:active {
+  transform: scale(0.94);
 }
 .canvas-rbn-ctrl-btn.is-active {
   background: rgba(37, 99, 235, 0.12);

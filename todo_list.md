@@ -29,6 +29,7 @@
 - [x] Stop routine project-note refreshes from remounting the current Canvas, avoiding white flashes after note creation.
 - [x] Move item and viewport autosave debounce to second-level timing to reduce high-frequency write pressure.
 - [x] Change Markdown editor saving to 5-second autosave plus immediate flush on window/tab leave and editor view switch, without remounting the current Page on note refresh.
+- [x] Add a Page XML regulate maintenance endpoint and canvas refresh action near `magnet` to rewrite current-schema Page XML, normalize `sticky_note` into standalone `sticky_item` / `sticky_object`, and remove stale table child references.
 
 ## Page XML v2 Semantic Storage Notes
 
@@ -37,7 +38,8 @@
 - [x] Keep geometry, z-order, colors, fill patterns, shape details, and connector route points in the presentation file.
 - [x] Model semantic object kinds as `large_object`, `small_object`, and semantic `link`.
 - [x] Treat `frame` and `table` as `large_object` types.
-- [x] Treat `text_box`, `sticky_note`, and `note_paper` as `small_object` types.
+- [x] Treat `text_box` and `note_paper` as `small_object` types.
+- [x] Treat `sticky_note` as standalone `sticky_object`, outside `small_object` and `large_object` containment.
 - [x] Treat `line` and `arrow` as semantic `link` records when they express a relationship.
 - [ ] Optionally keep decorative lines presentation-only in a later cleanup.
 - [x] Add semantic `frame` containment for direct `small_object` children.
@@ -208,6 +210,7 @@
 - [x] Store `note_paper` bodies in sibling markdown files and keep only `data_json.noteFile` references in Page XML.
 - [x] Store connector links inside each Page semantic XML file.
 - [x] Keep page / item / connector ids stable inside metadata and XML files.
+- [x] Add `POST /pages/{page_id}/regulate` to repair Page XML v2 using the current schema: normalize existing `sticky_note` objects to standalone `sticky_item` / `sticky_object`, remove stale table child refs, normalize table child parent links, drop connector links with missing endpoints, and rewrite semantic / presentation XML.
 - [x] Replace DB access with a filesystem repository.
 - [x] 確認各 API 回應欄位包含 `project_id`、`page_id`、`parent_item_id`
 
@@ -304,7 +307,7 @@
 - [x] 支援從預覽中點擊選取並拖拉 row / col 的 + 按鈕建立儲存格
 - [x] 支援從格內建立固定儲存格項目
 - [x] 支援拖拉 / 縮放並正確更新儲存格格式
-- [x] 支援 `small_item`（text_box、sticky_note、note_paper）作為儲存格內容（在 frame 外顯示）
+- [x] 支援 `small_item`（text_box、note_paper）作為儲存格內容（在 frame 外顯示）；`sticky_note` 維持獨立便利貼，不進入 table 或 frame
 - [x] 支援表格與單一儲存格設定格內 `small_item` 排列方向（上下分 / 左右分），預設上下分，表格層級與儲存格層級以較晚設定者生效
 - [x] 支援 table resize 後自動 relayout 儲存格並更新其中的 `small_item`
 - [x] 支援儲存格內 embedded item 縮放 / 內容更新
@@ -329,7 +332,7 @@
 - [x] 實作 `text_box`
 - [x] 支援 `text_box` 內嵌編輯
 - [x] 實作 `sticky_note`
-- [x] 支援 `sticky_note` 顏色選取與折疊樣式
+- [x] 支援 `sticky_note` 顏色選取、文字樣式、最前層預設與右上角摺痕樣式
 - [x] 實作 `note_paper`
 - [x] 支援 Markdown 內容編輯
 - [x] 支援 `note_paper` 標題重新命名
@@ -354,7 +357,7 @@
 ### 12. 縮回顯示規則
 
 - [x] `text_box` 縮回時顯示完整文字
-- [x] `sticky_note` 縮回時顯示部分文字
+- [x] `sticky_note` 不參與 frame 縮回摘要，維持獨立便利貼
 - [x] `note_paper` 縮回時僅顯示第一個 Markdown H1
 - [x] 若無 H1，則以 fallback 顯示摘要內容
 - [x] 定義 frame 縮回後各類物件的摘要顯示規則
