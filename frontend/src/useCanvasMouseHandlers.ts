@@ -1404,6 +1404,12 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
           return item !== undefined && isFrame(item);
         }),
       );
+      const movedTableIds = new Set(
+        movedItemIds.filter((itemId) => {
+          const item = nextItems.find((candidate) => candidate.id === itemId);
+          return item !== undefined && item.type === ITEM_TYPE.table;
+        }),
+      );
 
       for (const movedItemId of movedItemIds) {
         const movedItem = nextItems.find((item) => item.id === movedItemId);
@@ -1413,7 +1419,8 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
 
         if (
           movedItem.parent_item_id !== null &&
-          movedFrameIds.has(movedItem.parent_item_id)
+          (movedFrameIds.has(movedItem.parent_item_id) ||
+            movedTableIds.has(movedItem.parent_item_id))
         ) {
           continue;
         }
@@ -1834,6 +1841,16 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
       nextItems = relayoutResult.items;
       for (const changedId of relayoutResult.changedIds) {
         changedIds.add(changedId);
+      }
+
+      if (movedTableIds.size > 0) {
+        const tableRelayoutResult = relayoutTableItems(nextItems, [
+          ...movedTableIds,
+        ]);
+        nextItems = tableRelayoutResult.items;
+        for (const changedId of tableRelayoutResult.changedIds) {
+          changedIds.add(changedId);
+        }
       }
 
       if (nextItems !== itemsRef.current) {

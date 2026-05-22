@@ -436,6 +436,12 @@ function syncBrowserRoute(route: AppRoute, mode: 'push' | 'replace'): void {
   window.history.replaceState(null, '', nextUrl);
 }
 
+const UNLOADED_PAGE_BOARD_CACHE = Symbol('unloaded-page-board-cache');
+
+type PageBoardCacheEntry =
+  | PageBoardData
+  | typeof UNLOADED_PAGE_BOARD_CACHE;
+
 export function App() {
   const initialRoute = readAppRoute(window.location.search);
   const [appView, setAppView] = useState<AppView>(initialRoute.view);
@@ -531,8 +537,11 @@ export function App() {
     () => parseProjectDefaultStyle(selectedProject?.default_style_json ?? null),
     [selectedProject?.default_style_json],
   );
-  const pageBoardCacheRef = useRef<Map<string, PageBoardData>>(new Map());
+  const pageBoardCacheRef = useRef<Map<string, PageBoardCacheEntry>>(
+    new Map(),
+  );
   const selectedPageIdRef = useRef<string | null>(selectedPageId);
+  const projectDataLoadIdRef = useRef(0);
 
   useEffect(() => {
     selectedPageIdRef.current = selectedPageId;
@@ -546,11 +555,73 @@ export function App() {
     pageBoardCacheRef.current.delete(pageId);
   }, []);
 
+  const markProjectPagesAsUnloaded = useCallback((nextPages: Page[]) => {
+    pageBoardCacheRef.current.clear();
+    for (const page of nextPages) {
+      pageBoardCacheRef.current.set(page.id, UNLOADED_PAGE_BOARD_CACHE);
+    }
+  }, []);
+
+  const loadProjectSidebarData = useCallback(
+    async (
+      projectId: string,
+      preferredPageId: string | null = selectedPageIdRef.current,
+      signal?: AbortSignal,
+    ): Promise<void> => {
+      const loadId = projectDataLoadIdRef.current + 1;
+      projectDataLoadIdRef.current = loadId;
+      pageBoardCacheRef.current.clear();
+      setIsLoadingPages(true);
+      setIsLoadingNotes(true);
+      setErrorMessage(null);
+
+      try {
+        const [nextPages, nextNotes] = await Promise.all([
+          listPages(projectId, signal),
+          listProjectNotes(projectId, signal),
+        ]);
+        if (projectDataLoadIdRef.current !== loadId) {
+          return;
+        }
+
+        markProjectPagesAsUnloaded(nextPages);
+        setPages(nextPages);
+        setProjectNotes(nextNotes);
+        const nextPageId = selectFallbackId(nextPages, preferredPageId);
+        setSelectedPageId(nextPageId);
+        if (nextPageId !== null) {
+          setPageRefreshTokenById((current) => ({
+            ...current,
+            [nextPageId]: (current[nextPageId] ?? 0) + 1,
+          }));
+        }
+      } catch (error) {
+        if (isAbortError(error)) {
+          return;
+        }
+        if (projectDataLoadIdRef.current !== loadId) {
+          return;
+        }
+
+        setErrorMessage(getErrorMessage(error));
+        setPages([]);
+        setProjectNotes([]);
+        setSelectedPageId(null);
+      } finally {
+        if (!signal?.aborted && projectDataLoadIdRef.current === loadId) {
+          setIsLoadingPages(false);
+          setIsLoadingNotes(false);
+        }
+      }
+    },
+    [markProjectPagesAsUnloaded],
+  );
+
   const handlePageViewportChange = useCallback(
     (pageId: string, viewport: { x: number; y: number; zoom: number }) => {
       setPages((current) => syncPageViewport(current, pageId, viewport));
       const cached = pageBoardCacheRef.current.get(pageId);
-      if (cached !== undefined) {
+      if (cached !== undefined && cached !== UNLOADED_PAGE_BOARD_CACHE) {
         pageBoardCacheRef.current.set(pageId, {
           ...cached,
           page: {
@@ -567,6 +638,7 @@ export function App() {
 
   function goHome(mode: 'push' | 'replace' = 'push'): void {
     syncBrowserRoute({ view: 'home' }, mode);
+    pageBoardCacheRef.current.clear();
     setAppView('home');
   }
 
@@ -575,6 +647,7 @@ export function App() {
     preferredPageId: string | null,
     mode: 'push' | 'replace' = 'push',
   ): void {
+    pageBoardCacheRef.current.clear();
     const nextPageId = resolveProjectEntryPageId({
       preferredPageId,
       targetProjectId: projectId,
@@ -596,6 +669,7 @@ export function App() {
     setSelectedProjectId(projectId);
     setAppView('workspace');
     setWorkspaceEntryToken((current) => current + 1);
+    void loadProjectSidebarData(projectId, nextPageId);
   }
 
   const loadWorkspace = useCallback(
@@ -751,53 +825,14 @@ export function App() {
       return;
     }
 
-    const projectId = selectedProjectId;
-    pageBoardCacheRef.current.clear();
     const controller = new AbortController();
-    setIsLoadingPages(true);
-    setIsLoadingNotes(true);
-    setErrorMessage(null);
-
-    async function loadProjectPages(): Promise<void> {
-      try {
-        const [nextPages, nextNotes] = await Promise.all([
-          listPages(projectId, controller.signal),
-          listProjectNotes(projectId, controller.signal),
-        ]);
-        setPages(nextPages);
-        setProjectNotes(nextNotes);
-        const nextPageId = selectFallbackId(
-          nextPages,
-          selectedPageIdRef.current,
-        );
-        setSelectedPageId(nextPageId);
-        if (nextPageId !== null) {
-          clearCachedPageBoardData(nextPageId);
-          setPageRefreshTokenById((current) => ({
-            ...current,
-            [nextPageId]: (current[nextPageId] ?? 0) + 1,
-          }));
-        }
-      } catch (error) {
-        if (isAbortError(error)) {
-          return;
-        }
-
-        setErrorMessage(getErrorMessage(error));
-        setPages([]);
-        setProjectNotes([]);
-        setSelectedPageId(null);
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsLoadingPages(false);
-          setIsLoadingNotes(false);
-        }
-      }
-    }
-
-    void loadProjectPages();
+    void loadProjectSidebarData(
+      selectedProjectId,
+      selectedPageIdRef.current,
+      controller.signal,
+    );
     return () => controller.abort();
-  }, [appView, clearCachedPageBoardData, selectedProjectId, workspaceEntryToken]);
+  }, [appView, loadProjectSidebarData, selectedProjectId, workspaceEntryToken]);
 
   async function runMutation(task: () => Promise<void>): Promise<void> {
     setIsMutating(true);
@@ -1068,7 +1103,7 @@ export function App() {
     await runMutation(async () => {
       const updatedPage = await updatePage(pageToRename.id, normalizedName);
       const cached = pageBoardCacheRef.current.get(updatedPage.id);
-      if (cached !== undefined) {
+      if (cached !== undefined && cached !== UNLOADED_PAGE_BOARD_CACHE) {
         pageBoardCacheRef.current.set(updatedPage.id, {
           ...cached,
           page: updatedPage,
@@ -1790,16 +1825,10 @@ export function App() {
                   onClick={(e) => {
                     e.stopPropagation();
                     if (selectedProjectId) {
-                      const controller = new AbortController();
-                      setIsLoadingPages(true);
-                      listPages(selectedProjectId, controller.signal)
-                        .then(setPages)
-                        .catch((error: unknown) => {
-                          if (!isAbortError(error)) {
-                            setErrorMessage(getErrorMessage(error));
-                          }
-                        })
-                        .finally(() => setIsLoadingPages(false));
+                      void loadProjectSidebarData(
+                        selectedProjectId,
+                        selectedPageIdRef.current,
+                      );
                     }
                   }}
                 >
@@ -2422,9 +2451,14 @@ export function App() {
               <Canvas
                 key={`${selectedPage.id}:${pageRefreshTokenById[selectedPage.id] ?? 0}`}
                 page={selectedPage}
-                cachedBoardData={
-                  pageBoardCacheRef.current.get(selectedPage.id) ?? null
-                }
+                cachedBoardData={(() => {
+                  const cached = pageBoardCacheRef.current.get(selectedPage.id);
+                  return cached !== undefined &&
+                    cached !== UNLOADED_PAGE_BOARD_CACHE &&
+                    cached.page.project_id === selectedProject.id
+                    ? cached
+                    : null;
+                })()}
                 projectNotes={projectNotes}
                 draggedProjectNoteFile={
                   dragState?.kind === 'notes' ? dragState.itemId : null
