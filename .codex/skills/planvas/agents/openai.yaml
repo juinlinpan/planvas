@@ -1,4 +1,0 @@
-interface:
-  display_name: "Planvas"
-  short_description: "Inspect and edit local Planvas XML/Markdown project files."
-  default_prompt: "Use $planvas to inspect a local Planvas project by reading its .pv_project semantic XML and referenced markdown notes."
