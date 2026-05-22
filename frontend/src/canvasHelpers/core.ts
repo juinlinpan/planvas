@@ -392,6 +392,7 @@ export function computeCellChildLayout(
   childCount: number,
   inset: number,
   direction: TableChildLayoutDirection = 'vertical',
+  _originalSize?: { width: number; height: number } | null,
 ): { x: number; y: number; width: number; height: number } {
   const boundedInsetFor = (width: number, height: number) =>
     Math.max(0, Math.min(inset, width / 2, height / 2));
@@ -476,6 +477,7 @@ export function relayoutTableItems(
             cell.childItemIds.length,
             TABLE_CELL_INSET,
             getEffectiveTableCellChildLayoutDirection(tableData, cell),
+            getOriginalSize(child),
           );
 
           if (
@@ -1388,6 +1390,83 @@ export function getLayerBlockIds(items: BoardItem[], itemId: string): string[] {
     item.id,
     ...getDescendantItems(items, item.id).map((child) => child.id),
   ];
+}
+
+export function getOriginalSize(
+  item: BoardItem,
+): { width: number; height: number } | null {
+  if (!item.data_json) return null;
+  try {
+    const data = JSON.parse(item.data_json);
+    if (
+      typeof data.originalWidth === 'number' &&
+      typeof data.originalHeight === 'number'
+    ) {
+      return { width: data.originalWidth, height: data.originalHeight };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+export function storeOriginalSize(item: BoardItem): BoardItem {
+  // If already has original size, don't overwrite it (preserve the very first original size)
+  if (getOriginalSize(item)) return item;
+
+  let data: Record<string, unknown> = {};
+  if (item.data_json) {
+    try {
+      data = JSON.parse(item.data_json);
+    } catch {
+      data = {};
+    }
+  }
+  data.originalWidth = item.width;
+  data.originalHeight = item.height;
+  return { ...item, data_json: JSON.stringify(data) };
+}
+
+export function updateOriginalSize(
+  item: BoardItem,
+  width: number,
+  height: number,
+): BoardItem {
+  if (!getOriginalSize(item)) return item;
+
+  let data: Record<string, unknown> = {};
+  if (item.data_json) {
+    try {
+      data = JSON.parse(item.data_json);
+    } catch {
+      data = {};
+    }
+  }
+  data.originalWidth = width;
+  data.originalHeight = height;
+  return { ...item, data_json: JSON.stringify(data) };
+}
+
+export function applyAndClearOriginalSize(item: BoardItem): BoardItem {
+  const size = getOriginalSize(item);
+  if (!size) return item;
+
+  let nextDataJson = item.data_json;
+  try {
+    const data = JSON.parse(item.data_json!);
+    delete data.originalWidth;
+    delete data.originalHeight;
+    nextDataJson = Object.keys(data).length > 0 ? JSON.stringify(data) : null;
+  } catch {
+    nextDataJson = null;
+  }
+
+  return {
+    ...item,
+    width: size.width,
+    height: size.height,
+    data_json: nextDataJson,
+  };
 }
 
 export function sortItemsByLayer(items: BoardItem[]): BoardItem[] {

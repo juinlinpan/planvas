@@ -27,6 +27,11 @@ import {
   type TableCellData,
 } from './tableData';
 import { ITEM_MIN_SIZE, ITEM_TYPE, ITEM_TYPE_LABEL } from './types';
+import { PositionSizeSection } from './inspector/PositionSizeSection';
+import { ContentSection } from './inspector/ContentSection';
+import { TextStylePanel } from './inspector/TextStylePanel';
+import { SegmentPanel } from './inspector/SegmentPanel';
+import { TablePanel } from './inspector/TablePanel';
 
 const SEGMENT_TEXT_BACKGROUND_OPTIONS = [
   { name: 'Transparent', value: 'transparent' },
@@ -616,636 +621,63 @@ export function Inspector({
           </button>
         </div>
 
-        <section className="inspector-section">
-          <p className="meta-label">Position</p>
-          <div className="inspector-grid">
-            <label>
-              X
-              <input
-                type="number"
-                value={Math.round(selectedItem.x)}
-                onChange={(e) => handleNumberChange('x', e.target.value)}
-              />
-            </label>
-            <label>
-              Y
-              <input
-                type="number"
-                value={Math.round(selectedItem.y)}
-                onChange={(e) => handleNumberChange('y', e.target.value)}
-              />
-            </label>
-          </div>
-        </section>
+                <PositionSizeSection
+          item={selectedItem}
+          isSegmentItem={isSegmentItem}
+          isLine={isLine}
+          onUpdate={onUpdate}
+        />
 
-        {!isSegmentItem ? (
-          <section className="inspector-section">
-            <p className="meta-label">Size</p>
-            <div className="inspector-grid">
-              <label>
-                Width
-                <input
-                  type="number"
-                  value={Math.round(selectedItem.width)}
-                  onChange={(e) => handleNumberChange('width', e.target.value)}
-                />
-              </label>
-              <label>
-                Height
-                <input
-                  type="number"
-                  value={Math.round(selectedItem.height)}
-                  onChange={(e) => handleNumberChange('height', e.target.value)}
-                />
-              </label>
-            </div>
-            {isLine ? (
-              <label className="inspector-field">
-                旋轉
-                <input
-                  type="number"
-                  min={-180}
-                  max={180}
-                  value={selectedItem.rotation}
-                  onChange={(e) => handleRotationChange(e.target.value)}
-                />
-              </label>
-            ) : null}
-          </section>
-        ) : null}
-
-        {isTable && tableData !== null ? (
-          <section className="inspector-section">
-            <p className="meta-label">Table</p>
-            <p className="inspector-meta">{summarizeContent(selectedItem)}</p>
-            <label className="inspector-field">
-              名子
-              <input
-                key={`${selectedItem.id}-table-name-${tableData.name ?? ''}`}
-                type="text"
-                defaultValue={tableData.name ?? ''}
-                placeholder="不顯示標籤"
-                onBlur={(e) => handleTableNameChange(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.currentTarget.blur();
-                  }
-                }}
-              />
-            </label>
-            <label className="inspector-field">
-              標籤字級
-              <CommitNumberInput
-                inputKey={`${selectedItem.id}-table-label-font-size-${
-                  tableData.labelFontSize ?? DEFAULT_TABLE_LABEL_FONT_SIZE
-                }`}
-                min={TABLE_LABEL_FONT_SIZE_MIN}
-                max={TABLE_LABEL_FONT_SIZE_MAX}
-                value={tableData.labelFontSize ?? DEFAULT_TABLE_LABEL_FONT_SIZE}
-                onCommit={handleTableLabelFontSizeChange}
-              />
-            </label>
-            <label className="inspector-field">
-              內部物件分割
-              <select
-                value={tableChildLayoutDirection}
-                onChange={(e) =>
-                  handleTableChildLayoutChange(
-                    e.target.value as TableChildLayoutDirection,
-                  )
-                }
-              >
-                {TABLE_CHILD_LAYOUT_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </section>
-        ) : null}
         {isTable ? (
-          <section className="inspector-section">
-            <p className="meta-label">Table Cell</p>
-            <label className="inspector-field">
-              Cell text
-              <textarea
-                className="inspector-textarea"
-                value={selectedTableCellTextContent}
-                disabled={selectedTableCells.length === 0}
-                placeholder={
-                  selectedTableCells.length === 0
-                    ? 'Select a table cell to edit text'
-                    : selectedTableCells.length > 1
-                      ? `Editing ${selectedTableCells.length} selected cells`
-                      : undefined
-                }
-                onChange={(e) =>
-                  onUpdateTableCells(selectedItem.id, selectedTableCellIds, {
-                    content: e.target.value,
-                  })
-                }
-              />
-            </label>
-            <div className="inspector-color-grid">
-              <ColorPaletteField
-                label="Text color"
-                options={TEXT_COLOR_OPTIONS}
-                selectedValue={resolvedStyle.textColor}
-                tone="text"
-                onSelect={(value) => handleStyleChange({ textColor: value })}
-              />
-            </div>
-            <div className="inspector-grid">
-              <label>
-                Font size
-                <CommitNumberInput
-                  inputKey={`${selectedItem.id}-table-font-size-${resolvedStyle.fontSize}`}
-                  min={12}
-                  max={32}
-                  value={resolvedStyle.fontSize}
-                  onCommit={handleFontSizeChange}
-                />
-              </label>
-            </div>
-            <div className="inspector-grid">
-              <label className="inspector-field">
-                水平對齊
-                <select
-                  value={selectedTableCellHorizontalAlign}
-                  disabled={selectedTableCells.length === 0}
-                  onChange={(e) =>
-                    onUpdateTableCells(selectedItem.id, selectedTableCellIds, {
-                      textHorizontalAlign: e.target
-                        .value as TableCellData['textHorizontalAlign'],
-                    })
-                  }
-                >
-                  {TEXT_HORIZONTAL_ALIGN_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="inspector-field">
-                垂直對齊
-                <select
-                  value={selectedTableCellVerticalAlign}
-                  disabled={selectedTableCells.length === 0}
-                  onChange={(e) =>
-                    onUpdateTableCells(selectedItem.id, selectedTableCellIds, {
-                      textVerticalAlign: e.target
-                        .value as TableCellData['textVerticalAlign'],
-                    })
-                  }
-                >
-                  {TEXT_VERTICAL_ALIGN_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <label className="inspector-field">
-              內部物件分割
-              <select
-                value={selectedTableCellChildLayoutDirection}
-                disabled={selectedTableCells.length === 0}
-                onChange={(e) =>
-                  handleTableCellChildLayoutChange(
-                    e.target.value as TableChildLayoutDirection,
-                  )
-                }
-              >
-                {TABLE_CHILD_LAYOUT_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="inspector-toggle-group">
-              <button
-                type="button"
-                className={`ghost-button ${
-                  resolvedStyle.fontWeight === 'bold' ? 'is-active' : ''
-                }`}
-                onClick={() =>
-                  handleStyleChange({
-                    fontWeight:
-                      resolvedStyle.fontWeight === 'bold' ? 'normal' : 'bold',
-                  })
-                }
-              >
-                Bold
-              </button>
-              <button
-                type="button"
-                className={`ghost-button ${
-                  resolvedStyle.fontStyle === 'italic' ? 'is-active' : ''
-                }`}
-                onClick={() =>
-                  handleStyleChange({
-                    fontStyle:
-                      resolvedStyle.fontStyle === 'italic'
-                        ? 'normal'
-                        : 'italic',
-                  })
-                }
-              >
-                Italic
-              </button>
-            </div>
-          </section>
+          <TablePanel
+            item={selectedItem}
+            tableData={tableData}
+            selectedTableCells={selectedTableCells}
+            selectedTableCellIds={selectedTableCellIds}
+            selectedTableCellBackgroundColor={selectedTableCellBackgroundColor}
+            selectedTableCellTextContent={selectedTableCellTextContent}
+            selectedTableCellHorizontalAlign={selectedTableCellHorizontalAlign}
+            selectedTableCellVerticalAlign={selectedTableCellVerticalAlign}
+            selectedTableCellChildLayoutDirection={selectedTableCellChildLayoutDirection}
+            tableChildLayoutDirection={tableChildLayoutDirection}
+            projectDefaultStyle={projectDefaultStyle}
+            onUpdate={onUpdate}
+            onUpdateTableCells={onUpdateTableCells}
+          />
         ) : null}
 
         {supportsContent || supportsTitle ? (
-          <section className="inspector-section">
-            <p className="meta-label">Content</p>
-            {supportsTitle ? (
-              <label className="inspector-field">
-                標題
-                <input
-                  type="text"
-                  value={selectedItem.title ?? ''}
-                  onChange={(e) => handleTitleChange(e.target.value)}
-                />
-              </label>
-            ) : null}
-            {supportsContent ? (
-              <label className="inspector-field">
-                {selectedItem.type === ITEM_TYPE.note_paper
-                  ? 'Markdown'
-                  : '內文'}
-                <textarea
-                  className="inspector-textarea"
-                  value={selectedItem.content ?? ''}
-                  onChange={(e) => handleContentChange(e.target.value)}
-                />
-              </label>
-            ) : null}
-            {selectedItem.type === ITEM_TYPE.note_paper ? (
-              <label className="inspector-field">
-                Markdown file
-                <input
-                  key={`${selectedItem.id}-${getNoteFileName(selectedItem)}`}
-                  type="text"
-                  defaultValue={getNoteFileName(selectedItem)}
-                  placeholder="note.md"
-                  onBlur={(e) => handleNoteFileNameChange(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.currentTarget.blur();
-                    }
-                  }}
-                />
-              </label>
-            ) : null}
-            {selectedItem.type === ITEM_TYPE.frame ? (
-              <div className="inspector-row">
-                <span>{childCount} child items</span>
-                <button className="ghost-button" onClick={onToggleCollapse}>
-                  {selectedItem.is_collapsed ? 'Expand' : 'Collapse'}
-                </button>
-              </div>
-            ) : null}
-            {selectedItem.type === ITEM_TYPE.note_paper ? (
-              <p className="inspector-meta">Markdown-backed note</p>
-            ) : null}
-          </section>
+          <ContentSection
+            item={selectedItem}
+            childCount={childCount}
+            onUpdate={onUpdate}
+            onToggleCollapse={onToggleCollapse}
+          />
         ) : null}
 
         {supportsTextStyling ? (
-          <section className="inspector-section">
-            <div className="inspector-title-row">
-              <p className="meta-label">Style</p>
-              <button
-                type="button"
-                className="ghost-button"
-                disabled={!hasCustomStyle}
-                onClick={() => onUpdate({ ...selectedItem, style_json: null })}
-              >
-                重設
-              </button>
-            </div>
-            <div className="inspector-color-grid">
-              <ColorPaletteField
-                label="Background color"
-                options={BACKGROUND_COLOR_OPTIONS}
-                selectedValue={
-                  isTable && selectedTableCells.length > 0
-                    ? selectedTableCellBackgroundColor
-                    : resolvedStyle.backgroundColor
-                }
-                tone="background"
-                onSelect={(value) =>
-                  isTable && selectedTableCells.length > 0
-                    ? onUpdateTableCells(
-                        selectedItem.id,
-                        selectedTableCellIds,
-                        {
-                          backgroundColor: value,
-                        },
-                      )
-                    : handleStyleChange({ backgroundColor: value })
-                }
-              />
-              {!isTable ? (
-                <ColorPaletteField
-                  label="Text color"
-                  options={TEXT_COLOR_OPTIONS}
-                  selectedValue={resolvedStyle.textColor}
-                  tone="text"
-                  onSelect={(value) => handleStyleChange({ textColor: value })}
-                />
-              ) : null}
-            </div>
-            {!isTable ? (
-              <>
-                <div className="inspector-grid">
-                  <label>
-                    字級
-                    <CommitNumberInput
-                      inputKey={`${selectedItem.id}-text-font-size-${resolvedStyle.fontSize}`}
-                      min={12}
-                      max={32}
-                      value={resolvedStyle.fontSize}
-                      onCommit={handleFontSizeChange}
-                    />
-                  </label>
-                </div>
-                {selectedItem.type === ITEM_TYPE.text_box ? (
-                  <div className="inspector-grid">
-                    <label className="inspector-field">
-                      水平對齊
-                      <select
-                        value={resolvedStyle.textHorizontalAlign}
-                        onChange={(e) =>
-                          handleStyleChange({
-                            textHorizontalAlign: e.target
-                              .value as BoardItemStyle['textHorizontalAlign'],
-                          })
-                        }
-                      >
-                        {TEXT_HORIZONTAL_ALIGN_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="inspector-field">
-                      垂直對齊
-                      <select
-                        value={resolvedStyle.textVerticalAlign}
-                        onChange={(e) =>
-                          handleStyleChange({
-                            textVerticalAlign: e.target
-                              .value as BoardItemStyle['textVerticalAlign'],
-                          })
-                        }
-                      >
-                        {TEXT_VERTICAL_ALIGN_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                ) : null}
-                <div className="inspector-toggle-group">
-                  <button
-                    type="button"
-                    className={`ghost-button ${
-                      resolvedStyle.fontWeight === 'bold' ? 'is-active' : ''
-                    }`}
-                    onClick={() =>
-                      handleStyleChange({
-                        fontWeight:
-                          resolvedStyle.fontWeight === 'bold'
-                            ? 'normal'
-                            : 'bold',
-                      })
-                    }
-                  >
-                    粗體
-                  </button>
-                  <button
-                    type="button"
-                    className={`ghost-button ${
-                      resolvedStyle.fontStyle === 'italic' ? 'is-active' : ''
-                    }`}
-                    onClick={() =>
-                      handleStyleChange({
-                        fontStyle:
-                          resolvedStyle.fontStyle === 'italic'
-                            ? 'normal'
-                            : 'italic',
-                      })
-                    }
-                  >
-                    斜體
-                  </button>
-                </div>
-              </>
-            ) : null}
-            <p className="inspector-meta">
-              {isSegmentItem
-                ? 'Segment connector with editable endpoints and bends.'
-                : summarizeContent(selectedItem)}
-            </p>
-          </section>
+          <TextStylePanel
+            item={selectedItem}
+            isTable={isTable}
+            isSegmentItem={isSegmentItem}
+            selectedTableCells={selectedTableCells}
+            selectedTableCellIds={selectedTableCellIds}
+            selectedTableCellBackgroundColor={selectedTableCellBackgroundColor}
+            projectDefaultStyle={projectDefaultStyle}
+            onUpdate={onUpdate}
+            onUpdateTableCells={onUpdateTableCells}
+          />
         ) : null}
 
         {supportsLineStyling ? (
-          <section className="inspector-section">
-            <div className="inspector-title-row">
-              <p className="meta-label">Line Style</p>
-              <button
-                type="button"
-                className="ghost-button"
-                disabled={!hasCustomStyle}
-                onClick={() => onUpdate({ ...selectedItem, style_json: null })}
-              >
-                重設
-              </button>
-            </div>
-            <div className="inspector-field">
-              <ColorPaletteField
-                label="線條色"
-                options={STROKE_COLOR_OPTIONS}
-                selectedValue={resolvedStyle.strokeColor}
-                tone="background"
-                onSelect={(value) => handleStyleChange({ strokeColor: value })}
-              />
-            </div>
-            <div className="inspector-grid">
-              <label className="inspector-field">
-                粗細
-                <input
-                  type="number"
-                  min={1}
-                  max={16}
-                  value={resolvedStyle.strokeWidth}
-                  onChange={(e) => handleStrokeWidthChange(e.target.value)}
-                />
-              </label>
-              <label className="inspector-field">
-                線條樣式
-                <select
-                  value={resolvedStyle.strokeStyle}
-                  onChange={(e) =>
-                    handleStyleChange({
-                      strokeStyle: e.target
-                        .value as BoardItemStyle['strokeStyle'],
-                    })
-                  }
-                >
-                  <option value="solid">實線</option>
-                  <option value="dashed">虛線</option>
-                  <option value="dotted">點線</option>
-                </select>
-              </label>
-            </div>
-            <div className="inspector-grid">
-              <label className="inspector-field">
-                轉角
-                <select
-                  value={resolvedStyle.lineCornerType}
-                  onChange={(e) =>
-                    handleStyleChange({
-                      lineCornerType: e.target
-                        .value as BoardItemStyle['lineCornerType'],
-                    })
-                  }
-                >
-                  <option value="sharp">直角</option>
-                  <option value="rounded">圓角</option>
-                </select>
-              </label>
-              {isArrow ? (
-                <label className="inspector-field">
-                  箭頭大小
-                  <input
-                    key={`${selectedItem.id}-${resolvedStyle.arrowHeadSize}`}
-                    type="number"
-                    min={8}
-                    max={40}
-                    defaultValue={resolvedStyle.arrowHeadSize}
-                    onBlur={(e) => handleArrowHeadSizeCommit(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.currentTarget.blur();
-                      }
-                    }}
-                  />
-                </label>
-              ) : null}
-            </div>
-            <p className="inspector-meta">
-              {isSegmentItem
-                ? 'Segment connector with editable endpoints and bends.'
-                : summarizeContent(selectedItem)}
-            </p>
-          </section>
-        ) : null}
-
-        {isLine || isArrow ? (
-          <section className="inspector-section">
-            <div className="inspector-title-row">
-              <p className="meta-label">Label Text</p>
-            </div>
-            <label className="inspector-field">
-              文字
-              <textarea
-                className="inspector-textarea"
-                value={selectedItem.content ?? ''}
-                onChange={(e) => handleContentChange(e.target.value)}
-              />
-            </label>
-            <div className="inspector-grid">
-              <label className="inspector-field">
-                水平位置
-                <select
-                  value={resolvedStyle.segmentTextHorizontalPosition}
-                  onChange={(e) =>
-                    handleStyleChange({
-                      segmentTextHorizontalPosition: e.target
-                        .value as BoardItemStyle['segmentTextHorizontalPosition'],
-                    })
-                  }
-                >
-                  <option value="start">起點</option>
-                  <option value="center">置中</option>
-                  <option value="end">終點</option>
-                </select>
-              </label>
-              <label className="inspector-field">
-                垂直位置
-                <select
-                  value={resolvedStyle.segmentTextVerticalPosition}
-                  onChange={(e) =>
-                    handleStyleChange({
-                      segmentTextVerticalPosition: e.target
-                        .value as BoardItemStyle['segmentTextVerticalPosition'],
-                    })
-                  }
-                >
-                  <option value="top">上方</option>
-                  <option value="middle">中間</option>
-                  <option value="bottom">下方</option>
-                </select>
-              </label>
-              <label className="inspector-field">
-                文字方向
-                <select
-                  value={resolvedStyle.segmentTextOrientation}
-                  onChange={(e) =>
-                    handleStyleChange({
-                      segmentTextOrientation: e.target
-                        .value as BoardItemStyle['segmentTextOrientation'],
-                    })
-                  }
-                >
-                  <option value="horizontal">水平</option>
-                  <option value="slope">斜向</option>
-                </select>
-              </label>
-            </div>
-            <div className="inspector-color-grid">
-              <ColorPaletteField
-                label="背景色"
-                options={SEGMENT_TEXT_BACKGROUND_OPTIONS}
-                selectedValue={segmentTextBackgroundColor}
-                tone="background"
-                onSelect={(value) =>
-                  handleStyleChange({ backgroundColor: value })
-                }
-              />
-              <ColorPaletteField
-                label="文字色"
-                options={TEXT_COLOR_OPTIONS}
-                selectedValue={resolvedStyle.textColor}
-                tone="text"
-                onSelect={(value) => handleStyleChange({ textColor: value })}
-              />
-            </div>
-            <div className="inspector-grid">
-              <label>
-                字級
-                <CommitNumberInput
-                  inputKey={`${selectedItem.id}-segment-font-size-${resolvedStyle.fontSize}`}
-                  min={12}
-                  max={32}
-                  value={resolvedStyle.fontSize}
-                  onCommit={handleFontSizeChange}
-                />
-              </label>
-            </div>
-          </section>
+          <SegmentPanel
+            item={selectedItem}
+            isArrow={isArrow}
+            isLine={isLine}
+            isSegmentItem={isSegmentItem}
+            projectDefaultStyle={projectDefaultStyle}
+            onUpdate={onUpdate}
+          />
         ) : null}
       </div>
     </aside>

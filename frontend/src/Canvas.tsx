@@ -7,16 +7,11 @@ import {
   useState,
   type DragEvent as ReactDragEvent,
 } from 'react';
-import { createPortal } from 'react-dom';
 import {
   type BoardItem,
   type BoardItemPayload,
   type ConnectorLink,
   createBoardItem,
-  getPageBoardData,
-  regulatePage,
-  replacePageBoardState,
-  updatePageViewport,
   type Page,
   type ProjectNote,
 } from './api';
@@ -138,9 +133,14 @@ import {
   getResetZoom,
   zoomViewportAroundPoint,
 } from './viewport';
-import { parseProjectDefaultStyle, resolveBoardItemStyle } from './itemStyles';
-import { getMinimapLayout, worldToMinimap } from './minimap';
+import { parseProjectDefaultStyle } from './itemStyles';
+import { getMinimapLayout } from './minimap';
 import { syncMarkdownBackedItems } from './noteSync';
+import { useCanvasBoardLoader } from './useCanvasBoardLoader';
+import { useCanvasViewportPersistence } from './useCanvasViewportPersistence';
+import { CanvasRibbon } from './CanvasRibbon';
+import { CanvasMinimap, MINIMAP_WIDTH, MINIMAP_HEIGHT } from './CanvasMinimap';
+import { CanvasContextMenuPortal } from './CanvasContextMenuPortal';
 
 type Props = {
   page: Page;
@@ -155,13 +155,6 @@ type Props = {
   importExportDisabled: boolean;
   projectDefaultStyleJson?: string | null;
 };
-type UtilityMenuId = 'file' | 'edit' | null;
-
-const MINIMAP_WIDTH = 190;
-const MINIMAP_HEIGHT = 130;
-const MINIMAP_VIEWPORT_FRAME_WIDTH = 44;
-const MINIMAP_VIEWPORT_FRAME_HEIGHT = 30;
-
 type TableInspectorSelection = {
   tableId: string;
   cellIds: string[];
@@ -274,7 +267,6 @@ export function Canvas({
     },
   );
   const [magnetEnabled, setMagnetEnabled] = useState(true);
-  const [isRegulatingPage, setIsRegulatingPage] = useState(false);
   const [resetZoomTarget, setResetZoomTarget] = useState(() =>
     getResetZoom(readStoredNumber(RESET_ZOOM_STORAGE_KEY, getResetZoom())),
   );
@@ -314,10 +306,6 @@ export function Canvas({
   const [contextMenu, setContextMenu] = useState<CanvasContextMenuState | null>(
     null,
   );
-  const [utilityMenuOpen, setUtilityMenuOpen] = useState<UtilityMenuId>(null);
-  const [isExportSubmenuOpen, setIsExportSubmenuOpen] = useState(false);
-  const [isImportSubmenuOpen, setIsImportSubmenuOpen] = useState(false);
-  const [isResetZoomPanelOpen, setIsResetZoomPanelOpen] = useState(false);
   const projectDefaultStyle = useMemo(
     () => parseProjectDefaultStyle(projectDefaultStyleJson),
     [projectDefaultStyleJson],
@@ -341,7 +329,6 @@ export function Canvas({
   } | null>(null);
   const isSpaceRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const vpSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const itemSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editSessionRef = useRef<EditSessionState | null>(null);
   const toolbarTableInsertOriginRef = useRef<{
@@ -349,8 +336,6 @@ export function Canvas({
     clientY: number;
     direction: TableInsertDirection;
   } | null>(null);
-  const utilityMenuRef = useRef<HTMLDivElement | null>(null);
-  const resetZoomPanelRef = useRef<HTMLDivElement | null>(null);
 
   useLayoutEffect(() => {
     viewportRef.current = viewport;
@@ -625,6 +610,23 @@ export function Canvas({
   const flushPendingItemSaveRef = useRef(flushPendingItemSave);
   flushPendingItemSaveRef.current = flushPendingItemSave;
 
+  const { isRegulatingPage, handleRegulatePage } = useCanvasBoardLoader({
+    pageId: page.id,
+    setItemsAndSync,
+    setConnectorsAndSync,
+    setViewportAndSync,
+    clearSelection,
+    setEditingId,
+    setSegmentDraft,
+    resetHistory,
+  });
+
+  const { scheduleViewportSave } = useCanvasViewportPersistence({
+    pageId: page.id,
+    onViewportChange,
+  });
+
+
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -654,35 +656,6 @@ export function Canvas({
       String(resetZoomTarget),
     );
   }, [resetZoomTarget]);
-
-  useEffect(() => {
-    function handlePointerDown(event: PointerEvent) {
-      if (!utilityMenuRef.current?.contains(event.target as Node)) {
-        setUtilityMenuOpen(null);
-        setIsExportSubmenuOpen(false);
-        setIsImportSubmenuOpen(false);
-      }
-      if (!resetZoomPanelRef.current?.contains(event.target as Node)) {
-        setIsResetZoomPanelOpen(false);
-      }
-    }
-
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setUtilityMenuOpen(null);
-        setIsExportSubmenuOpen(false);
-        setIsImportSubmenuOpen(false);
-        setIsResetZoomPanelOpen(false);
-      }
-    }
-
-    window.addEventListener('pointerdown', handlePointerDown);
-    window.addEventListener('keydown', handleEscape);
-    return () => {
-      window.removeEventListener('pointerdown', handlePointerDown);
-      window.removeEventListener('keydown', handleEscape);
-    };
-  }, []);
 
   useEffect(() => {
     const currentOrigin = toolbarTableInsertOriginRef.current;
@@ -857,103 +830,10 @@ export function Canvas({
     [containerSize, items, viewport],
   );
 
-  useEffect(() => {
-    const controller = new AbortController();
 
-    async function load() {
-      try {
-        const data = await getPageBoardData(page.id, controller.signal);
-        const normalized = normalizeConnectorArrowsToSegments(
-          data.board_items,
-          data.connector_links,
-        );
-        setItemsAndSync(normalized.items);
-        setConnectorsAndSync(data.connector_links);
-        setViewportAndSync({
-          x: data.page.viewport_x,
-          y: data.page.viewport_y,
-          zoom: data.page.zoom,
-        });
-        clearSelection();
-        setEditingId(null);
-        setSegmentDraft(null);
-        resetHistory();
-        if (normalized.migratedIds.length > 0) {
-          void replacePageBoardState(page.id, {
-            board_items: normalized.items,
-            connector_links: data.connector_links,
-          }).catch((err) => {
-            console.error('[Canvas] Failed to migrate connector arrows', err);
-          });
-        }
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') {
-          return;
-        }
-
-        console.error('[Canvas] Failed to load board data', err);
-      }
-    }
-
-    void load();
-    return () => controller.abort();
-  }, [
-    page.id,
-    resetHistory,
-    clearSelection,
-    setConnectorsAndSync,
-    setItemsAndSync,
-    setViewportAndSync,
-  ]);
-
-  const handleRegulatePage = useCallback(async () => {
-    if (isRegulatingPage) return;
-    setIsRegulatingPage(true);
-    try {
-      const data = await regulatePage(page.id);
-      const normalized = normalizeConnectorArrowsToSegments(
-        data.board_items,
-        data.connector_links,
-      );
-      setItemsAndSync(normalized.items);
-      setConnectorsAndSync(data.connector_links);
-      setViewportAndSync({
-        x: data.page.viewport_x,
-        y: data.page.viewport_y,
-        zoom: data.page.zoom,
-      });
-      clearSelection();
-      setEditingId(null);
-      setSegmentDraft(null);
-      resetHistory();
-      if (normalized.migratedIds.length > 0) {
-        void replacePageBoardState(page.id, {
-          board_items: normalized.items,
-          connector_links: data.connector_links,
-        }).catch((err) => {
-          console.error('[Canvas] Failed to persist regulated segments', err);
-        });
-      }
-    } catch (err) {
-      console.error('[Canvas] Failed to regulate page XML', err);
-    } finally {
-      setIsRegulatingPage(false);
-    }
-  }, [
-    clearSelection,
-    isRegulatingPage,
-    page.id,
-    resetHistory,
-    setConnectorsAndSync,
-    setItemsAndSync,
-    setViewportAndSync,
-  ]);
 
   useEffect(
     () => () => {
-      if (vpSaveTimer.current !== null) {
-        clearTimeout(vpSaveTimer.current);
-      }
       // Flush any pending item save (don't cancel — the user's last edit must
       // reach the backend even when the Canvas unmounts due to a page switch or
       // the markdown-editor tab opening).
@@ -1540,83 +1420,8 @@ export function Canvas({
     ],
   );
 
-  const contextMenuActionLabels: Record<CanvasContextMenuActionKey, string> = {
-    cut: '剪下',
-    copy: '複製',
-    paste: '貼上',
-    delete: '刪除',
-    bringForward: '移上一層',
-    sendBackward: '移下一層',
-    bringToFront: '移到最頂',
-    sendToBack: '移到最底',
-    transformToNote: '轉換為筆記 (Note)',
-  };
 
-  const contextMenuActionShortcuts: Record<CanvasContextMenuActionKey, string> =
-    {
-      cut: 'Ctrl/Cmd+X',
-      copy: 'Ctrl/Cmd+C',
-      paste: 'Ctrl/Cmd+V',
-      delete: 'Delete',
-      bringForward: '',
-      sendBackward: '',
-      bringToFront: '',
-      sendToBack: '',
-      transformToNote: '',
-    };
 
-  const contextMenuNode =
-    contextMenu !== null &&
-    contextMenuPosition !== null &&
-    typeof document !== 'undefined'
-      ? createPortal(
-          <div
-            className="canvas-context-menu"
-            style={{
-              left: contextMenuPosition.left,
-              top: contextMenuPosition.top,
-            }}
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            {contextMenuActions.map((action) => (
-              <button
-                key={action}
-                type="button"
-                className={`canvas-context-menu-item ${
-                  action === 'delete' ? 'danger' : ''
-                }`}
-                onClick={contextMenuActionHandlers[action]}
-                disabled={isCanvasContextMenuActionDisabled(
-                  contextMenu,
-                  action,
-                )}
-              >
-                <span>{contextMenuActionLabels[action]}</span>
-                <span className="canvas-context-menu-shortcut">
-                  {contextMenuActionShortcuts[action]}
-                </span>
-              </button>
-            ))}
-          </div>,
-          document.body,
-        )
-      : null;
-
-  function scheduleViewportSave(nextViewport: Viewport) {
-    onViewportChange?.(nextViewport);
-
-    if (vpSaveTimer.current !== null) {
-      clearTimeout(vpSaveTimer.current);
-    }
-
-    vpSaveTimer.current = setTimeout(() => {
-      void updatePageViewport(page.id, {
-        viewport_x: nextViewport.x,
-        viewport_y: nextViewport.y,
-        zoom: nextViewport.zoom,
-      });
-    }, VIEWPORT_SAVE_DELAY);
-  }
 
   function handleViewportZoom(targetZoom: number) {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -1652,12 +1457,6 @@ export function Canvas({
     setResetZoomTarget((current) => adjustResetZoomByStep(current, direction));
   }
 
-  function toggleUtilityMenu(targetMenu: Exclude<UtilityMenuId, null>) {
-    setIsExportSubmenuOpen(false);
-    setUtilityMenuOpen((current) =>
-      current === targetMenu ? null : targetMenu,
-    );
-  }
 
   function startSegmentDraft(
     type: SegmentDraftTool,
@@ -1810,410 +1609,29 @@ export function Canvas({
         onToolChange={handleToolChange}
         onTableToolClick={handleToolbarTableClick}
       />
-      <div className="canvas-ribbon" ref={utilityMenuRef}>
-        <div className="canvas-ribbon-bar">
-          {/* File menu */}
-          <div className="canvas-rbn-menu-wrap" aria-label="File">
-            <button
-              type="button"
-              className={`canvas-rbn-menu-btn ${utilityMenuOpen === 'file' ? 'is-active' : ''}`}
-              aria-label="File menu"
-              aria-expanded={utilityMenuOpen === 'file'}
-              onClick={() => toggleUtilityMenu('file')}
-            >
-              檔案
-            </button>
-            {utilityMenuOpen === 'file' ? (
-              <div
-                className="toolbar-dropdown-panel"
-                role="menu"
-                aria-label="File menu"
-              >
-                <div
-                  className="toolbar-dropdown-item-submenu"
-                  onMouseEnter={() => {
-                    if (!importExportDisabled) {
-                      setIsImportSubmenuOpen(true);
-                    }
-                  }}
-                  onMouseLeave={() => setIsImportSubmenuOpen(false)}
-                >
-                  <button
-                    type="button"
-                    className="toolbar-dropdown-item toolbar-dropdown-item-submenu-trigger"
-                    role="menuitem"
-                    disabled={importExportDisabled}
-                    aria-haspopup="menu"
-                    aria-expanded={isImportSubmenuOpen}
-                    onFocus={() => {
-                      if (!importExportDisabled) {
-                        setIsImportSubmenuOpen(true);
-                      }
-                    }}
-                    onClick={() => {
-                      if (!importExportDisabled) {
-                        setIsImportSubmenuOpen((current) => !current);
-                      }
-                    }}
-                  >
-                    <span>Import</span>
-                    <span className="toolbar-submenu-chevron">&gt;</span>
-                  </button>
-                  {isImportSubmenuOpen ? (
-                    <div
-                      className="toolbar-submenu-panel"
-                      role="menu"
-                      aria-label="Import formats"
-                    >
-                      <button
-                        type="button"
-                        className="toolbar-dropdown-item"
-                        role="menuitem"
-                        disabled={importExportDisabled}
-                        onClick={() => {
-                          onImportPage('mermaid');
-                          setUtilityMenuOpen(null);
-                          setIsImportSubmenuOpen(false);
-                        }}
-                      >
-                        Mermaid (.md)
-                      </button>
-                      <button
-                        type="button"
-                        className="toolbar-dropdown-item"
-                        role="menuitem"
-                        onClick={() => {
-                          onImportFromProject();
-                          setUtilityMenuOpen(null);
-                          setIsImportSubmenuOpen(false);
-                        }}
-                      >
-                        從其他 Project…
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-                <div
-                  className="toolbar-dropdown-item-submenu"
-                  onMouseEnter={() => {
-                    if (!importExportDisabled) {
-                      setIsExportSubmenuOpen(true);
-                    }
-                  }}
-                  onMouseLeave={() => setIsExportSubmenuOpen(false)}
-                >
-                  <button
-                    type="button"
-                    className="toolbar-dropdown-item toolbar-dropdown-item-submenu-trigger"
-                    role="menuitem"
-                    disabled={importExportDisabled}
-                    aria-haspopup="menu"
-                    aria-expanded={isExportSubmenuOpen}
-                    onFocus={() => {
-                      if (!importExportDisabled) {
-                        setIsExportSubmenuOpen(true);
-                      }
-                    }}
-                    onClick={() => {
-                      if (!importExportDisabled) {
-                        setIsExportSubmenuOpen((current) => !current);
-                      }
-                    }}
-                  >
-                    <span>Export</span>
-                    <span className="toolbar-submenu-chevron">&gt;</span>
-                  </button>
-                  {isExportSubmenuOpen ? (
-                    <div
-                      className="toolbar-submenu-panel"
-                      role="menu"
-                      aria-label="Export formats"
-                    >
-                      <button
-                        type="button"
-                        className="toolbar-dropdown-item"
-                        role="menuitem"
-                        disabled={importExportDisabled}
-                        onClick={() => {
-                          onExportPage('png');
-                          setUtilityMenuOpen(null);
-                          setIsExportSubmenuOpen(false);
-                        }}
-                      >
-                        Image…
-                      </button>
-                      <button
-                        type="button"
-                        className="toolbar-dropdown-item"
-                        role="menuitem"
-                        disabled={importExportDisabled}
-                        onClick={() => {
-                          onExportPage('pptx');
-                          setUtilityMenuOpen(null);
-                          setIsExportSubmenuOpen(false);
-                        }}
-                      >
-                        PPTX (.pptx)
-                      </button>
-                      <button
-                        type="button"
-                        className="toolbar-dropdown-item"
-                        role="menuitem"
-                        disabled={importExportDisabled}
-                        onClick={() => {
-                          onExportPage('mermaid');
-                          setUtilityMenuOpen(null);
-                          setIsExportSubmenuOpen(false);
-                        }}
-                      >
-                        Markdown (.md)
-                      </button>
-                      <button
-                        type="button"
-                        className="toolbar-dropdown-item"
-                        role="menuitem"
-                        disabled={importExportDisabled}
-                        onClick={() => {
-                          onExportPage('html');
-                          setUtilityMenuOpen(null);
-                          setIsExportSubmenuOpen(false);
-                        }}
-                      >
-                        HTML (.html)
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Edit menu */}
-          <div className="canvas-rbn-menu-wrap" aria-label="Edit">
-            <button
-              type="button"
-              className={`canvas-rbn-menu-btn ${utilityMenuOpen === 'edit' ? 'is-active' : ''}`}
-              aria-label="Edit menu"
-              aria-expanded={utilityMenuOpen === 'edit'}
-              onClick={() => toggleUtilityMenu('edit')}
-            >
-              編輯
-            </button>
-            {utilityMenuOpen === 'edit' ? (
-              <div
-                className="toolbar-dropdown-panel"
-                role="menu"
-                aria-label="Edit menu"
-              >
-                <button
-                  type="button"
-                  className="toolbar-dropdown-item"
-                  title="Undo (Ctrl/Cmd + Z)"
-                  role="menuitem"
-                  disabled={!canUndo || isHistorySyncing}
-                  onClick={() => {
-                    void handleUndo();
-                    setUtilityMenuOpen(null);
-                  }}
-                >
-                  Undo
-                </button>
-                <button
-                  type="button"
-                  className="toolbar-dropdown-item"
-                  title="Redo (Ctrl/Cmd + Shift + Z)"
-                  role="menuitem"
-                  disabled={!canRedo || isHistorySyncing}
-                  onClick={() => {
-                    void handleRedo();
-                    setUtilityMenuOpen(null);
-                  }}
-                >
-                  Redo
-                </button>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Spacer pushes view controls to the right */}
-          <div className="canvas-rbn-grow" aria-hidden="true" />
-
-          {/* Magnet toggle */}
-          <button
-            type="button"
-            className={`canvas-rbn-ctrl-btn ${magnetEnabled ? 'is-active' : ''}`}
-            aria-pressed={magnetEnabled}
-            title={
-              'Magnet ' +
-              (magnetEnabled ? 'on' : 'off') +
-              '; hold Alt to bypass'
-            }
-            onClick={() => setMagnetEnabled((current) => !current)}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M6 15A6 6 0 0 0 18 15" />
-              <path d="M6 15V6h12v9" />
-              <line x1="6" y1="3" x2="6" y2="6" />
-              <line x1="18" y1="3" x2="18" y2="6" />
-            </svg>
-            <span>磁鐵</span>
-          </button>
-
-          <button
-            type="button"
-            className={`canvas-rbn-ctrl-btn ${isRegulatingPage ? 'is-active' : ''}`}
-            title="Regulate Page XML"
-            aria-label="Regulate Page XML"
-            disabled={isRegulatingPage}
-            onClick={() => void handleRegulatePage()}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M21 12a9 9 0 0 1-15 6.7" />
-              <path d="M3 12a9 9 0 0 1 15-6.7" />
-              <path d="M18 3v5h-5" />
-              <path d="M6 21v-5h5" />
-            </svg>
-          </button>
-
-          <div className="canvas-rbn-sep" aria-hidden="true" />
-
-          {/* Zoom controls */}
-          <div className="canvas-rbn-zoom" aria-label="Zoom controls">
-            <button
-              type="button"
-              className="canvas-rbn-zoom-btn"
-              title="Zoom out"
-              onClick={handleZoomOut}
-            >
-              <svg
-                width="10"
-                height="10"
-                viewBox="0 0 10 10"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <rect x="1" y="4.25" width="8" height="1.5" rx="0.75" />
-              </svg>
-            </button>
-            <div className="canvas-rbn-zoom-display" aria-live="polite">
-              {getDisplayZoom(viewport.zoom).toFixed(1)}x
-            </div>
-            <button
-              type="button"
-              className="canvas-rbn-zoom-btn"
-              title="Zoom in"
-              onClick={handleZoomIn}
-            >
-              <svg
-                width="10"
-                height="10"
-                viewBox="0 0 10 10"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <rect x="4.25" y="1" width="1.5" height="8" rx="0.75" />
-                <rect x="1" y="4.25" width="8" height="1.5" rx="0.75" />
-              </svg>
-            </button>
-          </div>
-
-          <button
-            type="button"
-            className="canvas-rbn-ctrl-btn"
-            title={'Reset zoom to ' + resetZoomTarget.toFixed(1) + 'x'}
-            onClick={handleResetZoom}
-          >
-            {resetZoomTarget.toFixed(1)}x
-          </button>
-          <div className="canvas-rbn-reset-zoom-wrap" ref={resetZoomPanelRef}>
-            <button
-              type="button"
-              className="canvas-rbn-ctrl-btn canvas-rbn-ctrl-muted"
-              title="Adjust reset zoom target"
-              aria-haspopup="dialog"
-              aria-expanded={isResetZoomPanelOpen}
-              onClick={() =>
-                setIsResetZoomPanelOpen((currentOpen) => !currentOpen)
-              }
-            >
-              Adjust
-            </button>
-            {isResetZoomPanelOpen ? (
-              <div
-                className="canvas-rbn-reset-zoom-panel"
-                role="dialog"
-                aria-label="Adjust reset zoom"
-              >
-                <button
-                  type="button"
-                  className="canvas-rbn-reset-zoom-step"
-                  title="Decrease reset zoom target"
-                  onClick={() => handleResetZoomAdjust(-1)}
-                >
-                  −
-                </button>
-                <div className="canvas-rbn-reset-zoom-value">
-                  {resetZoomTarget.toFixed(1)}x
-                </div>
-                <button
-                  type="button"
-                  className="canvas-rbn-reset-zoom-step"
-                  title="Increase reset zoom target"
-                  onClick={() => handleResetZoomAdjust(1)}
-                >
-                  +
-                </button>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="canvas-rbn-sep" aria-hidden="true" />
-
-          {/* Background picker */}
-          <div
-            className="canvas-rbn-bg-picker"
-            role="group"
-            aria-label="Background style"
-          >
-            {(
-              [
-                ['dots', '點狀'],
-                ['grid', '格線'],
-              ] as const satisfies readonly [CanvasBackgroundMode, string][]
-            ).map(([mode, label]) => (
-              <button
-                key={mode}
-                type="button"
-                className={`canvas-rbn-bg-btn ${backgroundMode === mode ? 'is-active' : ''}`}
-                aria-pressed={backgroundMode === mode}
-                onClick={() => setBackgroundMode(mode)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      <CanvasRibbon
+        importExportDisabled={importExportDisabled}
+        onImportPage={onImportPage}
+        onImportFromProject={onImportFromProject}
+        onExportPage={onExportPage}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        isHistorySyncing={isHistorySyncing}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        magnetEnabled={magnetEnabled}
+        onToggleMagnet={() => setMagnetEnabled((v) => !v)}
+        isRegulatingPage={isRegulatingPage}
+        onRegulatePage={() => void handleRegulatePage()}
+        viewport={viewport}
+        resetZoomTarget={resetZoomTarget}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onResetZoom={handleResetZoom}
+        onResetZoomAdjust={handleResetZoomAdjust}
+        backgroundMode={backgroundMode}
+        onBackgroundModeChange={setBackgroundMode}
+      />
       <div
         className={`canvas-content ${isInspectorCollapsed ? 'is-inspector-collapsed' : ''}`}
       >
@@ -2289,80 +1707,11 @@ export function Canvas({
             >
               <span className="canvas-zero-axis-label">X=0</span>
             </div>
-            <div className="canvas-minimap" aria-hidden="true">
-              <div className="canvas-minimap-title">Map</div>
-              <div
-                className="canvas-minimap-surface"
-                style={{
-                  width: `${MINIMAP_WIDTH}px`,
-                  height: `${MINIMAP_HEIGHT}px`,
-                }}
-              >
-                {items
-                  .filter(
-                    (item) =>
-                      item.type !== ITEM_TYPE.arrow &&
-                      item.type !== ITEM_TYPE.line,
-                  )
-                  .map((item) => {
-                    const style = resolveBoardItemStyle(
-                      item,
-                      projectDefaultStyle,
-                    );
-                    const point = worldToMinimap(
-                      item.x + item.width / 2,
-                      item.y + item.height / 2,
-                      minimapLayout,
-                    );
-                    return (
-                      <span
-                        key={`minimap-${item.id}`}
-                        className="canvas-minimap-dot"
-                        style={{
-                          left: `${point.x}px`,
-                          top: `${point.y}px`,
-                          backgroundColor: style.backgroundColor,
-                        }}
-                      />
-                    );
-                  })}
-                <div
-                  className="canvas-minimap-viewport"
-                  style={{
-                    left: `${Math.min(
-                      Math.max(
-                        worldToMinimap(
-                          minimapLayout.viewportBounds.x +
-                            minimapLayout.viewportBounds.width / 2,
-                          minimapLayout.viewportBounds.y +
-                            minimapLayout.viewportBounds.height / 2,
-                          minimapLayout,
-                        ).x -
-                          MINIMAP_VIEWPORT_FRAME_WIDTH / 2,
-                        0,
-                      ),
-                      MINIMAP_WIDTH - MINIMAP_VIEWPORT_FRAME_WIDTH,
-                    )}px`,
-                    top: `${Math.min(
-                      Math.max(
-                        worldToMinimap(
-                          minimapLayout.viewportBounds.x +
-                            minimapLayout.viewportBounds.width / 2,
-                          minimapLayout.viewportBounds.y +
-                            minimapLayout.viewportBounds.height / 2,
-                          minimapLayout,
-                        ).y -
-                          MINIMAP_VIEWPORT_FRAME_HEIGHT / 2,
-                        0,
-                      ),
-                      MINIMAP_HEIGHT - MINIMAP_VIEWPORT_FRAME_HEIGHT,
-                    )}px`,
-                    width: `${MINIMAP_VIEWPORT_FRAME_WIDTH}px`,
-                    height: `${MINIMAP_VIEWPORT_FRAME_HEIGHT}px`,
-                  }}
-                />
-              </div>
-            </div>
+            <CanvasMinimap
+              items={items}
+              minimapLayout={minimapLayout}
+              projectDefaultStyle={projectDefaultStyle}
+            />
 
             {activeTool === ITEM_TYPE.table && tableInsertPreview !== null ? (
               <div
@@ -2616,7 +1965,12 @@ export function Canvas({
           }}
         />
       </div>
-      {contextMenuNode}
+      <CanvasContextMenuPortal
+        contextMenu={contextMenu}
+        contextMenuPosition={contextMenuPosition}
+        contextMenuActions={contextMenuActions}
+        contextMenuActionHandlers={contextMenuActionHandlers}
+      />
     </div>
   );
 }

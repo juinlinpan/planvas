@@ -2,6 +2,12 @@ import type React from 'react';
 import type { MutableRefObject, RefObject } from 'react';
 import type { BoardItem, ConnectorLink } from './api';
 import {
+  applyAndClearOriginalSize,
+  getOriginalSize,
+  storeOriginalSize,
+  updateOriginalSize,
+} from './canvasHelpers/core';
+import {
   clampItemSize,
   clampItemToFrame,
   findFrameDropTarget,
@@ -920,11 +926,14 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
             return currentItem;
           }
 
-          return {
+          const updated = {
             ...currentItem,
             width: nextSize.width,
             height: nextSize.height,
           };
+          return currentItem.parent_item_id !== null
+            ? updateOriginalSize(updated, nextSize.width, nextSize.height)
+            : updated;
         });
 
         return item.type === ITEM_TYPE.table
@@ -1421,6 +1430,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
         let nextHeight = movedItem.height;
         let nextX = movedItem.x;
         let nextY = movedItem.y;
+        let nextDataJson = movedItem.data_json;
 
         if (targetFrame !== null) {
           const fittedSize =
@@ -1442,6 +1452,10 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
           nextHeight = fittedSize.height;
           nextX = clampedPosition.x;
           nextY = clampedPosition.y;
+
+          if (movedItem.parent_item_id === null) {
+            nextDataJson = storeOriginalSize(movedItem).data_json;
+          }
         } else if (previousParent !== null) {
           if (isFrame(previousParent)) {
             // Frame parent: eject or clamp within frame
@@ -1639,6 +1653,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                     updatedTData,
                     hoverRoot.cell,
                   ),
+                  getOriginalSize(movedItem),
                 );
                 nextParentId = previousParent.id;
                 nextX = myLayout.x;
@@ -1649,6 +1664,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                 // Relayout other items in the new cell
                 newTargetIds.forEach((otherId, idx) => {
                   if (otherId === movedItem.id) return;
+                  const otherItem = nextItems.find((it) => it.id === otherId);
                   const otherLayout = computeCellChildLayout(
                     newCellBounds,
                     idx,
@@ -1658,6 +1674,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                       updatedTData,
                       hoverRoot.cell,
                     ),
+                    otherItem ? getOriginalSize(otherItem) : null,
                   );
                   nextItems = nextItems.map((it) =>
                     it.id === otherId
@@ -1683,6 +1700,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                     originalCellHit.cell.colSpan,
                   );
                   oldRemainingIds.forEach((remainId, idx) => {
+                    const remainItem = nextItems.find((it) => it.id === remainId);
                     const layout = computeCellChildLayout(
                       oldCellBounds,
                       idx,
@@ -1692,6 +1710,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                         updatedTData,
                         originalCellHit.cell,
                       ),
+                      remainItem ? getOriginalSize(remainItem) : null,
                     );
                     nextItems = nextItems.map((it) =>
                       it.id === remainId
@@ -1729,12 +1748,32 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                     tData,
                     originalCellHit.cell,
                   ),
+                  getOriginalSize(movedItem),
                 );
                 nextParentId = previousParent.id;
                 nextX = myLayout.x;
                 nextY = myLayout.y;
                 nextWidth = myLayout.width;
                 nextHeight = myLayout.height;
+              }
+            }
+          }
+
+          if (nextParentId === null) {
+            const restored = applyAndClearOriginalSize(movedItem);
+            nextWidth = restored.width;
+            nextHeight = restored.height;
+            nextDataJson = restored.data_json;
+
+            // Recalculate eject position with restored size if it was from a frame
+            if (isFrame(previousParent)) {
+              const ejectPosition = getPartialFrameExitEjectPosition(
+                { ...movedItem, width: nextWidth, height: nextHeight },
+                previousParent,
+              );
+              if (ejectPosition) {
+                nextX = ejectPosition.x;
+                nextY = ejectPosition.y;
               }
             }
           }
@@ -1783,6 +1822,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                 y: nextY,
                 width: nextWidth,
                 height: nextHeight,
+                data_json: nextDataJson,
               }
             : item,
         );
@@ -1800,7 +1840,6 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
         setItemsAndSync(nextItems);
       }
 
-      persistItems(nextItems.filter((item) => changedIds.has(item.id)));
       if (drag.detachedConnectorIds.length > 0) {
         void Promise.all(
           drag.detachedConnectorIds.map((connectorId) =>
@@ -1822,6 +1861,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
       );
       triggerFrameItemAnimation(ingestedItemIds, 'ingest');
       triggerFrameItemAnimation(ejectedItemIds, 'eject');
+
       // ── Table cell absorption ─────────────────────────────────────────
       // If exactly one small item is dragged and its center is over a table
       // cell with < 2 children, absorb it into the cell.
@@ -1886,6 +1926,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
 
           // Layout the absorbed item
           const myIndex = newChildIds.indexOf(absorbedItemId);
+          const stored = storeOriginalSize(absorbedItem);
           const myLayout = computeCellChildLayout(
             cellBounds,
             myIndex,
@@ -1898,6 +1939,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                 childLayoutUpdatedAt: undefined,
               },
             ),
+            getOriginalSize(stored),
           );
           const updatedAbsorbedItem = {
             ...absorbedItem,
@@ -1906,6 +1948,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
             width: myLayout.width,
             height: myLayout.height,
             parent_item_id: tableItem.id,
+            data_json: stored.data_json,
             z_index: maxZ + 1,
           };
 
@@ -1918,6 +1961,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
           // Relayout all existing children in the cell to accommodate the new item
           if (existingChildIds.length > 0) {
             existingChildIds.forEach((existingId, idx) => {
+              const child = nextItems.find((it) => it.id === existingId);
               const layout = computeCellChildLayout(
                 cellBounds,
                 idx,
@@ -1930,6 +1974,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                     childLayoutUpdatedAt: undefined,
                   },
                 ),
+                child ? getOriginalSize(child) : null,
               );
               nextItems = nextItems.map((it) =>
                 it.id === existingId
@@ -1948,39 +1993,17 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
 
           setItemsAndSync(nextItems);
 
-          // Persist the table absorption as one board-state write. Persisting
-          // each touched item separately makes the backend rewrite the same
-          // Page XML multiple times in quick succession.
-          const itemsToPersist = [
-            tableCellHit.tableId,
-            absorbedItemId,
-            ...existingChildIds,
-          ];
-          if (itemsToPersist.length > 1) {
-            void replacePageBoardState(pageId, {
-              board_items: nextItems,
-              connector_links: connectorsRef.current,
-            }).catch((err) =>
-              console.error(
-                '[Canvas] Failed to update items after absorb',
-                err,
-              ),
-            );
-          } else {
-            const latestItem = nextItems.find(
-              (it) => it.id === tableCellHit.tableId,
-            );
-            if (latestItem) {
-              void updateBoardItem(latestItem.id, toPayload(latestItem)).catch(
-                (err) =>
-                  console.error(
-                    '[Canvas] Failed to update item after absorb',
-                    err,
-                  ),
-              );
-            }
-          }
+          // Persist the table absorption as one board-state write.
+          void replacePageBoardState(pageId, {
+            board_items: nextItems,
+            connector_links: connectorsRef.current,
+          }).catch((err) =>
+            console.error('[Canvas] Failed to update items after absorb', err),
+          );
         }
+      } else {
+        // Normal persistence for moves not resulting in absorption
+        persistItems(nextItems.filter((item) => changedIds.has(item.id)));
       }
       // ─────────────────────────────────────────────────────────────────
 

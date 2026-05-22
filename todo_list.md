@@ -463,10 +463,12 @@
 
 - [x] 第一階段：拆分純邏輯檔案，優先處理 `frontend/src/tableData.ts`，依責任拆成 table parsing / mutation / layout / divider helpers，並保留或補齊既有 table tests。
 - [x] 第一階段：拆分 `frontend/src/canvasHelpers.ts`，依責任拆成 selection、frame layout、connector anchors、layer ordering、payload conversion 等 helper 模組，避免 Canvas 與 mouse handler 讀入過大的混合 helper。
-- [ ] 第二階段：拆分 `backend/src/repository.ts`，先抽出 Page XML reader / writer、markdown note file handling、project index handling、validation helpers，再保留 `WhiteboardRepository` 作為對 HTTP API 穩定的 facade。
-- [ ] 第二階段：為 backend storage 拆分補強測試，至少涵蓋 project index refresh、Page XML v2 round trip、markdown-backed note rename / propagation、board state replace。
-- [ ] 第三階段：拆分 `frontend/src/Canvas.tsx`，將 canvas ribbon、minimap、context menu、stage/world rendering、board data loading、viewport persistence 分離成 component 或 hook。
-- [ ] 第三階段：拆分 `frontend/src/Inspector.tsx`，依 item type 拆成 text、table、segment、note paper、frame 等 Inspector panel，保留共用欄位元件如 color palette 與 commit-on-blur number input。
+- [x] 第二階段：拆分 `backend/src/repository.ts`，先抽出 Page XML reader / writer、markdown note file handling、project index handling、validation helpers，再保留 `WhiteboardRepository` 作為對 HTTP API 穩定的 facade。
+- [x] 第二階段：為 backend storage 拆分補強測試，至少涵蓋 project index refresh、Page XML v2 round trip、markdown-backed note rename / propagation、board state replace。
+- [x] 第二階段補強：將 `backend/src/repository.ts` 壓成 facade export，並把 `WhiteboardRepository` operation flow 與 storage context 拆到 `backend/src/storage/whiteboardRepositoryCore.ts`、`backend/src/storage/repositoryStorageContext.ts`，避免單一 repository 檔案破千行。
+- [ ] 第二階段後續 cleanup：再把 `whiteboardRepositoryCore.ts` 依 Project / Page / Board / Connector / Note operation service 拆得更細，降低單一 operation flow 檔案接近千行的風險。
+- [x] 第三階段：拆分 `frontend/src/Canvas.tsx`，將 canvas ribbon、minimap、context menu、stage/world rendering、board data loading、viewport persistence 分離成 component 或 hook。
+- [x] 第三階段：拆分 `frontend/src/Inspector.tsx`，依 item type 拆成 text、table、segment、note paper、frame 等 Inspector panel，保留共用欄位元件如 color palette 與 commit-on-blur number input。
 - [ ] 第四階段：拆分 `frontend/src/useCanvasMouseHandlers.ts`，在前面 helper 邊界穩定後，分離 pan、item drag、item resize、segment drag、table insert、marquee selection 等互動流程。
 - [ ] 第四階段：拆分 mouse handlers 時導入 `requestAnimationFrame` 批次更新策略，降低 drag / resize mousemove 對整個 Canvas 的 render 壓力。
 - [ ] 效能後續：將 PNG / PPTX / viewer export module 改成動態 import，降低首頁與 workspace 初始 bundle parse 成本。

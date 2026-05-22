@@ -335,6 +335,30 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: 'refreshes the project index from project_store directories',
+    run: async () => {
+      const { baseUrl, settings } = await createTestServer();
+      const created = (
+        await requestJson<Project>(baseUrl, '/projects', {
+          method: 'POST',
+          ...jsonBody({ name: 'Indexed Later' }),
+        })
+      ).data;
+      const indexPath = path.join(settings.planvasRoot, 'project.json');
+      assert.equal(fs.existsSync(indexPath), true);
+
+      fs.rmSync(indexPath, { force: true });
+
+      const refreshed = await requestJson<Project[]>(baseUrl, '/projects');
+      assert.deepEqual(
+        refreshed.data.map((project) => project.id),
+        [created.id],
+      );
+      assert.equal(refreshed.data[0]?.storage_kind, 'project_store');
+      assert.equal(fs.existsSync(indexPath), true);
+    },
+  },
+  {
     name: 'opens copied projects as separate paths without replacing originals',
     run: async () => {
       const { baseUrl, root } = await createTestServer();
