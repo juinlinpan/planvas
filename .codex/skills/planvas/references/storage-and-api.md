@@ -113,20 +113,23 @@ arrow        visible directional connector and semantic link carrier
 line         visual line; semantic only when represented in <links>
 ```
 
-Category/kind can be derived:
+`kind` and `category` are actual XML attributes emitted by the backend on every `<object>` element:
 
 ```text
-text_box/sticky_note/note_paper -> small_item / small_object
-frame                           -> large_item / large_object
-table                           -> shape / large_object
-arrow                           -> connector / link
-line                            -> shape or presentation-only line
+type         kind           category
+text_box     small_object   small_item
+note_paper   small_object   small_item
+sticky_note  sticky_object  sticky_item
+frame        large_object   large_item
+table        large_object   shape
+arrow        link           connector
+line         link           shape
 ```
 
 ### Minimal Object
 
 ```xml
-<object id="node-1" type="text_box">
+<object id="node-1" kind="small_object" category="small_item" type="text_box">
   <title>Step A</title>
   <content>Do something</content>
   <content_format>plain_text</content_format>
@@ -146,7 +149,7 @@ When reading:
 A `note_paper` object is a placement. Its body belongs in a markdown file:
 
 ```xml
-<object id="note-1" type="note_paper">
+<object id="note-1" kind="small_object" category="small_item" type="note_paper">
   <title>Decision Log</title>
   <content />
   <content_format>markdown</content_format>
@@ -174,7 +177,7 @@ Rules:
 Frames contain small items:
 
 ```xml
-<object id="frame-1" type="frame">
+<object id="frame-1" kind="large_object" category="large_item" type="frame">
   <title>Sprint 12</title>
   <content />
   <content_format />
@@ -185,7 +188,7 @@ Frames contain small items:
   </contains>
 </object>
 
-<object id="note-1" parent_item_id="frame-1" type="sticky_note">
+<object id="note-1" parent_item_id="frame-1" kind="sticky_object" category="sticky_item" type="sticky_note">
   <title>Risk</title>
   <content>Vendor dependency</content>
   <content_format>plain_text</content_format>
@@ -203,7 +206,7 @@ When editing containment, keep both signals aligned:
 A table is a large semantic object. Cells are semantic containers:
 
 ```xml
-<object id="table-1" type="table">
+<object id="table-1" kind="large_object" category="shape" type="table">
   <title>Sprint board</title>
   <content />
   <content_format />
@@ -258,7 +261,7 @@ Rules:
 Visible connector object:
 
 ```xml
-<object id="arrow-1" type="arrow">
+<object id="arrow-1" kind="link" category="connector" type="arrow">
   <title />
   <content>blocks</content>
   <content_format>plain_text</content_format>
@@ -329,19 +332,19 @@ Semantic:
 
 ```xml
 <objects>
-  <object id="frontend" type="text_box">
+  <object id="frontend" kind="small_object" category="small_item" type="text_box">
     <title>Frontend</title>
     <content>React UI</content>
     <content_format>plain_text</content_format>
     <data_json />
   </object>
-  <object id="backend" type="text_box">
+  <object id="backend" kind="small_object" category="small_item" type="text_box">
     <title>Backend</title>
     <content>Node API</content>
     <content_format>plain_text</content_format>
     <data_json />
   </object>
-  <object id="arrow-frontend-backend" type="arrow">
+  <object id="arrow-frontend-backend" kind="link" category="connector" type="arrow">
     <title />
     <content>calls</content>
     <content_format>plain_text</content_format>

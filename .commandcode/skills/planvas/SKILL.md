@@ -65,7 +65,7 @@ For content, create or update semantic XML. For placement and style, create or u
 Minimum semantic object:
 
 ```xml
-<object id="node-1" type="text_box">
+<object id="node-1" kind="small_object" category="small_item" type="text_box">
   <title>Step A</title>
   <content>Do something</content>
   <content_format>plain_text</content_format>
@@ -85,7 +85,7 @@ Rules:
 
 - Every semantic `<object id>` needs a matching presentation `<item ref>`.
 - `style_json` is a child element, not an attribute.
-- `type` determines category: `text_box`, `sticky_note`, `note_paper` are small items; `frame` is a large item; `table` is a shape/large semantic object; `arrow` is a connector; `line` is usually presentation-only unless it carries meaning.
+- Every `<object>` has `kind`, `category`, and `type` attributes. Values by type: `text_box`/`note_paper` → `kind="small_object" category="small_item"`; `sticky_note` → `kind="sticky_object" category="sticky_item"`; `frame` → `kind="large_object" category="large_item"`; `table` → `kind="large_object" category="shape"`; `arrow` → `kind="link" category="connector"`; `line` → `kind="link" category="shape"`.
 - For `note_paper`, store the body in `.md` and keep the Page XML as a placement/reference.
 - Re-read edited XML to verify it is well-formed and ids/refs match.
 
