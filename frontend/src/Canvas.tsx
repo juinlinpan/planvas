@@ -458,9 +458,19 @@ export function Canvas({
   }, [cacheBoardData]);
 
   useEffect(() => {
-    setItemsAndSync((current) =>
-      syncMarkdownBackedItems(current, projectNotes, editingId),
+    const currentItems = itemsRef.current;
+    if (currentItems.length === 0) {
+      return;
+    }
+
+    const syncedItems = syncMarkdownBackedItems(
+      currentItems,
+      projectNotes,
+      editingId,
     );
+    if (syncedItems !== currentItems) {
+      setItemsAndSync(syncedItems);
+    }
   }, [editingId, projectNotes, setItemsAndSync]);
 
   const setViewportAndSync = useCallback((nextViewport: Viewport) => {

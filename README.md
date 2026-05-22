@@ -4,7 +4,7 @@ Local-first whiteboard planning app built with React, TypeScript, Node.js, and f
 
 ## Navigation Notes
 
-- Opening a `Project` from the home screen now writes a dedicated browser history entry and enters the workspace on a real `Page` immediately. If a current page is already known for that project, the app keeps it; otherwise it falls back to the first page in the project.
+- Opening a `Project` from the home screen writes a dedicated browser history entry and enters the workspace with the Project's Pages list loaded. No Page opens by default; select a Page from the sidebar to load its board.
 - The workspace left sidebar no longer shows project controls. Project renaming now happens directly in the top workspace header.
 - The `Home` button now lives in the workspace sidebar header, to the right of the `Whiteboard` title.
 - The workspace left sidebar includes a `Notes` box listing every markdown note filename in the current Project. Drag a note onto any Page row to place that note on that Page.

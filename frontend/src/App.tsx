@@ -473,6 +473,7 @@ export function App() {
     Record<string, number>
   >({});
   const [workspaceEntryToken, setWorkspaceEntryToken] = useState(0);
+  const [workspaceEntryRetryToken, setWorkspaceEntryRetryToken] = useState(0);
   const [dragState, setDragState] = useState<SidebarDragState | null>(null);
   const [dropState, setDropState] = useState<SidebarDropState | null>(null);
   const [projectDeleteDialogOpen, setProjectDeleteDialogOpen] = useState(false);
@@ -542,6 +543,7 @@ export function App() {
   );
   const selectedPageIdRef = useRef<string | null>(selectedPageId);
   const projectDataLoadIdRef = useRef(0);
+  const workspaceEntryRetryAttemptedRef = useRef<number | null>(null);
 
   useEffect(() => {
     selectedPageIdRef.current = selectedPageId;
@@ -587,7 +589,11 @@ export function App() {
         markProjectPagesAsUnloaded(nextPages);
         setPages(nextPages);
         setProjectNotes(nextNotes);
-        const nextPageId = selectFallbackId(nextPages, preferredPageId);
+        const nextPageId =
+          preferredPageId !== null &&
+          nextPages.some((page) => page.id === preferredPageId)
+            ? preferredPageId
+            : null;
         setSelectedPageId(nextPageId);
         if (nextPageId !== null) {
           setPageRefreshTokenById((current) => ({
@@ -648,13 +654,17 @@ export function App() {
     mode: 'push' | 'replace' = 'push',
   ): void {
     pageBoardCacheRef.current.clear();
+    const isSameProject = projectId === selectedProjectId;
     const nextPageId = resolveProjectEntryPageId({
       preferredPageId,
       targetProjectId: projectId,
-      selectedProjectId,
-      selectedPageId,
       pages,
     });
+
+    if (!isSameProject) {
+      setPages([]);
+      setProjectNotes([]);
+    }
 
     syncBrowserRoute(
       {
@@ -669,7 +679,6 @@ export function App() {
     setSelectedProjectId(projectId);
     setAppView('workspace');
     setWorkspaceEntryToken((current) => current + 1);
-    void loadProjectSidebarData(projectId, nextPageId);
   }
 
   const loadWorkspace = useCallback(
@@ -834,6 +843,51 @@ export function App() {
     return () => controller.abort();
   }, [appView, loadProjectSidebarData, selectedProjectId, workspaceEntryToken]);
 
+  useEffect(() => {
+    if (
+      appView !== 'workspace' ||
+      selectedProjectId === null ||
+      isLoadingPages ||
+      selectedPageId !== null ||
+      pages.length > 0 ||
+      workspaceEntryRetryAttemptedRef.current === workspaceEntryToken
+    ) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      workspaceEntryRetryAttemptedRef.current = workspaceEntryToken;
+      setWorkspaceEntryRetryToken((current) => current + 1);
+    }, 250);
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    appView,
+    isLoadingPages,
+    pages.length,
+    selectedPageId,
+    selectedProjectId,
+    workspaceEntryToken,
+  ]);
+
+  useEffect(() => {
+    if (
+      appView !== 'workspace' ||
+      selectedProjectId === null ||
+      workspaceEntryRetryToken === 0
+    ) {
+      return;
+    }
+
+    const controller = new AbortController();
+    void loadProjectSidebarData(selectedProjectId, null, controller.signal);
+    return () => controller.abort();
+  }, [
+    appView,
+    loadProjectSidebarData,
+    selectedProjectId,
+    workspaceEntryRetryToken,
+  ]);
+
   async function runMutation(task: () => Promise<void>): Promise<void> {
     setIsMutating(true);
     setErrorMessage(null);
@@ -861,11 +915,11 @@ export function App() {
     }
 
     try {
-      await refreshProjectNotes(selectedProjectId);
+      await loadProjectSidebarData(selectedProjectId, selectedPageIdRef.current);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     }
-  }, [refreshProjectNotes, selectedProjectId]);
+  }, [loadProjectSidebarData, selectedProjectId]);
 
   useEffect(() => {
     if (appView !== 'workspace' || selectedProjectId === null) {

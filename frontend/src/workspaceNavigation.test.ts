@@ -23,35 +23,42 @@ describe('resolveProjectEntryPageId', () => {
       resolveProjectEntryPageId({
         preferredPageId: 'page-2',
         targetProjectId: 'project-1',
-        selectedProjectId: 'project-1',
-        selectedPageId: 'page-1',
         pages: [buildPage('page-1'), buildPage('page-2')],
       }),
     ).toBe('page-2');
   });
 
-  it('keeps the current page when reopening the currently selected project', () => {
+  it('ignores a preferred page that does not belong to the target project', () => {
     expect(
       resolveProjectEntryPageId({
-        preferredPageId: null,
-        targetProjectId: 'project-1',
-        selectedProjectId: 'project-1',
-        selectedPageId: 'page-2',
-        pages: [buildPage('page-1'), buildPage('page-2')],
+        preferredPageId: 'page-2',
+        targetProjectId: 'project-2',
+        pages: [
+          buildPage('page-1', 'project-1'),
+          buildPage('page-2', 'project-1'),
+        ],
       }),
-    ).toBe('page-2');
+    ).toBeNull();
   });
 
-  it('falls back to the first page when the current project has no selected page', () => {
+  it('does not keep the current page when reopening a project without a preferred page', () => {
     expect(
       resolveProjectEntryPageId({
         preferredPageId: null,
         targetProjectId: 'project-1',
-        selectedProjectId: 'project-1',
-        selectedPageId: null,
         pages: [buildPage('page-1'), buildPage('page-2')],
       }),
-    ).toBe('page-1');
+    ).toBeNull();
+  });
+
+  it('does not select a default page when the current project has no selected page', () => {
+    expect(
+      resolveProjectEntryPageId({
+        preferredPageId: null,
+        targetProjectId: 'project-1',
+        pages: [buildPage('page-1'), buildPage('page-2')],
+      }),
+    ).toBeNull();
   });
 
   it('returns null when switching to another project without a known page yet', () => {
@@ -59,8 +66,6 @@ describe('resolveProjectEntryPageId', () => {
       resolveProjectEntryPageId({
         preferredPageId: null,
         targetProjectId: 'project-2',
-        selectedProjectId: 'project-1',
-        selectedPageId: 'page-1',
         pages: [buildPage('page-1', 'project-1')],
       }),
     ).toBeNull();

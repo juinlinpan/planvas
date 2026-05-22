@@ -41,7 +41,7 @@
 ## Navigation Update Notes
 
 - The workspace left page sidebar and right inspector must both support collapse / expand toggles while keeping a visible restore handle.
-- Opening a `Project` from the dedicated home screen must create a browser history entry and enter a concrete `Page` immediately.
+- Opening a `Project` from the dedicated home screen must create a browser history entry, enter the workspace, and load the Project's Pages list without opening any Page by default.
 - The home screen left action area must show `Create Project` and `Open Project`; the previous project JSON import action is removed from the home screen.
 - `Create Project` should open an app modal for project naming instead of using a browser prompt.
 - `Open Project` should use the Windows native folder picker when available and fall back to manual path entry only if the picker is unavailable; manual paths may be absolute, `~`-based, or relative to `<user_home>`.
@@ -51,7 +51,7 @@
 - The home screen project list is `Common Projects`: first projects under `project_store/`, then registered projects from other paths.
 - The home screen must provide `Refresh` to re-check whether registered project paths still exist.
 - After Refresh marks a registered project path as missing, the home screen must provide a remove button that deletes only the `project.json` entry.
-- If the target project is already loaded in memory, the workspace should keep the current page when possible and otherwise fall back to that project's first page.
+- Entering a Project from the home screen must not keep or auto-open any previous Page selection; no Page should be selected until the user chooses one or the URL explicitly names one.
 - Entering a Project workspace from the home screen must refresh that Project's Pages and Notes from disk even when it is the same Project id that was previously selected.
 - The workspace left sidebar should stay focused on page navigation and should not render a project details panel.
 - The workspace sidebar header should show a top row with `Planvas` and `Home`, then a divided project summary row with `Project`, the current project name, and a settings icon button.

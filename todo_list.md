@@ -58,7 +58,7 @@
 ## Navigation Update Notes
 
 - [x] Make the workspace left page sidebar and right inspector collapsible with a persistent restore handle.
-- [x] Opening a project from the home screen now lands on an actual page and creates a browser history entry.
+- [x] Opening a project from the home screen now creates a browser history entry and loads the workspace page list without auto-opening a page.
 - [x] The workspace left sidebar stays focused on page navigation and no longer shows a project details panel.
 - [x] Rework the sidebar header into a `Planvas` / `Home` top row plus a divided `Project` summary row with a settings icon trigger.
 - [x] Move all project controls into a dedicated settings modal that uses about 70% viewport width on desktop.

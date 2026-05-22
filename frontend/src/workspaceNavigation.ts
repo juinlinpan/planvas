@@ -3,25 +3,24 @@ import type { Page } from './api';
 type ResolveProjectEntryPageIdArgs = {
   preferredPageId: string | null;
   targetProjectId: string;
-  selectedProjectId: string | null;
-  selectedPageId: string | null;
   pages: Page[];
 };
 
 export function resolveProjectEntryPageId({
   preferredPageId,
   targetProjectId,
-  selectedProjectId,
-  selectedPageId,
   pages,
 }: ResolveProjectEntryPageIdArgs): string | null {
-  if (preferredPageId !== null) {
+  const targetProjectPages = pages.filter(
+    (page) => page.project_id === targetProjectId,
+  );
+
+  if (
+    preferredPageId !== null &&
+    targetProjectPages.some((page) => page.id === preferredPageId)
+  ) {
     return preferredPageId;
   }
 
-  if (targetProjectId !== selectedProjectId) {
-    return null;
-  }
-
-  return selectedPageId ?? pages[0]?.id ?? null;
+  return null;
 }
