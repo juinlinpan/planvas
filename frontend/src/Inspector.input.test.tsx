@@ -65,15 +65,15 @@ describe('Inspector font size input', () => {
     root = createRoot(container);
   });
 
-  afterEach(async () => {
-    await act(async () => {
+  afterEach(() => {
+    act(() => {
       root.unmount();
     });
     container.remove();
   });
 
-  it('keeps an in-progress replacement value instead of snapping back to 32 before commit', async () => {
-    await act(async () => {
+  it('keeps an in-progress replacement value instead of snapping back to 32 before commit', () => {
+    act(() => {
       root.render(
         <InspectorHarness
           item={createBoardItem({
@@ -83,13 +83,21 @@ describe('Inspector font size input', () => {
       );
     });
 
+    act(() => {
+      container
+        .querySelector<HTMLButtonElement>('.inspector-tab[aria-selected="false"]')
+        ?.click();
+    });
+
     const fontSizeInput = Array.from(
       container.querySelectorAll('input[type="number"]'),
-    ).find((input) => input.closest('label')?.textContent?.includes('字級'));
+    ).find((input) =>
+      input.closest('label')?.textContent?.includes('Font size'),
+    );
 
     expect(fontSizeInput).toBeInstanceOf(HTMLInputElement);
 
-    await act(async () => {
+    act(() => {
       (fontSizeInput as HTMLInputElement).focus();
       (fontSizeInput as HTMLInputElement).value = '2';
       fontSizeInput?.dispatchEvent(new Event('input', { bubbles: true }));
@@ -98,13 +106,15 @@ describe('Inspector font size input', () => {
 
     expect((fontSizeInput as HTMLInputElement).value).toBe('2');
 
-    await act(async () => {
+    act(() => {
       (fontSizeInput as HTMLInputElement).blur();
     });
 
     const committedFontSizeInput = Array.from(
       container.querySelectorAll('input[type="number"]'),
-    ).find((input) => input.closest('label')?.textContent?.includes('字級'));
+    ).find((input) =>
+      input.closest('label')?.textContent?.includes('Font size'),
+    );
 
     expect((committedFontSizeInput as HTMLInputElement).value).toBe('12');
   });

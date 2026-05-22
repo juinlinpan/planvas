@@ -1,5 +1,6 @@
 import type { BoardItem } from '../api';
 import {
+  BACKGROUND_COLOR_OPTIONS,
   TEXT_COLOR_OPTIONS,
   parseBoardItemStyle,
   resolveBoardItemStyle,
@@ -11,9 +12,7 @@ import {
   DEFAULT_TABLE_LABEL_FONT_SIZE,
   TABLE_LABEL_FONT_SIZE_MAX,
   TABLE_LABEL_FONT_SIZE_MIN,
-  getEffectiveTableCellChildLayoutDirection,
   getNextTableLayoutUpdatedAt,
-  parseTableData,
   sanitizeTableLabelFontSize,
   sanitizeTableName,
   serializeTableData,
@@ -25,23 +24,24 @@ import { ITEM_TYPE } from '../types';
 import { ColorPaletteField, CommitNumberInput } from '../Inspector';
 
 const TEXT_HORIZONTAL_ALIGN_OPTIONS = [
-  { value: 'left', label: '置左' },
-  { value: 'center', label: '置中' },
-  { value: 'right', label: '置右' },
+  { value: 'left', label: 'Left' },
+  { value: 'center', label: 'Center' },
+  { value: 'right', label: 'Right' },
 ] as const;
 
 const TEXT_VERTICAL_ALIGN_OPTIONS = [
-  { value: 'top', label: '靠上' },
-  { value: 'middle', label: '置中' },
-  { value: 'bottom', label: '靠下' },
+  { value: 'top', label: 'Top' },
+  { value: 'middle', label: 'Middle' },
+  { value: 'bottom', label: 'Bottom' },
 ] as const;
 
 const TABLE_CHILD_LAYOUT_OPTIONS = [
-  { value: 'vertical', label: '上下分' },
-  { value: 'horizontal', label: '左右分' },
+  { value: 'vertical', label: 'Vertical' },
+  { value: 'horizontal', label: 'Horizontal' },
 ] as const;
 
 type Props = {
+  activeTab: 'style' | 'text';
   item: BoardItem;
   tableData: TableData | null;
   selectedTableCells: TableCellData[];
@@ -61,17 +61,13 @@ type Props = {
   ) => void;
 };
 
-/**
- * Inspector panel for table items. Covers table settings (name, label font
- * size, child layout) and table cell settings (cell text, text/font styling,
- * alignment, child layout, bold/italic).
- * Extracted from Inspector.tsx.
- */
 export function TablePanel({
+  activeTab,
   item,
   tableData,
   selectedTableCells,
   selectedTableCellIds,
+  selectedTableCellBackgroundColor,
   selectedTableCellTextContent,
   selectedTableCellHorizontalAlign,
   selectedTableCellVerticalAlign,
@@ -84,6 +80,8 @@ export function TablePanel({
   if (item.type !== ITEM_TYPE.table) return null;
 
   const resolvedStyle = resolveBoardItemStyle(item, projectDefaultStyle);
+  const hasCustomStyle =
+    item.style_json !== null && item.style_json.trim().length > 0;
 
   function handleStyleChange(patch: BoardItemStyle) {
     const currentStyle = parseBoardItemStyle(item.style_json);
@@ -143,26 +141,109 @@ export function TablePanel({
     });
   }
 
+  if (activeTab === 'style') {
+    return (
+      <>
+        {tableData !== null ? (
+          <section className="inspector-section">
+            <p className="meta-label">Table</p>
+            <label className="inspector-field">
+              Table name
+              <input
+                key={`${item.id}-table-name-${tableData.name ?? ''}`}
+                type="text"
+                defaultValue={tableData.name ?? ''}
+                placeholder="Table name"
+                onBlur={(e) => handleTableNameChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.currentTarget.blur();
+                }}
+              />
+            </label>
+            <label className="inspector-field">
+              Item layout
+              <select
+                value={tableChildLayoutDirection}
+                onChange={(e) =>
+                  handleTableChildLayoutChange(
+                    e.target.value as TableChildLayoutDirection,
+                  )
+                }
+              >
+                {TABLE_CHILD_LAYOUT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </section>
+        ) : null}
+
+        <section className="inspector-section">
+          <div className="inspector-title-row">
+            <p className="meta-label">Table Cell</p>
+            <button
+              type="button"
+              className="ghost-button"
+              disabled={!hasCustomStyle}
+              onClick={() => onUpdate({ ...item, style_json: null })}
+            >
+              Reset
+            </button>
+          </div>
+          <label className="inspector-field">
+            Cell text
+            <textarea
+              className="inspector-textarea"
+              value={selectedTableCellTextContent}
+              disabled={selectedTableCells.length === 0}
+              placeholder={
+                selectedTableCells.length === 0
+                  ? 'Select a table cell to edit text'
+                  : selectedTableCells.length > 1
+                    ? `Editing ${selectedTableCells.length} selected cells`
+                    : undefined
+              }
+              onChange={(e) =>
+                onUpdateTableCells(item.id, selectedTableCellIds, {
+                  content: e.target.value,
+                })
+              }
+            />
+          </label>
+          <div className="inspector-color-grid">
+            <ColorPaletteField
+              label="Background color"
+              options={BACKGROUND_COLOR_OPTIONS}
+              selectedValue={selectedTableCellBackgroundColor}
+              tone="background"
+              onSelect={(value) =>
+                onUpdateTableCells(item.id, selectedTableCellIds, {
+                  backgroundColor: value,
+                })
+              }
+            />
+            <ColorPaletteField
+              label="Text color"
+              options={TEXT_COLOR_OPTIONS}
+              selectedValue={resolvedStyle.textColor}
+              tone="text"
+              onSelect={(value) => handleStyleChange({ textColor: value })}
+            />
+          </div>
+        </section>
+      </>
+    );
+  }
+
   return (
     <>
       {tableData !== null ? (
         <section className="inspector-section">
-          <p className="meta-label">Table</p>
+          <p className="meta-label">Table Text</p>
           <label className="inspector-field">
-            名子
-            <input
-              key={`${item.id}-table-name-${tableData.name ?? ''}`}
-              type="text"
-              defaultValue={tableData.name ?? ''}
-              placeholder="不顯示標籤"
-              onBlur={(e) => handleTableNameChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') e.currentTarget.blur();
-              }}
-            />
-          </label>
-          <label className="inspector-field">
-            標籤字級
+            Label font size
             <CommitNumberInput
               inputKey={`${item.id}-table-label-font-size-${
                 tableData.labelFontSize ?? DEFAULT_TABLE_LABEL_FONT_SIZE
@@ -173,57 +254,11 @@ export function TablePanel({
               onCommit={handleTableLabelFontSizeChange}
             />
           </label>
-          <label className="inspector-field">
-            內部物件分割
-            <select
-              value={tableChildLayoutDirection}
-              onChange={(e) =>
-                handleTableChildLayoutChange(
-                  e.target.value as TableChildLayoutDirection,
-                )
-              }
-            >
-              {TABLE_CHILD_LAYOUT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
         </section>
       ) : null}
 
       <section className="inspector-section">
-        <p className="meta-label">Table Cell</p>
-        <label className="inspector-field">
-          Cell text
-          <textarea
-            className="inspector-textarea"
-            value={selectedTableCellTextContent}
-            disabled={selectedTableCells.length === 0}
-            placeholder={
-              selectedTableCells.length === 0
-                ? 'Select a table cell to edit text'
-                : selectedTableCells.length > 1
-                  ? `Editing ${selectedTableCells.length} selected cells`
-                  : undefined
-            }
-            onChange={(e) =>
-              onUpdateTableCells(item.id, selectedTableCellIds, {
-                content: e.target.value,
-              })
-            }
-          />
-        </label>
-        <div className="inspector-color-grid">
-          <ColorPaletteField
-            label="Text color"
-            options={TEXT_COLOR_OPTIONS}
-            selectedValue={resolvedStyle.textColor}
-            tone="text"
-            onSelect={(value) => handleStyleChange({ textColor: value })}
-          />
-        </div>
+        <p className="meta-label">Cell Text</p>
         <div className="inspector-grid">
           <label>
             Font size
@@ -238,7 +273,7 @@ export function TablePanel({
         </div>
         <div className="inspector-grid">
           <label className="inspector-field">
-            水平對齊
+            Horizontal align
             <select
               value={selectedTableCellHorizontalAlign}
               disabled={selectedTableCells.length === 0}
@@ -257,7 +292,7 @@ export function TablePanel({
             </select>
           </label>
           <label className="inspector-field">
-            垂直對齊
+            Vertical align
             <select
               value={selectedTableCellVerticalAlign}
               disabled={selectedTableCells.length === 0}
@@ -277,7 +312,7 @@ export function TablePanel({
           </label>
         </div>
         <label className="inspector-field">
-          內部物件分割
+          Item layout
           <select
             value={selectedTableCellChildLayoutDirection}
             disabled={selectedTableCells.length === 0}

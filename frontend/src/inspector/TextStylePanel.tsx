@@ -14,15 +14,15 @@ import { ColorPaletteField, CommitNumberInput } from '../Inspector';
 import type { TableCellData } from '../tableData';
 
 const TEXT_HORIZONTAL_ALIGN_OPTIONS = [
-  { value: 'left', label: '置左' },
-  { value: 'center', label: '置中' },
-  { value: 'right', label: '置右' },
+  { value: 'left', label: 'Left' },
+  { value: 'center', label: 'Center' },
+  { value: 'right', label: 'Right' },
 ] as const;
 
 const TEXT_VERTICAL_ALIGN_OPTIONS = [
-  { value: 'top', label: '靠上' },
-  { value: 'middle', label: '置中' },
-  { value: 'bottom', label: '靠下' },
+  { value: 'top', label: 'Top' },
+  { value: 'middle', label: 'Middle' },
+  { value: 'bottom', label: 'Bottom' },
 ] as const;
 
 function summarizeContent(item: BoardItem): string {
@@ -38,6 +38,7 @@ function summarizeContent(item: BoardItem): string {
 }
 
 type Props = {
+  activeTab: 'style' | 'text';
   item: BoardItem;
   isTable: boolean;
   isSegmentItem: boolean;
@@ -53,13 +54,8 @@ type Props = {
   ) => void;
 };
 
-/**
- * Inspector style section for text-capable items (text_box, sticky_note,
- * note_paper, frame, table). Covers background/text color, font size,
- * text alignment, bold, and italic.
- * Extracted from Inspector.tsx.
- */
 export function TextStylePanel({
+  activeTab,
   item,
   isTable,
   isSegmentItem,
@@ -71,7 +67,6 @@ export function TextStylePanel({
   onUpdateTableCells,
 }: Props) {
   const resolvedStyle = resolveBoardItemStyle(item, projectDefaultStyle);
-  const parsedStyle = parseBoardItemStyle(item.style_json);
   const hasCustomStyle =
     item.style_json !== null && item.style_json.trim().length > 0;
 
@@ -89,52 +84,67 @@ export function TextStylePanel({
     handleStyleChange({ fontSize: value });
   }
 
+  if (activeTab === 'style') {
+    return (
+      <section className="inspector-section">
+        <div className="inspector-title-row">
+          <p className="meta-label">Style</p>
+          <button
+            type="button"
+            className="ghost-button"
+            disabled={!hasCustomStyle}
+            onClick={() => onUpdate({ ...item, style_json: null })}
+          >
+            Reset
+          </button>
+        </div>
+        <div className="inspector-color-grid">
+          <ColorPaletteField
+            label="Background color"
+            options={BACKGROUND_COLOR_OPTIONS}
+            selectedValue={
+              isTable && selectedTableCells.length > 0
+                ? selectedTableCellBackgroundColor
+                : resolvedStyle.backgroundColor
+            }
+            tone="background"
+            onSelect={(value) =>
+              isTable && selectedTableCells.length > 0
+                ? onUpdateTableCells(item.id, selectedTableCellIds, {
+                    backgroundColor: value,
+                  })
+                : handleStyleChange({ backgroundColor: value })
+            }
+          />
+          {!isTable ? (
+            <ColorPaletteField
+              label="Text color"
+              options={TEXT_COLOR_OPTIONS}
+              selectedValue={resolvedStyle.textColor}
+              tone="text"
+              onSelect={(value) => handleStyleChange({ textColor: value })}
+            />
+          ) : null}
+        </div>
+        <p className="inspector-meta">
+          {isSegmentItem
+            ? 'Segment connector with editable endpoints and bends.'
+            : summarizeContent(item)}
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section className="inspector-section">
       <div className="inspector-title-row">
-        <p className="meta-label">Style</p>
-        <button
-          type="button"
-          className="ghost-button"
-          disabled={!hasCustomStyle}
-          onClick={() => onUpdate({ ...item, style_json: null })}
-        >
-          重設
-        </button>
-      </div>
-      <div className="inspector-color-grid">
-        <ColorPaletteField
-          label="Background color"
-          options={BACKGROUND_COLOR_OPTIONS}
-          selectedValue={
-            isTable && selectedTableCells.length > 0
-              ? selectedTableCellBackgroundColor
-              : resolvedStyle.backgroundColor
-          }
-          tone="background"
-          onSelect={(value) =>
-            isTable && selectedTableCells.length > 0
-              ? onUpdateTableCells(item.id, selectedTableCellIds, {
-                  backgroundColor: value,
-                })
-              : handleStyleChange({ backgroundColor: value })
-          }
-        />
-        {!isTable ? (
-          <ColorPaletteField
-            label="Text color"
-            options={TEXT_COLOR_OPTIONS}
-            selectedValue={resolvedStyle.textColor}
-            tone="text"
-            onSelect={(value) => handleStyleChange({ textColor: value })}
-          />
-        ) : null}
+        <p className="meta-label">Text</p>
       </div>
       {!isTable ? (
         <>
           <div className="inspector-grid">
             <label>
-              字級
+              Font size
               <CommitNumberInput
                 inputKey={`${item.id}-text-font-size-${resolvedStyle.fontSize}`}
                 min={12}
@@ -147,7 +157,7 @@ export function TextStylePanel({
           {item.type === ITEM_TYPE.text_box ? (
             <div className="inspector-grid">
               <label className="inspector-field">
-                水平對齊
+                Horizontal align
                 <select
                   value={resolvedStyle.textHorizontalAlign}
                   onChange={(e) =>
@@ -165,7 +175,7 @@ export function TextStylePanel({
                 </select>
               </label>
               <label className="inspector-field">
-                垂直對齊
+                Vertical align
                 <select
                   value={resolvedStyle.textVerticalAlign}
                   onChange={(e) =>
@@ -197,7 +207,7 @@ export function TextStylePanel({
                 })
               }
             >
-              粗體
+              Bold
             </button>
             <button
               type="button"
@@ -211,7 +221,7 @@ export function TextStylePanel({
                 })
               }
             >
-              斜體
+              Italic
             </button>
           </div>
         </>

@@ -466,6 +466,7 @@ export function App() {
   const [pageRefreshTokenById, setPageRefreshTokenById] = useState<
     Record<string, number>
   >({});
+  const [workspaceEntryToken, setWorkspaceEntryToken] = useState(0);
   const [dragState, setDragState] = useState<SidebarDragState | null>(null);
   const [dropState, setDropState] = useState<SidebarDropState | null>(null);
   const [projectDeleteDialogOpen, setProjectDeleteDialogOpen] = useState(false);
@@ -531,6 +532,11 @@ export function App() {
     [selectedProject?.default_style_json],
   );
   const pageBoardCacheRef = useRef<Map<string, PageBoardData>>(new Map());
+  const selectedPageIdRef = useRef<string | null>(selectedPageId);
+
+  useEffect(() => {
+    selectedPageIdRef.current = selectedPageId;
+  }, [selectedPageId]);
 
   const updateCachedPageBoardData = useCallback((data: PageBoardData) => {
     pageBoardCacheRef.current.set(data.page.id, data);
@@ -586,8 +592,10 @@ export function App() {
       mode,
     );
     setSelectedPageId(nextPageId);
+    setActiveNoteFile(null);
     setSelectedProjectId(projectId);
     setAppView('workspace');
+    setWorkspaceEntryToken((current) => current + 1);
   }
 
   const loadWorkspace = useCallback(
@@ -739,6 +747,10 @@ export function App() {
       return;
     }
 
+    if (appView !== 'workspace') {
+      return;
+    }
+
     const projectId = selectedProjectId;
     pageBoardCacheRef.current.clear();
     const controller = new AbortController();
@@ -754,7 +766,18 @@ export function App() {
         ]);
         setPages(nextPages);
         setProjectNotes(nextNotes);
-        setSelectedPageId((current) => selectFallbackId(nextPages, current));
+        const nextPageId = selectFallbackId(
+          nextPages,
+          selectedPageIdRef.current,
+        );
+        setSelectedPageId(nextPageId);
+        if (nextPageId !== null) {
+          clearCachedPageBoardData(nextPageId);
+          setPageRefreshTokenById((current) => ({
+            ...current,
+            [nextPageId]: (current[nextPageId] ?? 0) + 1,
+          }));
+        }
       } catch (error) {
         if (isAbortError(error)) {
           return;
@@ -774,7 +797,7 @@ export function App() {
 
     void loadProjectPages();
     return () => controller.abort();
-  }, [selectedProjectId]);
+  }, [appView, clearCachedPageBoardData, selectedProjectId, workspaceEntryToken]);
 
   async function runMutation(task: () => Promise<void>): Promise<void> {
     setIsMutating(true);
@@ -1771,6 +1794,11 @@ export function App() {
                       setIsLoadingPages(true);
                       listPages(selectedProjectId, controller.signal)
                         .then(setPages)
+                        .catch((error: unknown) => {
+                          if (!isAbortError(error)) {
+                            setErrorMessage(getErrorMessage(error));
+                          }
+                        })
                         .finally(() => setIsLoadingPages(false));
                     }
                   }}
@@ -1976,6 +2004,11 @@ export function App() {
                       setIsLoadingNotes(true);
                       listProjectNotes(selectedProjectId, controller.signal)
                         .then(setProjectNotes)
+                        .catch((error: unknown) => {
+                          if (!isAbortError(error)) {
+                            setErrorMessage(getErrorMessage(error));
+                          }
+                        })
                         .finally(() => setIsLoadingNotes(false));
                     }
                   }}

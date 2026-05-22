@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -34,6 +35,27 @@ function createBoardItem(overrides: Partial<BoardItem> = {}): BoardItem {
   };
 }
 
+function renderInspector(
+  item: BoardItem,
+  overrides: Partial<ComponentProps<typeof Inspector>> = {},
+) {
+  return renderToStaticMarkup(
+    <Inspector
+      item={item}
+      selectionCount={1}
+      childCount={0}
+      selectedTableCellIds={[]}
+      isCollapsed={false}
+      onUpdate={() => {}}
+      onUpdateTableCells={() => {}}
+      onDelete={() => {}}
+      onToggleInspector={() => {}}
+      onToggleCollapse={() => {}}
+      {...overrides}
+    />,
+  );
+}
+
 describe('Inspector style palette', () => {
   it('renders a compact restore rail when the inspector is collapsed', () => {
     const markup = renderToStaticMarkup(
@@ -56,22 +78,16 @@ describe('Inspector style palette', () => {
     expect(markup).not.toContain('Line Style');
   });
 
-  it('renders fixed swatch buttons instead of freeform color inputs for text items', () => {
-    const markup = renderToStaticMarkup(
-      <Inspector
-        item={createBoardItem()}
-        selectionCount={1}
-        childCount={0}
-        selectedTableCellIds={[]}
-        isCollapsed={false}
-        onUpdate={() => {}}
-        onUpdateTableCells={() => {}}
-        onDelete={() => {}}
-        onToggleInspector={() => {}}
-        onToggleCollapse={() => {}}
-      />,
-    );
+  it('renders style and text tabs for a selected item', () => {
+    const markup = renderInspector(createBoardItem());
 
+    expect(markup).toContain('role="tablist"');
+    expect(markup).toContain('樣式');
+    expect(markup).toContain('文字');
+  });
+
+  it('renders fixed swatch buttons instead of freeform color inputs for text items', () => {
+    const markup = renderInspector(createBoardItem());
     const swatchCount = (markup.match(/inspector-swatch-button/g) ?? []).length;
 
     expect(markup).not.toContain('type="color"');
@@ -81,29 +97,18 @@ describe('Inspector style palette', () => {
   });
 
   it('treats freeform arrows as segment items instead of legacy connectors', () => {
-    const markup = renderToStaticMarkup(
-      <Inspector
-        item={createBoardItem({
-          category: ITEM_CATEGORY.connector,
-          type: ITEM_TYPE.arrow,
-          width: 220,
-          height: 100,
-          data_json: JSON.stringify({
-            kind: 'segment',
-            start: { x: 20, y: 20 },
-            end: { x: 180, y: 80 },
-          }),
-        })}
-        selectionCount={1}
-        childCount={0}
-        selectedTableCellIds={[]}
-        isCollapsed={false}
-        onUpdate={() => {}}
-        onUpdateTableCells={() => {}}
-        onDelete={() => {}}
-        onToggleInspector={() => {}}
-        onToggleCollapse={() => {}}
-      />,
+    const markup = renderInspector(
+      createBoardItem({
+        category: ITEM_CATEGORY.connector,
+        type: ITEM_TYPE.arrow,
+        width: 220,
+        height: 100,
+        data_json: JSON.stringify({
+          kind: 'segment',
+          start: { x: 20, y: 20 },
+          end: { x: 180, y: 80 },
+        }),
+      }),
     );
 
     expect(markup).toContain('Line Style');
@@ -117,121 +122,82 @@ describe('Inspector style palette', () => {
       throw new Error('Missing fixture table cell');
     }
 
-    const markup = renderToStaticMarkup(
-      <Inspector
-        item={createBoardItem({
-          category: ITEM_CATEGORY.shape,
-          type: ITEM_TYPE.table,
-          width: 320,
-          height: 160,
-          content: null,
-          content_format: null,
-          data_json: serializeTableData(tableData),
-        })}
-        selectionCount={1}
-        childCount={0}
-        selectedTableCellIds={[firstCellId]}
-        isCollapsed={false}
-        onUpdate={vi.fn()}
-        onUpdateTableCells={vi.fn()}
-        onDelete={() => {}}
-        onToggleInspector={() => {}}
-        onToggleCollapse={() => {}}
-      />,
+    const markup = renderInspector(
+      createBoardItem({
+        category: ITEM_CATEGORY.shape,
+        type: ITEM_TYPE.table,
+        width: 320,
+        height: 160,
+        content: null,
+        content_format: null,
+        data_json: serializeTableData(tableData),
+      }),
+      {
+        selectedTableCellIds: [firstCellId],
+        onUpdate: vi.fn(),
+        onUpdateTableCells: vi.fn(),
+      },
     );
 
     expect(markup).toContain('Background color');
     expect(markup).toContain('aria-label="Background color');
   });
 
-  it('moves table text controls into a dedicated Table Cell section and hides row/col fields', () => {
+  it('keeps table cell content controls on the style tab and hides row/col fields', () => {
     const tableData = createTableData(2, 2);
-    const markup = renderToStaticMarkup(
-      <Inspector
-        item={createBoardItem({
-          category: ITEM_CATEGORY.shape,
-          type: ITEM_TYPE.table,
-          width: 320,
-          height: 160,
-          content: null,
-          content_format: null,
-          data_json: serializeTableData(tableData),
-        })}
-        selectionCount={1}
-        childCount={0}
-        selectedTableCellIds={[]}
-        isCollapsed={false}
-        onUpdate={() => {}}
-        onUpdateTableCells={() => {}}
-        onDelete={() => {}}
-        onToggleInspector={() => {}}
-        onToggleCollapse={() => {}}
-      />,
+    const markup = renderInspector(
+      createBoardItem({
+        category: ITEM_CATEGORY.shape,
+        type: ITEM_TYPE.table,
+        width: 320,
+        height: 160,
+        content: null,
+        content_format: null,
+        data_json: serializeTableData(tableData),
+      }),
     );
 
     expect(markup).toContain('meta-label">Table Cell<');
     expect(markup).toContain('Cell text');
-    expect(markup).toContain('內部物件分割');
-    expect(markup).toContain('上下分');
-    expect(markup).toContain('左右分');
+    expect(markup).toContain('Item layout');
+    expect(markup).toContain('Vertical');
+    expect(markup).toContain('Horizontal');
     expect(markup).not.toContain('Rows');
     expect(markup).not.toContain('Columns');
   });
 
-  it('renders optional table label editing in the table section', () => {
+  it('renders optional table name editing in the style tab', () => {
     const tableData = {
       ...createTableData(2, 2),
       name: 'Sprint board',
       labelFontSize: 18,
     };
-    const markup = renderToStaticMarkup(
-      <Inspector
-        item={createBoardItem({
-          category: ITEM_CATEGORY.shape,
-          type: ITEM_TYPE.table,
-          width: 320,
-          height: 160,
-          content: null,
-          content_format: null,
-          data_json: serializeTableData(tableData),
-        })}
-        selectionCount={1}
-        childCount={0}
-        selectedTableCellIds={[]}
-        isCollapsed={false}
-        onUpdate={() => {}}
-        onUpdateTableCells={() => {}}
-        onDelete={() => {}}
-        onToggleInspector={() => {}}
-        onToggleCollapse={() => {}}
-      />,
+    const markup = renderInspector(
+      createBoardItem({
+        category: ITEM_CATEGORY.shape,
+        type: ITEM_TYPE.table,
+        width: 320,
+        height: 160,
+        content: null,
+        content_format: null,
+        data_json: serializeTableData(tableData),
+      }),
     );
 
-    expect(markup).toContain('名子');
+    expect(markup).toContain('Table name');
     expect(markup).toContain('value="Sprint board"');
-    expect(markup).toContain('placeholder="不顯示標籤"');
-    expect(markup).toContain('標籤字級');
-    expect(markup).toContain('value="18"');
+    expect(markup).toContain('placeholder="Table name"');
+    expect(markup).not.toContain('Label font size');
   });
+
   it('shows the markdown filename field for note paper items', () => {
-    const markup = renderToStaticMarkup(
-      <Inspector
-        item={createBoardItem({
-          type: ITEM_TYPE.note_paper,
-          content: '# Sprint note',
-          content_format: 'markdown',
-          data_json: JSON.stringify({ noteFile: 'Sprint-note.md' }),
-        })}
-        selectionCount={1}
-        childCount={0}
-        selectedTableCellIds={[]}
-        isCollapsed={false}
-        onUpdate={() => {}}
-        onUpdateTableCells={() => {}}
-        onDelete={() => {}}
-        onToggleInspector={() => {}}
-        onToggleCollapse={() => {}}
-      />,
+    const markup = renderInspector(
+      createBoardItem({
+        type: ITEM_TYPE.note_paper,
+        content: '# Sprint note',
+        content_format: 'markdown',
+        data_json: JSON.stringify({ noteFile: 'Sprint-note.md' }),
+      }),
     );
 
     expect(markup).toContain('Markdown file');

@@ -52,6 +52,7 @@
 - The home screen must provide `Refresh` to re-check whether registered project paths still exist.
 - After Refresh marks a registered project path as missing, the home screen must provide a remove button that deletes only the `project.json` entry.
 - If the target project is already loaded in memory, the workspace should keep the current page when possible and otherwise fall back to that project's first page.
+- Entering a Project workspace from the home screen must refresh that Project's Pages and Notes from disk even when it is the same Project id that was previously selected.
 - The workspace left sidebar should stay focused on page navigation and should not render a project details panel.
 - The workspace sidebar header should show a top row with `Planvas` and `Home`, then a divided project summary row with `Project`, the current project name, and a settings icon button.
 - Project settings should open from that sidebar header settings button in a modal that uses about 70% of the viewport width on desktop.
@@ -126,6 +127,14 @@
 - Right-clicking an unselected item may first move selection onto that item, then open the same item context menu.
 - Right-clicking empty canvas space should keep a lighter canvas context menu that exposes `paste` only.
 - Context-menu actions must stay aligned with the existing keyboard shortcuts so both entry points trigger the same behavior.
+
+## Inspector Tab Update Notes
+
+- The right inspector must expose two top-level tabs: `樣式` and `文字`.
+- The `樣式` tab contains object-level controls such as position, size, object/background/line colors, item text content, table cell text content, markdown filename, frame collapse controls, and table item layout.
+- The `文字` tab contains typography controls such as font size, bold/italic text style, text alignment, table label font size, table cell text alignment, and line/arrow label placement.
+- Line and arrow label text content belongs in `樣式`; label font size and label placement belong in `文字`.
+- Table cell fill/text colors and cell text content belong in `樣式`; table/cell typography and text alignment belong in `文字`.
 
 ## Line Text Update Notes
 

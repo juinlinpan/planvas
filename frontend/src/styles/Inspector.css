@@ -89,6 +89,44 @@
   gap: 8px;
 }
 
+.inspector-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-dim);
+}
+
+.inspector-tab {
+  min-height: 32px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.inspector-tab:hover {
+  color: var(--ink);
+}
+
+.inspector-tab.is-active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.inspector-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .inspector-section {
   display: flex;
   flex-direction: column;

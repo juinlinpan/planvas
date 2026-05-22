@@ -79,6 +79,7 @@
 - [x] Keep copied Project folders with duplicated metadata ids from replacing the original Project registration.
 - [x] Home project list is grouped into `project_store` projects first and other registered paths second.
 - [x] Home missing-path projects can be removed from `project.json` after Refresh.
+- [x] Re-entering a Project from Home refreshes that Project's Pages and Notes from disk even when the selected Project id did not change.
 - [x] Clicking `嚗??啣? Page` now creates `untitled_n` directly without a prompt dialog.
 
 ## Toolbar Menu Update Notes
@@ -144,6 +145,13 @@
 - [x] Keep canvas right-click focused on `paste` so empty-space context actions stay minimal.
 - [x] Reuse the existing clipboard/delete handlers so right-click actions match keyboard shortcuts.
 - [x] Cover the new context-menu action visibility and viewport clamping with tests.
+
+## Inspector Tab Update Notes
+
+- [x] Add top-level `樣式` and `文字` tabs to the right inspector.
+- [x] Keep object size, object/background/line colors, item text content, table cell content, markdown filename, and frame collapse controls in `樣式`.
+- [x] Move font size, bold/italic text style, text alignment, table label font size, table cell text alignment, and line/arrow label placement into `文字`.
+- [x] Update Inspector tests for the tabbed layout and font-size editing from the `文字` tab.
 
 ## Line Text Update Notes
 
