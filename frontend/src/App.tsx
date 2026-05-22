@@ -37,6 +37,7 @@ import { ColorPaletteField, CommitNumberInput } from './Inspector';
 import { FolderPickerModal } from './FolderPickerModal';
 import { HomeView } from './HomeView';
 import { MarkdownEditor } from './MarkdownEditor';
+import { WorkspaceTabs } from './WorkspaceTabs';
 import { syncPageViewport } from './pageViewport';
 import {
   exportPageAsPng,
@@ -55,6 +56,7 @@ import { CrossProjectImportModal } from './CrossProjectImportModal';
 import { buildAppRouteUrl, readAppRoute, type AppRoute } from './appRoute';
 import { resolveProjectEntryPageId } from './workspaceNavigation';
 import { getInlineDropPosition, type DropPosition } from './dragDrop';
+import { useWorkspaceTabs } from './workspaceTabState';
 import {
   BACKGROUND_COLOR_OPTIONS,
   STROKE_COLOR_OPTIONS,
@@ -89,7 +91,6 @@ type SidebarDropState = SidebarDragState & {
 };
 
 type SidebarSectionId = 'pages' | 'notes';
-type WorkspaceTab = { kind: 'page'; id: string } | { kind: 'note'; id: string };
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'whiteboard.workspaceSidebarCollapsed';
 
@@ -285,13 +286,6 @@ function getDropPosition(event: ReactDragEvent<HTMLElement>): DropPosition {
   return event.clientY - bounds.top < bounds.height / 2 ? 'before' : 'after';
 }
 
-function getTabDropPosition(event: ReactDragEvent<HTMLElement>): DropPosition {
-  return getInlineDropPosition(
-    event.clientX,
-    event.currentTarget.getBoundingClientRect(),
-  );
-}
-
 function readStoredBoolean(key: string, fallbackValue: boolean): boolean {
   if (typeof window === 'undefined') {
     return fallbackValue;
@@ -378,22 +372,20 @@ export function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() =>
     readStoredBoolean(SIDEBAR_COLLAPSED_STORAGE_KEY, false),
   );
-  const [openTabs, setOpenTabs] = useState<WorkspaceTab[]>([]);
-  const [activeNoteFile, setActiveNoteFile] = useState<string | null>(null);
-
-  // Keep openTabs in sync whenever the selected page changes
-  useEffect(() => {
-    if (selectedPageId !== null) {
-      setOpenTabs((prev) => {
-        if (
-          prev.some((tab) => tab.kind === 'page' && tab.id === selectedPageId)
-        ) {
-          return prev;
-        }
-        return [...prev, { kind: 'page', id: selectedPageId }];
-      });
-    }
-  }, [selectedPageId]);
+  const {
+    activeNoteFile,
+    activatePageTab,
+    closeNoteTab,
+    closePageTab,
+    handleNoteRenamedInTabs,
+    openNoteTab,
+    openTabs,
+    setActiveNoteFile,
+    setOpenTabs,
+  } = useWorkspaceTabs({
+    selectedPageId,
+    setSelectedPageId,
+  });
   const [expandedSidebarSections, setExpandedSidebarSections] = useState<
     Record<SidebarSectionId, boolean>
   >({
@@ -864,26 +856,6 @@ export function App() {
     });
   }
 
-  function openNoteTab(noteFile: string): void {
-    setOpenTabs((current) => {
-      if (current.some((tab) => tab.kind === 'note' && tab.id === noteFile)) {
-        return current;
-      }
-      return [...current, { kind: 'note', id: noteFile }];
-    });
-    setActiveNoteFile(noteFile);
-  }
-
-  function closeNoteTab(noteFile: string): void {
-    setOpenTabs((current) =>
-      current.filter((tab) => !(tab.kind === 'note' && tab.id === noteFile)),
-    );
-    setActiveNoteFile((current) => {
-      if (current !== noteFile) return current;
-      return null;
-    });
-  }
-
   function handleNoteRenamed(
     previousNoteFile: string,
     renamedNote: ProjectNote,
@@ -897,36 +869,13 @@ export function App() {
         ? replaced
         : [...replaced, renamedNote];
     });
-    setOpenTabs((current) =>
-      current.map((tab) =>
-        tab.kind === 'note' && tab.id === previousNoteFile
-          ? { ...tab, id: nextNoteFile }
-          : tab,
-      ),
-    );
-    setActiveNoteFile((current) =>
-      current === previousNoteFile ? nextNoteFile : current,
-    );
+    handleNoteRenamedInTabs(previousNoteFile, renamedNote);
     if (selectedPageId !== null) {
       clearCachedPageBoardData(selectedPageId);
       setPageRefreshTokenById((current) => ({
         ...current,
         [selectedPageId]: (current[selectedPageId] ?? 0) + 1,
       }));
-    }
-  }
-
-  function closePageTab(pageId: string): void {
-    const nextTabs = openTabs.filter(
-      (tab) => !(tab.kind === 'page' && tab.id === pageId),
-    );
-    setOpenTabs(nextTabs);
-    if (selectedPageId === pageId) {
-      const fallbackPage = [...nextTabs]
-        .reverse()
-        .find((tab) => tab.kind === 'page');
-      setSelectedPageId(fallbackPage?.id ?? null);
-      setActiveNoteFile(null);
     }
   }
 
@@ -1872,10 +1821,7 @@ export function App() {
                               handleSidebarDragStart('pages', page.id, event)
                             }
                             onDragEnd={clearDragState}
-                            onClick={() => {
-                              setSelectedPageId(page.id);
-                              setActiveNoteFile(null);
-                            }}
+                            onClick={() => activatePageTab(page.id)}
                           >
                             <span>{page.name}</span>
                             <small>zoom {page.zoom.toFixed(1)}x</small>
@@ -2053,273 +1999,27 @@ export function App() {
 
         <section className="workspace">
           {/* ── browser-like tab bar ── */}
-          {selectedProject !== null &&
-            (() => {
-              const visibleTabs = openTabs.filter((tab) => {
-                if (tab.kind === 'page') {
-                  return pages.some((p) => p.id === tab.id);
-                }
-                return projectNotes.some((n) => n.note_file === tab.id);
-              });
-              const lastVisibleTab = visibleTabs.at(-1);
-              const lastVisibleTabId =
-                lastVisibleTab === undefined
-                  ? null
-                  : `${lastVisibleTab.kind}:${lastVisibleTab.id}`;
-
-              return (
-                <div className="ws-tab-bar ws-tab-bar-bottom">
-                  {/* ── Left: Project name ── */}
-                  <span
-                    className="ws-tab-project-name"
-                    title={selectedProject.name}
-                    aria-label={`Project: ${selectedProject.name}`}
-                  >
-                    <span className="ws-tab-project-value">
-                      {selectedProject.name}
-                    </span>
-                  </span>
-
-                  <div className="ws-tab-divider-v" />
-
-                  {/* ── Tab strip ── */}
-                  <div
-                    className="ws-tab-strip"
-                    onDragOver={(event) => {
-                      const currentDragState = dragState;
-                      if (
-                        currentDragState?.kind !== 'tabs' ||
-                        lastVisibleTabId === null ||
-                        currentDragState.itemId === lastVisibleTabId
-                      ) {
-                        return;
-                      }
-
-                      const target = event.target;
-                      if (
-                        target instanceof Element &&
-                        target.closest('.ws-tab') !== null
-                      ) {
-                        return;
-                      }
-
-                      event.preventDefault();
-                      event.dataTransfer.dropEffect = 'move';
-                      setDropState({
-                        kind: 'tabs',
-                        itemId: lastVisibleTabId,
-                        position: 'after',
-                      });
-                    }}
-                    onDrop={(event) => {
-                      const target = event.target;
-                      if (
-                        target instanceof Element &&
-                        target.closest('.ws-tab') !== null
-                      ) {
-                        return;
-                      }
-
-                      event.preventDefault();
-                      const currentDragState = dragState;
-                      if (
-                        currentDragState?.kind !== 'tabs' ||
-                        lastVisibleTabId === null
-                      ) {
-                        clearDragState();
-                        return;
-                      }
-
-                      const draggedId = currentDragState.itemId;
-                      clearDragState();
-
-                      if (draggedId === lastVisibleTabId) return;
-
-                      setOpenTabs((current) => {
-                        const items = current.map((tab) => ({
-                          tab,
-                          id: `${tab.kind}:${tab.id}`,
-                        }));
-                        const orderedIds = buildDraggedOrder(
-                          items,
-                          draggedId,
-                          lastVisibleTabId,
-                          'after',
-                        );
-                        if (orderedIds === null) return current;
-
-                        const positions = new Map(
-                          orderedIds.map((id, index) => [id, index]),
-                        );
-                        return [...current].sort((left, right) => {
-                          const leftId = `${left.kind}:${left.id}`;
-                          const rightId = `${right.kind}:${right.id}`;
-                          const leftPos = positions.get(leftId) ?? 999;
-                          const rightPos = positions.get(rightId) ?? 999;
-                          return leftPos - rightPos;
-                        });
-                      });
-                    }}
-                  >
-                    {visibleTabs.map((tab) => {
-                      const isActive =
-                        tab.kind === 'page'
-                          ? selectedPageId === tab.id && activeNoteFile === null
-                          : activeNoteFile === tab.id;
-
-                      const label =
-                        tab.kind === 'page'
-                          ? (pages.find((p) => p.id === tab.id)?.name ??
-                            'Unknown')
-                          : (projectNotes.find((n) => n.note_file === tab.id)
-                              ?.title ?? tab.id);
-
-                      const isDraggingTab =
-                        dragState?.kind === 'tabs' &&
-                        dragState.itemId === `${tab.kind}:${tab.id}`;
-                      const isDropBefore =
-                        dropState?.kind === 'tabs' &&
-                        dropState.itemId === `${tab.kind}:${tab.id}` &&
-                        dropState.position === 'before';
-                      const isDropAfter =
-                        dropState?.kind === 'tabs' &&
-                        dropState.itemId === `${tab.kind}:${tab.id}` &&
-                        dropState.position === 'after';
-
-                      return (
-                        <div
-                          key={`${tab.kind}:${tab.id}`}
-                          className={`ws-tab ws-tab-${tab.kind} ${isActive ? 'is-active' : ''} ${
-                            isDraggingTab ? 'is-dragging' : ''
-                          } ${isDropBefore ? 'is-drop-before' : ''} ${
-                            isDropAfter ? 'is-drop-after' : ''
-                          }`}
-                          draggable={!isMutating}
-                          onDragStart={(event) => {
-                            if (isMutating) {
-                              event.preventDefault();
-                              return;
-                            }
-                            event.dataTransfer.effectAllowed = 'move';
-                            event.dataTransfer.setData(
-                              'text/plain',
-                              `tabs:${tab.kind}:${tab.id}`,
-                            );
-                            setDragState({
-                              kind: 'tabs',
-                              itemId: `${tab.kind}:${tab.id}`,
-                            });
-                          }}
-                          onDragOver={(event) => {
-                            const currentDragState = dragState;
-                            if (currentDragState?.kind !== 'tabs') return;
-                            if (
-                              currentDragState.itemId ===
-                              `${tab.kind}:${tab.id}`
-                            )
-                              return;
-                            event.preventDefault();
-                            event.dataTransfer.dropEffect = 'move';
-                            const position = getTabDropPosition(event);
-                            setDropState({
-                              kind: 'tabs',
-                              itemId: `${tab.kind}:${tab.id}`,
-                              position,
-                            });
-                          }}
-                          onDrop={(event) => {
-                            event.preventDefault();
-                            const currentDragState = dragState;
-                            if (currentDragState?.kind !== 'tabs') {
-                              clearDragState();
-                              return;
-                            }
-                            const draggedId = currentDragState.itemId;
-                            const targetId = `${tab.kind}:${tab.id}`;
-                            const position = getTabDropPosition(event);
-                            clearDragState();
-
-                            if (draggedId === targetId) return;
-
-                            setOpenTabs((current) => {
-                              const items = current.map((t) => ({
-                                tab: t,
-                                id: `${t.kind}:${t.id}`,
-                              }));
-                              const orderedIds = buildDraggedOrder(
-                                items,
-                                draggedId,
-                                targetId,
-                                position,
-                              );
-                              if (orderedIds === null) return current;
-
-                              const positions = new Map(
-                                orderedIds.map((id, index) => [id, index]),
-                              );
-                              return [...current].sort((left, right) => {
-                                const leftId = `${left.kind}:${left.id}`;
-                                const rightId = `${right.kind}:${right.id}`;
-                                const leftPos = positions.get(leftId) ?? 999;
-                                const rightPos = positions.get(rightId) ?? 999;
-                                return leftPos - rightPos;
-                              });
-                            });
-                          }}
-                          onDragEnd={clearDragState}
-                        >
-                          <button
-                            type="button"
-                            className="ws-tab-label-btn"
-                            title={label}
-                            onClick={() => {
-                              if (tab.kind === 'page') {
-                                setSelectedPageId(tab.id);
-                                setActiveNoteFile(null);
-                              } else {
-                                setActiveNoteFile(tab.id);
-                              }
-                            }}
-                          >
-                            {tab.kind === 'note' && (
-                              <svg
-                                width="11"
-                                height="11"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2.2"
-                                className="ws-tab-note-icon"
-                              >
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                <polyline points="14 2 14 8 20 8" />
-                              </svg>
-                            )}
-                            <span className="ws-tab-label">{label}</span>
-                          </button>
-                          <button
-                            type="button"
-                            className="ws-tab-close"
-                            title={`Close tab: ${label}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (tab.kind === 'page') {
-                                closePageTab(tab.id);
-                              } else {
-                                closeNoteTab(tab.id);
-                              }
-                            }}
-                            aria-label={`Close tab ${label}`}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                </div>
-              );
-            })()}
-
+          {selectedProject !== null ? (
+            <WorkspaceTabs
+              activeNoteFile={activeNoteFile}
+              dragState={dragState?.kind === 'tabs' ? dragState : null}
+              dropState={dropState?.kind === 'tabs' ? dropState : null}
+              isMutating={isMutating}
+              onActivateNote={setActiveNoteFile}
+              onActivatePage={activatePageTab}
+              onClearDragState={clearDragState}
+              onCloseNote={closeNoteTab}
+              onClosePage={closePageTab}
+              onSetDragState={setDragState}
+              onSetDropState={setDropState}
+              onSetOpenTabs={setOpenTabs}
+              openTabs={openTabs}
+              pages={pages}
+              projectName={selectedProject.name}
+              projectNotes={projectNotes}
+              selectedPageId={selectedPageId}
+            />
+          ) : null}
           <div className="workspace-content-area">
             {errorMessage !== null ? (
               <div className="error-banner">{errorMessage}</div>

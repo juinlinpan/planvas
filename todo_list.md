@@ -468,24 +468,48 @@
 - [ ] 確認 viewer 執行不依賴 Node.js backend、SQLite 或其他伺服器
 - [ ] 驗證匯出取消、渲染保真度與 viewer 導覽的測試覆蓋
 
-### 22. 大型檔案拆分與 AI 可讀性改善
+### 22. Frontend `App.tsx` Module Split Plan
 
-拆分目標不是單純降低行數，而是讓每個檔案有明確責任邊界，方便人工 review、AI 閱讀、測試定位與後續效能優化。拆分時不得改變既有功能行為；每一階段都必須跑對應測試，並優先保留現有 export API 以降低呼叫端改動。
+Goal: reduce `frontend/src/App.tsx` from a mixed orchestration/rendering file into a thin workspace coordinator. Keep behavior stable in each step and verify after every extraction.
 
-- [x] 第一階段：拆分純邏輯檔案，優先處理 `frontend/src/tableData.ts`，依責任拆成 table parsing / mutation / layout / divider helpers，並保留或補齊既有 table tests。
-- [x] 第一階段：拆分 `frontend/src/canvasHelpers.ts`，依責任拆成 selection、frame layout、connector anchors、layer ordering、payload conversion 等 helper 模組，避免 Canvas 與 mouse handler 讀入過大的混合 helper。
-- [x] 第二階段：拆分 `backend/src/repository.ts`，先抽出 Page XML reader / writer、markdown note file handling、project index handling、validation helpers，再保留 `WhiteboardRepository` 作為對 HTTP API 穩定的 facade。
-- [x] 第二階段：為 backend storage 拆分補強測試，至少涵蓋 project index refresh、Page XML v2 round trip、markdown-backed note rename / propagation、board state replace。
-- [x] 第二階段補強：將 `backend/src/repository.ts` 壓成 facade export，並把 `WhiteboardRepository` operation flow 與 storage context 拆到 `backend/src/storage/whiteboardRepositoryCore.ts`、`backend/src/storage/repositoryStorageContext.ts`，避免單一 repository 檔案破千行。
-- [ ] 第二階段後續 cleanup：再把 `whiteboardRepositoryCore.ts` 依 Project / Page / Board / Connector / Note operation service 拆得更細，降低單一 operation flow 檔案接近千行的風險。
-- [x] 第三階段：拆分 `frontend/src/Canvas.tsx`，將 canvas ribbon、minimap、context menu、stage/world rendering、board data loading、viewport persistence 分離成 component 或 hook。
-- [x] 第三階段：拆分 `frontend/src/Inspector.tsx`，依 item type 拆成 text、table、segment、note paper、frame 等 Inspector panel，保留共用欄位元件如 color palette 與 commit-on-blur number input。
-- [ ] 第四階段：拆分 `frontend/src/useCanvasMouseHandlers.ts`，在前面 helper 邊界穩定後，分離 pan、item drag、item resize、segment drag、table insert、marquee selection 等互動流程。
-- [ ] 第四階段：拆分 mouse handlers 時導入 `requestAnimationFrame` 批次更新策略，降低 drag / resize mousemove 對整個 Canvas 的 render 壓力。
-- [ ] 效能後續：將 PNG / PPTX / viewer export module 改成動態 import，降低首頁與 workspace 初始 bundle parse 成本。
-- [ ] 效能後續：將 backend Page XML 寫入改為非同步 queue / coalescing write path，避免高頻儲存時阻塞 Node event loop。
-- [ ] 驗收條件：每個拆分 PR / commit 應通過相關 frontend tests、backend tests 或 build；若只搬移程式碼，應避免混入功能變更。
-- [ ] 文件條件：拆分後若正式模組責任或檔案結構改變，需同步更新 `spec.md`、`todo_list.md`、`README.md` 或 `backend/README.md` 中受影響的架構 / 操作說明。
+Split order:
+
+- [x] Extract workspace tab state and rendering into `frontend/src/workspaceTabState.ts` and `frontend/src/WorkspaceTabs.tsx`.
+  Scope: `WorkspaceTab`, visible-tab filtering, active tab detection, tab close/open/reorder, tab drag/drop, and tab bar JSX.
+  Keep in `App.tsx`: selected project/page/note ids and callbacks that change them.
+  Verify: page tabs open on page selection, note tabs open from Notes, active tab switching works, tab close fallback still selects the previous page tab, tab drag reorder still works, `npm.cmd run build --workspace frontend`.
+
+- [ ] Extract left workspace sidebar rendering into `frontend/src/WorkspaceSidebar.tsx`.
+  Scope: project header, sidebar collapse button, Pages box, Notes box, page rename/delete buttons, note open/delete buttons, note/page drag targets.
+  Keep in `App.tsx`: data loading, mutations, selected ids, and mutation handlers.
+  Verify: Home button, project settings button, sidebar collapse/restore, page create/rename/delete, note open/delete, note drag-to-page placement, page reorder, `npm.cmd run build --workspace frontend`.
+
+- [ ] Extract project settings dialog into `frontend/src/ProjectSettingsDialog.tsx`.
+  Scope: project name form, theme dropdown, project path/reveal control, default style controls, and delete-project entry point.
+  Keep in `App.tsx`: `selectedProjectDefaultStyle`, `handleSaveProjectName`, `handleChangeProjectTheme`, `handleChangeProjectDefaultStyle`, `handleRevealProject`, delete dialog state.
+  Verify: project rename, theme change, default style changes, open folder, delete dialog launch, `npm.cmd run build --workspace frontend`.
+
+- [ ] Extract page import/export orchestration into `frontend/src/usePageImportExport.ts`.
+  Scope: PNG/PPTX/Markdown/HTML export click flow, export image modal data, Mermaid import modal state, cross-project import modal state, and file picker helpers if they remain local to `App.tsx`.
+  Keep in `App.tsx`: selected project/page ids, `pages`, `projectNotes`, `setPages`, `setSelectedPageId`, note refresh callback, and `runMutation`.
+  Verify: PNG export empty-page error, PNG export modal confirm/cancel, PPTX export, Markdown export, HTML export, Mermaid import, cross-project import, `npm.cmd run build --workspace frontend`.
+
+- [ ] Extract project/page/note loading and cache coordination into `frontend/src/useWorkspaceData.ts`.
+  Scope: `loadWorkspace`, `loadProjectSidebarData`, project notes refresh, focus/visibility refresh, board cache refs, page refresh tokens, selected page ref, and workspace entry retry.
+  Keep in `App.tsx`: high-level view state and UI composition.
+  Verify: initial home load, open project, browser back/forward route sync, project refresh, project notes refresh on focus, page cache restore, page refresh token reload, `npm.cmd run build --workspace frontend`.
+
+- [ ] Extract shared App utility helpers into focused files.
+  Scope: move `buildUntitledPageName`, `selectFallbackId`, sidebar reorder helpers, file picker types/helpers, and App-only icons out of `App.tsx` when they are not already extracted.
+  Verify: no `App.tsx`-local helper remains unless it directly coordinates top-level state, no unused local warnings in `App.tsx` under `tsc --noUnusedLocals --noUnusedParameters`, `npm.cmd run build --workspace frontend`.
+
+Rules for each split:
+
+- [ ] Do one extraction per commit-sized change; avoid behavior edits mixed with file moves.
+- [ ] Prefer prop interfaces that pass callbacks and data explicitly instead of introducing global context.
+- [ ] Do not move `Canvas` internals into this effort; Canvas cleanup remains a separate task.
+- [ ] Do not change storage APIs, Page XML, project metadata, or backend behavior during this split.
+- [ ] After each extraction, update this checklist and delete any abandoned subtasks instead of leaving stale TODO text.
 
 ## 建議實作順序
 
@@ -496,4 +520,4 @@
 5. 白板物件建立與互動
 6. Snap / Connector 對齊
 7. 後端基礎設施與冒煙測試
-8. 大型檔案拆分與 AI 可讀性改善
+8. Frontend `App.tsx` module split
