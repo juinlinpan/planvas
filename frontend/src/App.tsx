@@ -63,11 +63,18 @@ import {
   serializeProjectDefaultStyle,
   type ProjectDefaultStyle,
 } from './itemStyles';
+import {
+  IconChevronDown,
+  IconFolder,
+  IconPencil,
+  IconRefresh,
+  IconSettings,
+  IconTrash,
+} from './AppIcons';
 
 type AppView = 'home' | 'workspace';
 type LoadState = 'loading' | 'ready' | 'error';
 type SidebarListKind = 'pages' | 'notes';
-type TabBarPosition = 'top' | 'bottom';
 type SidebarDragState =
   | {
       kind: SidebarListKind;
@@ -86,8 +93,6 @@ type WorkspaceTab = { kind: 'page'; id: string } | { kind: 'note'; id: string };
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'whiteboard.workspaceSidebarCollapsed';
 
-const TAB_BAR_POSITION_STORAGE_KEY = 'whiteboard.tabBarPosition';
-
 const PROJECT_THEME_OPTIONS: Array<{
   value: ProjectThemeColor;
   label: string;
@@ -97,123 +102,6 @@ const PROJECT_THEME_OPTIONS: Array<{
   { value: 'sunset', label: 'Sunset' },
   { value: 'ocean', label: 'Ocean' },
 ];
-
-function IconSettings() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function IconPencil() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
-      <path d="m15 5 4 4" />
-    </svg>
-  );
-}
-
-function IconTrash() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M3 6h18" />
-      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-      <line x1="10" x2="10" y1="11" y2="17" />
-      <line x1="14" x2="14" y1="11" y2="17" />
-    </svg>
-  );
-}
-
-function IconChevronDown() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  );
-}
-
-function IconFolder() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
-
-function IconRefresh() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M21 2v6h-6" />
-      <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-      <path d="M3 22v-6h6" />
-      <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
-    </svg>
-  );
-}
 
 type SaveFilePickerWindow = Window & {
   showSaveFilePicker?: (options?: {
@@ -490,13 +378,6 @@ export function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() =>
     readStoredBoolean(SIDEBAR_COLLAPSED_STORAGE_KEY, false),
   );
-  const [tabBarPosition, setTabBarPosition] = useState<TabBarPosition>(() => {
-    const stored =
-      typeof window !== 'undefined'
-        ? window.localStorage.getItem(TAB_BAR_POSITION_STORAGE_KEY)
-        : null;
-    return stored === 'top' ? 'top' : 'bottom';
-  });
   const [openTabs, setOpenTabs] = useState<WorkspaceTab[]>([]);
   const [activeNoteFile, setActiveNoteFile] = useState<string | null>(null);
 
@@ -2170,7 +2051,7 @@ export function App() {
           </section>
         </aside>
 
-        <section className={`workspace workspace-tabpos-${tabBarPosition}`}>
+        <section className="workspace">
           {/* ── browser-like tab bar ── */}
           {selectedProject !== null &&
             (() => {
@@ -2187,7 +2068,7 @@ export function App() {
                   : `${lastVisibleTab.kind}:${lastVisibleTab.id}`;
 
               return (
-                <div className={`ws-tab-bar ws-tab-bar-${tabBarPosition}`}>
+                <div className="ws-tab-bar ws-tab-bar-bottom">
                   {/* ── Left: Project name ── */}
                   <span
                     className="ws-tab-project-name"
@@ -2435,11 +2316,6 @@ export function App() {
                     })}
                   </div>
 
-                  {/* ── Right: Spacer (toggle removed to fix tabs at bottom) ── */}
-                  <div
-                    className="ws-tab-position-spacer"
-                    style={{ width: 34 }}
-                  />
                 </div>
               );
             })()}

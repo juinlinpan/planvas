@@ -48,10 +48,6 @@
   border-top: 1px solid var(--ws-tab-line);
 }
 
-.ws-tab-bar-top {
-  border-bottom: 1px solid var(--ws-tab-line);
-}
-
 .ws-tab-bar-bottom {
   order: 2;
   border-top: 1px solid var(--ws-tab-line);
@@ -153,16 +149,6 @@
   content: '';
   position: absolute;
   top: -1px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--ws-tab-accent);
-}
-
-.ws-tab-bar-top .ws-tab.is-active::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
   left: 0;
   right: 0;
   height: 2px;
