@@ -606,6 +606,21 @@ const tests: TestCase[] = [
       ).data;
       assert.equal(snapshot.board_items.length, 5);
       assert.deepEqual(snapshot.connector_links, [connector]);
+      const loadedTableChild = snapshot.board_items.find(
+        (item) => item.id === tableChild.id,
+      );
+      assert.equal(loadedTableChild?.parent_item_id, table.id);
+      const loadedTable = snapshot.board_items.find(
+        (item) => item.id === table.id,
+      );
+      assert.ok(loadedTable);
+      const loadedTableData = JSON.parse(loadedTable.data_json ?? '{}') as {
+        cells: Array<Array<{ childItemIds?: string[] } | null>>;
+      };
+      assert.deepEqual(
+        loadedTableData.cells[0]?.[0]?.childItemIds,
+        [tableChild.id],
+      );
 
       const projectDataDir = path.join(
         settings.planvasRoot,

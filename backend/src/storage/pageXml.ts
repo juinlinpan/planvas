@@ -55,19 +55,24 @@ export async function readPageXmlFile(
     ]),
   );
 
+  const semanticObjectMatches = [
+    ...semanticObjectsBlock.matchAll(
+      /<object\s+([^>]*)>([\s\S]*?)<\/object>/g,
+    ),
+  ];
+  const tableParentByChildId =
+    buildTableParentMapFromSemanticObjects(semanticObjectMatches);
+
   const boardItems = (
     await Promise.all(
-      [
-        ...semanticObjectsBlock.matchAll(
-          /<object\s+([^>]*)>([\s\S]*?)<\/object>/g,
-        ),
-      ].map((match) =>
+      semanticObjectMatches.map((match) =>
         boardItemFromV2Xml(
           match[1],
           match[2],
           presentationByRef,
           page.id,
           projectDataDir,
+          tableParentByChildId,
         ),
       ),
     )
@@ -437,6 +442,7 @@ async function boardItemFromV2Xml(
   >,
   pageId: string,
   projectDataDir: string,
+  tableParentByChildId: Map<string, string>,
 ): Promise<BoardItem> {
   const semanticAttributes = parseAttributes(attributeSource);
   const id = requiredAttribute(semanticAttributes, 'id');
@@ -446,10 +452,13 @@ async function boardItemFromV2Xml(
   }
   const type = requiredAttribute(semanticAttributes, 'type');
   const now = new Date().toISOString();
+  const semanticParentId = blankToNull(semanticAttributes.parent_item_id);
+  const inferredTableParentId = tableParentByChildId.get(id) ?? null;
+  const dataJson = childText(body, 'data_json');
   const item: BoardItem = {
     id,
     page_id: semanticAttributes.page_id ?? pageId,
-    parent_item_id: blankToNull(semanticAttributes.parent_item_id),
+    parent_item_id: inferredTableParentId ?? semanticParentId,
     category: semanticAttributes.category ?? categoryForType(type),
     type,
     title: childText(body, 'title'),
@@ -463,11 +472,165 @@ async function boardItemFromV2Xml(
     z_index: integerAttribute(presentation.attributes, 'z_index'),
     is_collapsed: presentation.attributes.is_collapsed === 'true',
     style_json: childText(presentation.body, 'style_json'),
-    data_json: childText(body, 'data_json'),
+    data_json:
+      type === 'table' ? mergeSemanticTableDataJson(dataJson, body) : dataJson,
     created_at: semanticAttributes.created_at ?? now,
     updated_at: semanticAttributes.updated_at ?? now,
   };
   return await readMarkdownBackedNote(projectDataDir, item);
+}
+
+function buildTableParentMapFromSemanticObjects(
+  objectMatches: RegExpMatchArray[],
+): Map<string, string> {
+  const tableParentByChildId = new Map<string, string>();
+  for (const match of objectMatches) {
+    const attributes = parseAttributes(match[1]);
+    if (attributes.type !== 'table' || !attributes.id) {
+      continue;
+    }
+    const tableBlock = childBlock(match[2] ?? '', 'table');
+    if (!tableBlock) {
+      continue;
+    }
+    for (const cell of parseSemanticTableCells(tableBlock)) {
+      for (const childId of cell.childItemIds) {
+        tableParentByChildId.set(childId, attributes.id);
+      }
+    }
+  }
+  return tableParentByChildId;
+}
+
+function mergeSemanticTableDataJson(
+  dataJson: string | null,
+  objectBody: string,
+): string | null {
+  const tableBlock = childBlock(objectBody, 'table');
+  if (!tableBlock) {
+    return dataJson;
+  }
+
+  const tableOpen = objectBody.match(/<table\s+([^>]*)>/);
+  const tableAttributes = parseAttributes(tableOpen?.[1] ?? '');
+  const semanticCells = parseSemanticTableCells(tableBlock);
+  if (semanticCells.length === 0) {
+    return dataJson;
+  }
+
+  const data = parseJsonObject(dataJson);
+  const rows =
+    typeof data.rows === 'number'
+      ? data.rows
+      : Number.parseInt(tableAttributes.rows ?? '0', 10);
+  const cols =
+    typeof data.cols === 'number'
+      ? data.cols
+      : Number.parseInt(tableAttributes.cols ?? '0', 10);
+  const safeRows = Number.isFinite(rows) && rows > 0 ? rows : 1;
+  const safeCols = Number.isFinite(cols) && cols > 0 ? cols : 1;
+  const rawCells = Array.isArray(data.cells) ? data.cells : [];
+  const cells: Array<Array<Record<string, unknown> | null>> = Array.from(
+    { length: safeRows },
+    (_, rowIndex) => {
+    const rawRow = Array.isArray(rawCells[rowIndex])
+      ? (rawCells[rowIndex] as unknown[])
+      : [];
+    return Array.from({ length: safeCols }, (_, colIndex) => {
+      const rawCell = rawRow[colIndex];
+      if (rawCell === null) return null;
+      return typeof rawCell === 'object' && rawCell !== null
+        ? { ...(rawCell as Record<string, unknown>) }
+        : {
+            id: `cell-${rowIndex}-${colIndex}`,
+            content: '',
+            rowSpan: 1,
+            colSpan: 1,
+            isCollapsed: true,
+            childItemIds: [],
+          };
+    });
+    },
+  );
+
+  for (const semanticCell of semanticCells) {
+    if (
+      semanticCell.row < 0 ||
+      semanticCell.row >= safeRows ||
+      semanticCell.col < 0 ||
+      semanticCell.col >= safeCols
+    ) {
+      continue;
+    }
+    const existing = cells[semanticCell.row]?.[semanticCell.col];
+    if (existing === null || existing === undefined) {
+      continue;
+    }
+    cells[semanticCell.row]![semanticCell.col] = {
+      ...existing,
+      id: semanticCell.id,
+      content:
+        typeof existing.content === 'string' && existing.content.length > 0
+          ? existing.content
+          : semanticCell.content,
+      rowSpan: semanticCell.rowSpan,
+      colSpan: semanticCell.colSpan,
+      childItemIds: semanticCell.childItemIds,
+    };
+  }
+
+  return JSON.stringify({
+    ...data,
+    rows: safeRows,
+    cols: safeCols,
+    colWidths:
+      Array.isArray(data.colWidths) && data.colWidths.length === safeCols
+        ? data.colWidths
+        : Array(safeCols).fill(1 / safeCols),
+    rowHeights:
+      Array.isArray(data.rowHeights) && data.rowHeights.length === safeRows
+        ? data.rowHeights
+        : Array(safeRows).fill(1 / safeRows),
+    cells,
+  });
+}
+
+function parseSemanticTableCells(tableBlock: string): Array<{
+  id: string;
+  row: number;
+  col: number;
+  rowSpan: number;
+  colSpan: number;
+  content: string;
+  childItemIds: string[];
+}> {
+  return [...tableBlock.matchAll(/<cell\s+([^>]*)>([\s\S]*?)<\/cell>/g)].map(
+    (match) => {
+      const attributes = parseAttributes(match[1]);
+      const body = match[2] ?? '';
+      return {
+        id:
+          attributes.id ??
+          `cell-${attributes.row ?? '0'}-${attributes.column ?? '0'}`,
+        row: Number.parseInt(attributes.row ?? '0', 10),
+        col: Number.parseInt(attributes.column ?? '0', 10),
+        rowSpan: Number.parseInt(attributes.row_span ?? '1', 10),
+        colSpan: Number.parseInt(attributes.col_span ?? '1', 10),
+        content: childText(body, 'text') ?? '',
+        childItemIds: [
+          ...new Set(
+            [
+              ...(childBlock(body, 'contains') ?? '').matchAll(
+                /<item\s+([^>]*)\/>/g,
+              ),
+            ]
+              .map((itemMatch) => parseAttributes(itemMatch[1]).ref)
+              .filter((value): value is string => typeof value === 'string'),
+          ),
+        ],
+      };
+    },
+  );
 }
 
 function connectorFromSemanticLinkAttributes(
@@ -485,7 +648,7 @@ function connectorFromSemanticLinkAttributes(
 
 function childText(body: string, tagName: string): string | null {
   const match = body.match(
-    new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>`),
+    new RegExp(`<${tagName}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tagName}>`),
   );
   return match ? unescapeXml(match[1]) : null;
 }

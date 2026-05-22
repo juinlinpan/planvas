@@ -4,9 +4,11 @@ import {
   regulatePage,
   replacePageBoardState,
 } from './api';
+import type { BoardItem, ConnectorLink } from './api';
 import { normalizeConnectorArrowsToSegments } from './canvasHelpers/connectorAnchors';
+import { relayoutTableItems } from './canvasHelpers/tableLayout';
 import type { ConnectorsUpdater, ItemsUpdater, SegmentDraftState } from './canvasTypes';
-import type { Viewport } from './types';
+import { ITEM_TYPE, type Viewport } from './types';
 
 type Params = {
   pageId: string;
@@ -18,6 +20,30 @@ type Params = {
   setSegmentDraft: (draft: SegmentDraftState | null) => void;
   resetHistory: () => void;
 };
+
+export function normalizeLoadedBoardItems(
+  boardItems: BoardItem[],
+  connectorLinks: ConnectorLink[],
+): {
+  items: BoardItem[];
+  migratedIds: string[];
+  relayoutChangedIds: string[];
+} {
+  const normalized = normalizeConnectorArrowsToSegments(
+    boardItems,
+    connectorLinks,
+  );
+  const tableIds = normalized.items
+    .filter((item) => item.type === ITEM_TYPE.table)
+    .map((item) => item.id);
+  const relayout = relayoutTableItems(normalized.items, tableIds);
+
+  return {
+    items: relayout.items,
+    migratedIds: normalized.migratedIds,
+    relayoutChangedIds: relayout.changedIds,
+  };
+}
 
 /**
  * Handles initial board data loading and page regulation.
@@ -41,7 +67,7 @@ export function useCanvasBoardLoader({
     async function load() {
       try {
         const data = await getPageBoardData(pageId, controller.signal);
-        const normalized = normalizeConnectorArrowsToSegments(
+        const normalized = normalizeLoadedBoardItems(
           data.board_items,
           data.connector_links,
         );
@@ -56,7 +82,10 @@ export function useCanvasBoardLoader({
         setEditingId(null);
         setSegmentDraft(null);
         resetHistory();
-        if (normalized.migratedIds.length > 0) {
+        if (
+          normalized.migratedIds.length > 0 ||
+          normalized.relayoutChangedIds.length > 0
+        ) {
           void replacePageBoardState(pageId, {
             board_items: normalized.items,
             connector_links: data.connector_links,
@@ -90,7 +119,7 @@ export function useCanvasBoardLoader({
     setIsRegulatingPage(true);
     try {
       const data = await regulatePage(pageId);
-      const normalized = normalizeConnectorArrowsToSegments(
+      const normalized = normalizeLoadedBoardItems(
         data.board_items,
         data.connector_links,
       );
@@ -105,7 +134,10 @@ export function useCanvasBoardLoader({
       setEditingId(null);
       setSegmentDraft(null);
       resetHistory();
-      if (normalized.migratedIds.length > 0) {
+      if (
+        normalized.migratedIds.length > 0 ||
+        normalized.relayoutChangedIds.length > 0
+      ) {
         void replacePageBoardState(pageId, {
           board_items: normalized.items,
           connector_links: data.connector_links,

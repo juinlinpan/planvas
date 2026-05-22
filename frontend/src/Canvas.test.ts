@@ -19,6 +19,8 @@ import {
 } from './canvasHelpers';
 import { parseBoardItemStyle, resolveBoardItemStyle } from './itemStyles';
 import { syncMarkdownBackedItems } from './noteSync';
+import { normalizeLoadedBoardItems } from './useCanvasBoardLoader';
+import { serializeTableData, type TableData } from './tableData';
 import { ITEM_CATEGORY, ITEM_TYPE } from './types';
 
 const FIXTURE_TIMESTAMP = '2026-04-11T00:00:00+00:00';
@@ -224,6 +226,58 @@ describe('syncMarkdownBackedItems', () => {
     );
 
     expect(synced).toBe(items);
+  });
+});
+
+describe('normalizeLoadedBoardItems', () => {
+  it('snaps table children back into their cells after loading a page', () => {
+    const tableData: TableData = {
+      rows: 1,
+      cols: 1,
+      colWidths: [1],
+      rowHeights: [1],
+      cells: [
+        [
+          {
+            id: 'cell-1',
+            content: '',
+            rowSpan: 1,
+            colSpan: 1,
+            isCollapsed: true,
+            childItemIds: ['child-1'],
+          },
+        ],
+      ],
+    };
+    const table = createBoardItem({
+      id: 'table-1',
+      category: ITEM_CATEGORY.shape,
+      type: ITEM_TYPE.table,
+      x: 100,
+      y: 80,
+      width: 300,
+      height: 180,
+      data_json: serializeTableData(tableData),
+    });
+    const child = createBoardItem({
+      id: 'child-1',
+      parent_item_id: table.id,
+      x: 900,
+      y: 900,
+      width: 120,
+      height: 80,
+    });
+
+    const normalized = normalizeLoadedBoardItems([table, child], []);
+    const normalizedChild = normalized.items.find((item) => item.id === child.id);
+
+    expect(normalized.relayoutChangedIds).toEqual([child.id]);
+    expect(normalizedChild).toMatchObject({
+      x: 108,
+      y: 88,
+      width: 284,
+      height: 164,
+    });
   });
 });
 
