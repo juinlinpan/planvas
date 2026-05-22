@@ -4,7 +4,7 @@ import {
   regulatePage,
   replacePageBoardState,
 } from './api';
-import type { BoardItem, ConnectorLink } from './api';
+import type { BoardItem, ConnectorLink, PageBoardData } from './api';
 import { normalizeConnectorArrowsToSegments } from './canvasHelpers/connectorAnchors';
 import { relayoutTableItems } from './canvasHelpers/tableLayout';
 import type { ConnectorsUpdater, ItemsUpdater, SegmentDraftState } from './canvasTypes';
@@ -12,6 +12,8 @@ import { ITEM_TYPE, type Viewport } from './types';
 
 type Params = {
   pageId: string;
+  cachedBoardData?: PageBoardData | null;
+  onBoardDataCacheChange?: (data: PageBoardData) => void;
   setItemsAndSync: (updater: ItemsUpdater) => void;
   setConnectorsAndSync: (updater: ConnectorsUpdater) => void;
   setViewportAndSync: (viewport: Viewport) => void;
@@ -51,6 +53,8 @@ export function normalizeLoadedBoardItems(
  */
 export function useCanvasBoardLoader({
   pageId,
+  cachedBoardData = null,
+  onBoardDataCacheChange,
   setItemsAndSync,
   setConnectorsAndSync,
   setViewportAndSync,
@@ -66,11 +70,17 @@ export function useCanvasBoardLoader({
 
     async function load() {
       try {
-        const data = await getPageBoardData(pageId, controller.signal);
+        const data =
+          cachedBoardData ?? (await getPageBoardData(pageId, controller.signal));
         const normalized = normalizeLoadedBoardItems(
           data.board_items,
           data.connector_links,
         );
+        const normalizedData = {
+          ...data,
+          board_items: normalized.items,
+        };
+        onBoardDataCacheChange?.(normalizedData);
         setItemsAndSync(normalized.items);
         setConnectorsAndSync(data.connector_links);
         setViewportAndSync({
@@ -89,9 +99,13 @@ export function useCanvasBoardLoader({
           void replacePageBoardState(pageId, {
             board_items: normalized.items,
             connector_links: data.connector_links,
-          }).catch((err) => {
-            console.error('[Canvas] Failed to migrate connector arrows', err);
-          });
+          })
+            .then((persisted) => {
+              onBoardDataCacheChange?.(persisted);
+            })
+            .catch((err) => {
+              console.error('[Canvas] Failed to migrate connector arrows', err);
+            });
         }
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') {
@@ -105,6 +119,8 @@ export function useCanvasBoardLoader({
     return () => controller.abort();
   }, [
     pageId,
+    cachedBoardData,
+    onBoardDataCacheChange,
     resetHistory,
     clearSelection,
     setConnectorsAndSync,
@@ -125,6 +141,10 @@ export function useCanvasBoardLoader({
       );
       setItemsAndSync(normalized.items);
       setConnectorsAndSync(data.connector_links);
+      onBoardDataCacheChange?.({
+        ...data,
+        board_items: normalized.items,
+      });
       setViewportAndSync({
         x: data.page.viewport_x,
         y: data.page.viewport_y,
@@ -141,9 +161,13 @@ export function useCanvasBoardLoader({
         void replacePageBoardState(pageId, {
           board_items: normalized.items,
           connector_links: data.connector_links,
-        }).catch((err) => {
-          console.error('[Canvas] Failed to persist regulated segments', err);
-        });
+        })
+          .then((persisted) => {
+            onBoardDataCacheChange?.(persisted);
+          })
+          .catch((err) => {
+            console.error('[Canvas] Failed to persist regulated segments', err);
+          });
       }
     } catch (err) {
       console.error('[Canvas] Failed to regulate page XML', err);
@@ -154,6 +178,7 @@ export function useCanvasBoardLoader({
     clearSelection,
     isRegulatingPage,
     pageId,
+    onBoardDataCacheChange,
     resetHistory,
     setConnectorsAndSync,
     setItemsAndSync,

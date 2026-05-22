@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type DragEvent as ReactDragEvent,
   type FormEvent,
@@ -529,10 +530,31 @@ export function App() {
     () => parseProjectDefaultStyle(selectedProject?.default_style_json ?? null),
     [selectedProject?.default_style_json],
   );
+  const pageBoardCacheRef = useRef<Map<string, PageBoardData>>(new Map());
+
+  const updateCachedPageBoardData = useCallback((data: PageBoardData) => {
+    pageBoardCacheRef.current.set(data.page.id, data);
+  }, []);
+
+  const clearCachedPageBoardData = useCallback((pageId: string) => {
+    pageBoardCacheRef.current.delete(pageId);
+  }, []);
 
   const handlePageViewportChange = useCallback(
     (pageId: string, viewport: { x: number; y: number; zoom: number }) => {
       setPages((current) => syncPageViewport(current, pageId, viewport));
+      const cached = pageBoardCacheRef.current.get(pageId);
+      if (cached !== undefined) {
+        pageBoardCacheRef.current.set(pageId, {
+          ...cached,
+          page: {
+            ...cached.page,
+            viewport_x: viewport.x,
+            viewport_y: viewport.y,
+            zoom: viewport.zoom,
+          },
+        });
+      }
     },
     [],
   );
@@ -710,6 +732,7 @@ export function App() {
 
   useEffect(() => {
     if (selectedProjectId === null) {
+      pageBoardCacheRef.current.clear();
       setPages([]);
       setProjectNotes([]);
       setSelectedPageId(null);
@@ -717,6 +740,7 @@ export function App() {
     }
 
     const projectId = selectedProjectId;
+    pageBoardCacheRef.current.clear();
     const controller = new AbortController();
     setIsLoadingPages(true);
     setIsLoadingNotes(true);
@@ -821,6 +845,7 @@ export function App() {
       await refreshProjectNotes(selectedProjectId);
       // Refresh current page if needed
       if (selectedPageId !== null) {
+        clearCachedPageBoardData(selectedPageId);
         setPageRefreshTokenById((current) => ({
           ...current,
           [selectedPageId]: (current[selectedPageId] ?? 0) + 1,
@@ -890,6 +915,7 @@ export function App() {
       current === previousNoteFile ? nextNoteFile : current,
     );
     if (selectedPageId !== null) {
+      clearCachedPageBoardData(selectedPageId);
       setPageRefreshTokenById((current) => ({
         ...current,
         [selectedPageId]: (current[selectedPageId] ?? 0) + 1,
@@ -990,6 +1016,11 @@ export function App() {
 
     await runMutation(async () => {
       const page = await createPage(selectedProject.id, name);
+      updateCachedPageBoardData({
+        page,
+        board_items: [],
+        connector_links: [],
+      });
       setPages((current) => [...current, page]);
       setSelectedPageId(page.id);
     });
@@ -1013,6 +1044,13 @@ export function App() {
 
     await runMutation(async () => {
       const updatedPage = await updatePage(pageToRename.id, normalizedName);
+      const cached = pageBoardCacheRef.current.get(updatedPage.id);
+      if (cached !== undefined) {
+        pageBoardCacheRef.current.set(updatedPage.id, {
+          ...cached,
+          page: updatedPage,
+        });
+      }
       setPages((current) =>
         current.map((page) =>
           page.id === updatedPage.id ? updatedPage : page,
@@ -1040,6 +1078,7 @@ export function App() {
 
     await runMutation(async () => {
       await deletePage(selectedPage.id);
+      clearCachedPageBoardData(selectedPage.id);
       setPages(remainingPages);
       setSelectedPageId((current) =>
         current === selectedPage.id ? (remainingPages[0]?.id ?? null) : current,
@@ -1328,6 +1367,7 @@ export function App() {
         ...current,
         [targetPage.id]: (current[targetPage.id] ?? 0) + 1,
       }));
+      clearCachedPageBoardData(targetPage.id);
       await refreshProjectNotes(selectedProject.id);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
@@ -2349,6 +2389,9 @@ export function App() {
               <Canvas
                 key={`${selectedPage.id}:${pageRefreshTokenById[selectedPage.id] ?? 0}`}
                 page={selectedPage}
+                cachedBoardData={
+                  pageBoardCacheRef.current.get(selectedPage.id) ?? null
+                }
                 projectNotes={projectNotes}
                 draggedProjectNoteFile={
                   dragState?.kind === 'notes' ? dragState.itemId : null
@@ -2361,6 +2404,7 @@ export function App() {
                 onViewportChange={(viewport) =>
                   handlePageViewportChange(selectedPage.id, viewport)
                 }
+                onBoardDataCacheChange={updateCachedPageBoardData}
                 onOpenNote={openNoteTab}
                 onProjectNotesChanged={() => {
                   if (selectedProjectId !== null) {

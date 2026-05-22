@@ -12,7 +12,9 @@ import {
   type BoardItemPayload,
   type ConnectorLink,
   createBoardItem,
+  replacePageBoardState,
   type Page,
+  type PageBoardData,
   type ProjectNote,
 } from './api';
 import {
@@ -44,7 +46,6 @@ import { summarizeFrameChild } from './canvasHelpers/contentSummary';
 import type { AnchorHit, TableCellHit } from './canvasHelpers/types';
 import {
   CANVAS_GRID_SIZE,
-  VIEWPORT_SAVE_DELAY,
   CONNECTOR_SNAP_THRESHOLD,
 } from './canvasConstants';
 import { snapPointToGrid } from './magnet';
@@ -144,9 +145,11 @@ import { CanvasContextMenuPortal } from './CanvasContextMenuPortal';
 
 type Props = {
   page: Page;
+  cachedBoardData?: PageBoardData | null;
   projectNotes?: ProjectNote[];
   draggedProjectNoteFile?: string | null;
   onViewportChange?: (viewport: Viewport) => void;
+  onBoardDataCacheChange?: (data: PageBoardData) => void;
   onProjectNotesChanged?: () => void;
   onOpenNote?: (noteFile: string) => void;
   onImportPage: (format: 'mermaid') => void;
@@ -234,9 +237,11 @@ export function resolveSidebarNoteDragFile(
 
 export function Canvas({
   page,
+  cachedBoardData = null,
   projectNotes = [],
   draggedProjectNoteFile = null,
   onViewportChange,
+  onBoardDataCacheChange,
   onProjectNotesChanged,
   onOpenNote,
   onImportPage,
@@ -337,6 +342,26 @@ export function Canvas({
     direction: TableInsertDirection;
   } | null>(null);
 
+  const cacheBoardData = useCallback(
+    (
+      nextItems: BoardItem[] = itemsRef.current,
+      nextConnectors: ConnectorLink[] = connectorsRef.current,
+      nextViewport: Viewport = viewportRef.current,
+    ) => {
+      onBoardDataCacheChange?.({
+        page: {
+          ...page,
+          viewport_x: nextViewport.x,
+          viewport_y: nextViewport.y,
+          zoom: nextViewport.zoom,
+        },
+        board_items: nextItems,
+        connector_links: nextConnectors,
+      });
+    },
+    [onBoardDataCacheChange, page],
+  );
+
   useLayoutEffect(() => {
     viewportRef.current = viewport;
     itemsRef.current = items;
@@ -429,7 +454,8 @@ export function Canvas({
       typeof updater === 'function' ? updater(itemsRef.current) : updater;
     itemsRef.current = nextItems;
     setItems(nextItems);
-  }, []);
+    cacheBoardData(nextItems);
+  }, [cacheBoardData]);
 
   useEffect(() => {
     setItemsAndSync((current) =>
@@ -440,14 +466,16 @@ export function Canvas({
   const setViewportAndSync = useCallback((nextViewport: Viewport) => {
     viewportRef.current = nextViewport;
     setViewport(nextViewport);
-  }, []);
+    cacheBoardData(undefined, undefined, nextViewport);
+  }, [cacheBoardData]);
 
   const setConnectorsAndSync = useCallback((updater: ConnectorsUpdater) => {
     const nextConnectors =
       typeof updater === 'function' ? updater(connectorsRef.current) : updater;
     connectorsRef.current = nextConnectors;
     setConnectors(nextConnectors);
-  }, []);
+    cacheBoardData(undefined, nextConnectors);
+  }, [cacheBoardData]);
 
   const setSelection = useCallback((nextSelectedIds: string[]) => {
     const availableIds = new Set(itemsRef.current.map((item) => item.id));
@@ -612,6 +640,8 @@ export function Canvas({
 
   const { isRegulatingPage, handleRegulatePage } = useCanvasBoardLoader({
     pageId: page.id,
+    cachedBoardData,
+    onBoardDataCacheChange,
     setItemsAndSync,
     setConnectorsAndSync,
     setViewportAndSync,

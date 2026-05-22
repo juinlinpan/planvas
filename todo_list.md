@@ -27,6 +27,9 @@
 - [x] Reduce common multi-item save pressure by batching table-style and table-absorb changes through a single board-state write instead of parallel per-item writes.
 - [x] Make board item creation optimistic so newly created items appear immediately while backend persistence finishes in the background.
 - [x] Stop routine project-note refreshes from remounting the current Canvas, avoiding white flashes after note creation.
+- [x] Add a frontend per-Page board cache so switching back to an already loaded Page restores board data from memory instead of re-fetching it.
+- [x] Keep the per-Page board cache synchronized with live item, connector, and viewport changes.
+- [x] Flush pending viewport autosave on Canvas unmount instead of dropping the last debounced pan / zoom update.
 - [x] Move item and viewport autosave debounce to second-level timing to reduce high-frequency write pressure.
 - [x] Change Markdown editor saving to 5-second autosave plus immediate flush on window/tab leave and editor view switch, without remounting the current Page on note refresh.
 - [x] Add a Page XML regulate maintenance endpoint and canvas refresh action near `magnet` to rewrite current-schema Page XML, normalize `sticky_note` into standalone `sticky_item` / `sticky_object`, and remove stale table child references.

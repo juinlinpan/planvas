@@ -14,31 +14,53 @@ type Params = {
  */
 export function useCanvasViewportPersistence({ pageId, onViewportChange }: Params) {
   const vpSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingViewportRef = useRef<Viewport | null>(null);
+
+  const persistViewport = useCallback(
+    (nextViewport: Viewport) => {
+      pendingViewportRef.current = null;
+      void updatePageViewport(pageId, {
+        viewport_x: nextViewport.x,
+        viewport_y: nextViewport.y,
+        zoom: nextViewport.zoom,
+      }).catch((err) => {
+        console.error('[Canvas] Failed to save viewport', err);
+      });
+    },
+    [pageId],
+  );
 
   const scheduleViewportSave = useCallback(
     (nextViewport: Viewport) => {
       onViewportChange?.(nextViewport);
+      pendingViewportRef.current = nextViewport;
       if (vpSaveTimerRef.current !== null) {
         clearTimeout(vpSaveTimerRef.current);
       }
       vpSaveTimerRef.current = setTimeout(() => {
-        void updatePageViewport(pageId, {
-          viewport_x: nextViewport.x,
-          viewport_y: nextViewport.y,
-          zoom: nextViewport.zoom,
-        });
+        vpSaveTimerRef.current = null;
+        persistViewport(nextViewport);
       }, VIEWPORT_SAVE_DELAY);
     },
-    [pageId, onViewportChange],
+    [onViewportChange, persistViewport],
   );
+
+  const flushViewportSave = useCallback(() => {
+    if (vpSaveTimerRef.current !== null) {
+      clearTimeout(vpSaveTimerRef.current);
+      vpSaveTimerRef.current = null;
+    }
+    const pendingViewport = pendingViewportRef.current;
+    if (pendingViewport !== null) {
+      persistViewport(pendingViewport);
+    }
+  }, [persistViewport]);
 
   useEffect(() => {
     return () => {
-      if (vpSaveTimerRef.current !== null) {
-        clearTimeout(vpSaveTimerRef.current);
-      }
+      flushViewportSave();
     };
-  }, []);
+  }, [flushViewportSave]);
 
-  return { scheduleViewportSave };
+  return { scheduleViewportSave, flushViewportSave };
 }
