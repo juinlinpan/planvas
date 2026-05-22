@@ -46,6 +46,7 @@ import {
   type ExportImageOptions,
 } from './ExportImageModal';
 import { exportPageAsPptx } from './pagePptxExport';
+import { exportPageAsHtml } from './pageHtmlExport';
 import { exportPageAsMarkdown } from './pageMermaidExport';
 import { parseMermaidToBoardData } from './mermaidImport';
 import { MermaidImportModal } from './MermaidImportModal';
@@ -1364,7 +1365,9 @@ export function App() {
     void handlePageDrop(currentDragState.itemId, targetId, position);
   }
 
-  function handleExportPageClick(format: 'png' | 'pptx' | 'mermaid'): void {
+  function handleExportPageClick(
+    format: 'png' | 'pptx' | 'mermaid' | 'html',
+  ): void {
     if (selectedPage === null || isMutating) {
       return;
     }
@@ -1396,6 +1399,17 @@ export function App() {
             accept: {
               'text/markdown': ['.md'],
             },
+          });
+          return;
+        }
+
+        if (format === 'html') {
+          const htmlBlob = await exportPageAsHtml(boardData);
+          await saveFileWithPicker({
+            data: htmlBlob,
+            suggestedName: `${safePageName}.html`,
+            description: 'HTML page',
+            accept: { 'text/html': ['.html'] },
           });
           return;
         }

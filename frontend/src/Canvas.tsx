@@ -149,7 +149,7 @@ type Props = {
   onOpenNote?: (noteFile: string) => void;
   onImportPage: (format: 'mermaid') => void;
   onImportFromProject: () => void;
-  onExportPage: (format: 'png' | 'pptx' | 'mermaid') => void;
+  onExportPage: (format: 'png' | 'pptx' | 'mermaid' | 'html') => void;
   importExportDisabled: boolean;
   projectDefaultStyleJson?: string | null;
 };
@@ -1944,6 +1944,19 @@ export function Canvas({
                         }}
                       >
                         Markdown (.md)
+                      </button>
+                      <button
+                        type="button"
+                        className="toolbar-dropdown-item"
+                        role="menuitem"
+                        disabled={importExportDisabled}
+                        onClick={() => {
+                          onExportPage('html');
+                          setUtilityMenuOpen(null);
+                          setIsExportSubmenuOpen(false);
+                        }}
+                      >
+                        HTML (.html)
                       </button>
                     </div>
                   ) : null}
