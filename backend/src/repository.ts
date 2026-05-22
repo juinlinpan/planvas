@@ -44,6 +44,22 @@ const projectStoreDirname = 'project_store';
 const projectMarkerDirname = '.pv_project';
 const noteFileExtension = '.md';
 
+let indexLock = Promise.resolve();
+
+async function lockIndex<T>(fn: () => Promise<T>): Promise<T> {
+  const current = indexLock;
+  let resolveLock: () => void = () => {};
+  indexLock = new Promise<void>((resolve) => {
+    resolveLock = resolve;
+  });
+  await current;
+  try {
+    return await fn();
+  } finally {
+    resolveLock();
+  }
+}
+
 type ProjectEntry = {
   projectDir: string;
   metadata: ProjectMetadata | null;
@@ -86,8 +102,8 @@ export function appendLog(settings: AppSettings, message: string): void {
 export class WhiteboardRepository {
   constructor(private readonly settings: AppSettings) {}
 
-  listProjects(): Project[] {
-    const projects = this.iterProjectMetadata({ includeMissing: true }).map(
+  async listProjects(): Promise<Project[]> {
+    const projects = (await this.iterProjectMetadata({ includeMissing: true })).map(
       (entry) => entry.project,
     );
     return projects.sort((left, right) => {
@@ -103,8 +119,8 @@ export class WhiteboardRepository {
     });
   }
 
-  getProject(projectId: string): Project {
-    const { projectDir, metadata } = this.findProjectMetadata(projectId);
+  async getProject(projectId: string): Promise<Project> {
+    const { projectDir, metadata } = await this.findProjectMetadata(projectId);
     return this.projectFromMetadata(
       metadata,
       projectDir,
@@ -113,26 +129,26 @@ export class WhiteboardRepository {
     );
   }
 
-  createProject(payload: ProjectCreatePayload): Project {
+  async createProject(payload: ProjectCreatePayload): Promise<Project> {
     const timestamp = utcTimestamp();
     const project: Project = {
       id: randomUUID(),
       name: payload.name,
       theme_color: payload.theme_color,
       default_style_json: null,
-      sort_order: this.listProjects().length,
+      sort_order: (await this.listProjects()).length,
       created_at: timestamp,
       updated_at: timestamp,
     };
-    const projectDir = uniquePath(
+    const projectDir = await uniquePath(
       this.projectStoreDir(),
       slugify(payload.name),
     );
     const metadata: ProjectMetadata = { project };
-    fs.mkdirSync(projectDir, { recursive: true });
-    this.writeProjectMarker(projectDir);
-    writeJsonAtomic(this.metadataPath(projectDir), metadata);
-    this.registerProjectPath(
+    await fs.promises.mkdir(projectDir, { recursive: true });
+    await this.writeProjectMarker(projectDir);
+    await writeJsonAtomic(this.metadataPath(projectDir), metadata);
+    await this.registerProjectPath(
       projectDir,
       project.id,
       'project_store',
@@ -146,18 +162,18 @@ export class WhiteboardRepository {
     );
   }
 
-  openProjectPath(projectPath: string): Project {
+  async openProjectPath(projectPath: string): Promise<Project> {
     const projectDir = resolveProjectPath(projectPath);
-    if (fs.existsSync(projectDir) && !fs.statSync(projectDir).isDirectory()) {
+    if ((await exists(projectDir)) && !(await fs.promises.stat(projectDir)).isDirectory()) {
       throw new HttpError(
         400,
         `Project path '${projectDir}' must be a directory.`,
       );
     }
     const timestamp = utcTimestamp();
-    fs.mkdirSync(projectDir, { recursive: true });
-    const metadata = this.ensureProjectMetadata(projectDir, timestamp);
-    this.ensureUniqueProjectIdentity(projectDir, metadata, timestamp);
+    await fs.promises.mkdir(projectDir, { recursive: true });
+    const metadata = await this.ensureProjectMetadata(projectDir, timestamp);
+    await this.ensureUniqueProjectIdentity(projectDir, metadata, timestamp);
     const storageKind = this.storageKindForPath(projectDir);
     const project = this.projectFromMetadata(
       metadata,
@@ -165,13 +181,13 @@ export class WhiteboardRepository {
       storageKind,
       true,
     );
-    this.writeProjectMarker(projectDir);
-    this.registerProjectPath(projectDir, project.id, storageKind, timestamp);
+    await this.writeProjectMarker(projectDir);
+    await this.registerProjectPath(projectDir, project.id, storageKind, timestamp);
     return this.projectFromMetadata(metadata, projectDir, storageKind, true);
   }
 
-  updateProject(projectId: string, payload: ProjectUpdatePayload): Project {
-    const { projectDir, metadata } = this.findProjectMetadata(projectId);
+  async updateProject(projectId: string, payload: ProjectUpdatePayload): Promise<Project> {
+    const { projectDir, metadata } = await this.findProjectMetadata(projectId);
     const project = this.projectFromMetadata(metadata);
     const nextName = payload.name ?? project.name;
     const nextThemeColor = payload.theme_color ?? project.theme_color;
@@ -193,11 +209,11 @@ export class WhiteboardRepository {
       nextName !== project.name &&
       this.storageKindForPath(projectDir) === 'project_store'
     ) {
-      nextDir = uniquePath(this.projectStoreDir(), slugify(nextName));
-      fs.renameSync(projectDir, nextDir);
-      this.updateProjectIndexPath(projectId, nextDir);
+      nextDir = await uniquePath(this.projectStoreDir(), slugify(nextName));
+      await fs.promises.rename(projectDir, nextDir);
+      await this.updateProjectIndexPath(projectId, nextDir);
     }
-    writeJsonAtomic(this.metadataPath(nextDir), metadata);
+    await writeJsonAtomic(this.metadataPath(nextDir), metadata);
     return this.projectFromMetadata(
       metadata,
       nextDir,
@@ -206,22 +222,22 @@ export class WhiteboardRepository {
     );
   }
 
-  deleteProject(projectId: string): void {
-    for (const { projectDir, metadata, project } of this.iterProjectMetadata({
+  async deleteProject(projectId: string): Promise<void> {
+    for (const { projectDir, metadata, project } of await this.iterProjectMetadata({
       includeMissing: true,
     })) {
       if (project.id !== projectId) continue;
       if (metadata && this.storageKindForPath(projectDir) === 'project_store') {
-        fs.rmSync(projectDir, { recursive: true, force: true });
+        await fs.promises.rm(projectDir, { recursive: true, force: true });
       }
-      this.removeProjectFromIndex(projectId);
+      await this.removeProjectFromIndex(projectId);
       return;
     }
     throw new HttpError(404, `Project '${projectId}' was not found.`);
   }
 
-  reorderProjects(orderedIds: string[]): Project[] {
-    const entries = this.iterProjectMetadata();
+  async reorderProjects(orderedIds: string[]): Promise<Project[]> {
+    const entries = await this.iterProjectMetadata();
     const existingIds = entries
       .filter((entry) => entry.metadata)
       .map((entry) => entry.project.id);
@@ -237,7 +253,7 @@ export class WhiteboardRepository {
         updated_at: timestamp,
       };
       metadata.project = nextProject;
-      writeJsonAtomic(this.metadataPath(projectDir), metadata);
+      await writeJsonAtomic(this.metadataPath(projectDir), metadata);
       projects.push(
         this.projectFromMetadata(
           metadata,
@@ -250,9 +266,9 @@ export class WhiteboardRepository {
     return projects.sort((left, right) => left.sort_order - right.sort_order);
   }
 
-  revealProject(projectId: string): void {
-    const { projectDir } = this.findProjectMetadata(projectId);
-    if (!fs.existsSync(projectDir)) {
+  async revealProject(projectId: string): Promise<void> {
+    const { projectDir } = await this.findProjectMetadata(projectId);
+    if (!(await exists(projectDir))) {
       throw new HttpError(
         404,
         `Project directory '${projectDir}' does not exist.`,
@@ -268,28 +284,24 @@ export class WhiteboardRepository {
     }
   }
 
-  listPages(projectId: string): Page[] {
-    const { projectDir } = this.findProjectMetadata(projectId);
+  async listPages(projectId: string): Promise<Page[]> {
+    const { projectDir } = await this.findProjectMetadata(projectId);
     return this.pagesFromProject(projectDir);
   }
 
-  listProjectNotes(projectId: string): ProjectNote[] {
-    const { projectDir } = this.findProjectMetadata(projectId);
+  async listProjectNotes(projectId: string): Promise<ProjectNote[]> {
+    const { projectDir } = await this.findProjectMetadata(projectId);
     const projectDataDir = this.projectDataDir(projectDir);
-    if (!fs.existsSync(projectDataDir)) return [];
+    if (!(await exists(projectDataDir))) return [];
 
-    return fs
-      .readdirSync(projectDataDir, { withFileTypes: true })
-      .filter(
-        (entry) =>
-          entry.isFile() &&
-          path.extname(entry.name).toLowerCase() === noteFileExtension,
-      )
-      .map((entry): ProjectNote => {
+    const entries = await fs.promises.readdir(projectDataDir, { withFileTypes: true });
+    const notes: ProjectNote[] = [];
+    for (const entry of entries) {
+      if (entry.isFile() && path.extname(entry.name).toLowerCase() === noteFileExtension) {
         const notePath = path.join(projectDataDir, entry.name);
-        const content = fs.readFileSync(notePath, 'utf8');
-        const stats = fs.statSync(notePath);
-        return {
+        const content = await fs.promises.readFile(notePath, 'utf8');
+        const stats = await fs.promises.stat(notePath);
+        notes.push({
           note_file: entry.name,
           title:
             getMarkdownH1(content) ??
@@ -297,16 +309,17 @@ export class WhiteboardRepository {
           content,
           content_format: 'markdown',
           updated_at: stats.mtime.toISOString(),
-        };
-      })
-      .sort((left, right) => left.title.localeCompare(right.title));
+        });
+      }
+    }
+    return notes.sort((left, right) => left.title.localeCompare(right.title));
   }
 
-  updateProjectNote(
+  async updateProjectNote(
     projectId: string,
     noteFile: string,
     content: string,
-  ): ProjectNote {
+  ): Promise<ProjectNote> {
     const safeFile = path.basename(noteFile);
     if (
       safeFile !== noteFile ||
@@ -314,14 +327,14 @@ export class WhiteboardRepository {
     ) {
       throw new HttpError(400, 'Invalid note file name.');
     }
-    const { projectDir } = this.findProjectMetadata(projectId);
+    const { projectDir } = await this.findProjectMetadata(projectId);
     const projectDataDir = this.projectDataDir(projectDir);
     const notePath = path.join(projectDataDir, safeFile);
-    if (!fs.existsSync(notePath)) {
+    if (!(await exists(notePath))) {
       throw new HttpError(404, 'Note not found.');
     }
-    fs.writeFileSync(notePath, content, 'utf8');
-    const stats = fs.statSync(notePath);
+    await fs.promises.writeFile(notePath, content, 'utf8');
+    const stats = await fs.promises.stat(notePath);
     return {
       note_file: safeFile,
       title:
@@ -332,11 +345,11 @@ export class WhiteboardRepository {
     };
   }
 
-  renameProjectNote(
+  async renameProjectNote(
     projectId: string,
     previousNoteFile: string,
     nextNoteFile: string,
-  ): ProjectNote {
+  ): Promise<ProjectNote> {
     const safePreviousFile = path.basename(previousNoteFile);
     const safeNextFile = path.basename(nextNoteFile);
     if (
@@ -348,23 +361,23 @@ export class WhiteboardRepository {
       throw new HttpError(400, 'Invalid note file name.');
     }
 
-    const { projectDir } = this.findProjectMetadata(projectId);
+    const { projectDir } = await this.findProjectMetadata(projectId);
     const projectDataDir = this.projectDataDir(projectDir);
     const previousPath = this.notePath(projectDataDir, safePreviousFile);
     const nextPath = this.notePath(projectDataDir, safeNextFile);
-    if (!previousPath || !fs.existsSync(previousPath)) {
+    if (!previousPath || !(await exists(previousPath))) {
       throw new HttpError(404, 'Note not found.');
     }
     if (!nextPath) {
       throw new HttpError(400, 'Invalid note file name.');
     }
-    if (safePreviousFile !== safeNextFile && fs.existsSync(nextPath)) {
+    if (safePreviousFile !== safeNextFile && (await exists(nextPath))) {
       throw new HttpError(409, 'A note with that filename already exists.');
     }
 
     if (safePreviousFile === safeNextFile) {
-      const content = fs.readFileSync(previousPath, 'utf8');
-      const stats = fs.statSync(previousPath);
+      const content = await fs.promises.readFile(previousPath, 'utf8');
+      const stats = await fs.promises.stat(previousPath);
       return {
         note_file: safePreviousFile,
         title:
@@ -376,9 +389,9 @@ export class WhiteboardRepository {
       };
     }
 
-    this.renameProjectNoteFile(projectDir, safePreviousFile, safeNextFile);
-    const content = fs.readFileSync(nextPath, 'utf8');
-    const stats = fs.statSync(nextPath);
+    await this.renameProjectNoteFile(projectDir, safePreviousFile, safeNextFile);
+    const content = await fs.promises.readFile(nextPath, 'utf8');
+    const stats = await fs.promises.stat(nextPath);
     return {
       note_file: safeNextFile,
       title:
@@ -390,14 +403,14 @@ export class WhiteboardRepository {
     };
   }
 
-  getPage(pageId: string): Page {
-    return this.findPageMetadata(pageId).page;
+  async getPage(pageId: string): Promise<Page> {
+    return (await this.findPageMetadata(pageId)).page;
   }
 
-  createPage(projectId: string, payload: PageCreatePayload): Page {
-    const { projectDir, metadata } = this.findProjectMetadata(projectId);
+  async createPage(projectId: string, payload: PageCreatePayload): Promise<Page> {
+    const { projectDir, metadata } = await this.findProjectMetadata(projectId);
     const timestamp = utcTimestamp();
-    const pages = this.pagesFromProject(projectDir);
+    const pages = await this.pagesFromProject(projectDir);
     const page: Page = {
       id: randomUUID(),
       project_id: projectId,
@@ -409,55 +422,55 @@ export class WhiteboardRepository {
       created_at: timestamp,
       updated_at: timestamp,
     };
-    const pageFile = uniquePagePath(
+    const pageFile = await uniquePagePath(
       this.projectDataDir(projectDir),
       slugify(payload.name, 'page'),
     );
     this.touchProject(metadata, timestamp);
-    writeJsonAtomic(this.metadataPath(projectDir), metadata);
-    this.writePageXml(pageFile, page, [], []);
+    await writeJsonAtomic(this.metadataPath(projectDir), metadata);
+    await this.writePageXml(pageFile, page, [], []);
     return page;
   }
 
-  updatePage(pageId: string, payload: PageUpdatePayload): Page {
+  async updatePage(pageId: string, payload: PageUpdatePayload): Promise<Page> {
     const { projectDir, metadata, page, pagePath } =
-      this.findPageMetadata(pageId);
+      await this.findPageMetadata(pageId);
     const nextPage = {
       ...page,
       name: payload.name,
       updated_at: utcTimestamp(),
     };
-    const nextPagePath = pagePathForName(
+    const nextPagePath = await pagePathForName(
       this.projectDataDir(projectDir),
       pagePath,
       payload.name,
     );
     this.touchProject(metadata, nextPage.updated_at);
-    writeJsonAtomic(this.metadataPath(projectDir), metadata);
-    const board = this.getPageBoardData(pageId);
-    this.writePageXml(
+    await writeJsonAtomic(this.metadataPath(projectDir), metadata);
+    const board = await this.getPageBoardData(pageId);
+    await this.writePageXml(
       nextPagePath,
       nextPage,
       board.board_items,
       board.connector_links,
     );
     if (!sameFilesystemPath(pagePath, nextPagePath)) {
-      deletePageXmlFiles(pagePath);
+      await deletePageXmlFiles(pagePath);
     }
     return nextPage;
   }
 
-  deletePage(pageId: string): void {
-    const { projectDir, metadata, pagePath } = this.findPageMetadata(pageId);
-    deletePageXmlFiles(pagePath);
-    this.renumberProjectPages(projectDir);
+  async deletePage(pageId: string): Promise<void> {
+    const { projectDir, metadata, pagePath } = await this.findPageMetadata(pageId);
+    await deletePageXmlFiles(pagePath);
+    await this.renumberProjectPages(projectDir);
     this.touchProject(metadata, utcTimestamp());
-    writeJsonAtomic(this.metadataPath(projectDir), metadata);
+    await writeJsonAtomic(this.metadataPath(projectDir), metadata);
   }
 
-  reorderPages(projectId: string, orderedIds: string[]): Page[] {
-    const { projectDir, metadata } = this.findProjectMetadata(projectId);
-    const pageEntries = this.pageEntriesFromProject(projectDir);
+  async reorderPages(projectId: string, orderedIds: string[]): Promise<Page[]> {
+    const { projectDir, metadata } = await this.findProjectMetadata(projectId);
+    const pageEntries = await this.pageEntriesFromProject(projectDir);
     const pages = pageEntries.map((entry) => entry.page);
     this.validateReorderIds(
       pages.map((page) => page.id),
@@ -475,30 +488,30 @@ export class WhiteboardRepository {
       pagePath,
     }));
     this.touchProject(metadata, timestamp);
-    writeJsonAtomic(this.metadataPath(projectDir), metadata);
+    await writeJsonAtomic(this.metadataPath(projectDir), metadata);
     for (const entry of nextPages) {
-      const { boardItems, connectorLinks } = this.readPageXmlFile(
+      const { boardItems, connectorLinks } = await this.readPageXmlFile(
         entry.pagePath,
         entry.page,
         this.projectDataDir(projectDir),
       );
-      this.writePageXml(entry.pagePath, entry.page, boardItems, connectorLinks);
+      await this.writePageXml(entry.pagePath, entry.page, boardItems, connectorLinks);
     }
     return nextPages
       .map((entry) => entry.page)
       .sort((left, right) => left.sort_order - right.sort_order);
   }
 
-  duplicatePage(pageId: string): Page {
+  async duplicatePage(pageId: string): Promise<Page> {
     const {
       projectDir,
       metadata,
       page: sourcePage,
-    } = this.findPageMetadata(pageId);
-    const sourceBoard = this.getPageBoardData(pageId);
+    } = await this.findPageMetadata(pageId);
+    const sourceBoard = await this.getPageBoardData(pageId);
     const timestamp = utcTimestamp();
     const existingNames = new Set(
-      this.pagesFromProject(projectDir).map((page) => page.name),
+      (await this.pagesFromProject(projectDir)).map((page) => page.name),
     );
     const duplicatedName = this.buildDuplicatePageName(
       existingNames,
@@ -513,7 +526,7 @@ export class WhiteboardRepository {
       updated_at: timestamp,
     };
 
-    const shiftedPages = this.pageEntriesFromProject(projectDir)
+    const shiftedPages = (await this.pageEntriesFromProject(projectDir))
       .filter((entry) => entry.page.sort_order > sourcePage.sort_order)
       .map((entry) => ({
         ...entry,
@@ -558,26 +571,26 @@ export class WhiteboardRepository {
       }),
     );
 
-    const pageFile = uniquePagePath(
+    const pageFile = await uniquePagePath(
       this.projectDataDir(projectDir),
       slugify(duplicatedName, 'page'),
     );
     this.touchProject(metadata, timestamp);
-    writeJsonAtomic(this.metadataPath(projectDir), metadata);
+    await writeJsonAtomic(this.metadataPath(projectDir), metadata);
     for (const shiftedPage of shiftedPages) {
-      const { boardItems, connectorLinks } = this.readPageXmlFile(
+      const { boardItems, connectorLinks } = await this.readPageXmlFile(
         shiftedPage.pagePath,
         shiftedPage.page,
         this.projectDataDir(projectDir),
       );
-      this.writePageXml(
+      await this.writePageXml(
         shiftedPage.pagePath,
         shiftedPage.page,
         boardItems,
         connectorLinks,
       );
     }
-    this.writePageXml(
+    await this.writePageXml(
       pageFile,
       duplicatedPage,
       duplicatedItems,
@@ -586,34 +599,34 @@ export class WhiteboardRepository {
     return duplicatedPage;
   }
 
-  importFromProject(
+  async importFromProject(
     targetProjectId: string,
     sourceProjectId: string,
     pageIds: string[],
     noteFiles: string[],
-  ): { pages: Page[]; notes: ProjectNote[] } {
+  ): Promise<{ pages: Page[]; notes: ProjectNote[] }> {
     const { projectDir: targetDir, metadata: targetMetadata } =
-      this.findProjectMetadata(targetProjectId);
-    const { projectDir: sourceDir } = this.findProjectMetadata(sourceProjectId);
+      await this.findProjectMetadata(targetProjectId);
+    const { projectDir: sourceDir } = await this.findProjectMetadata(sourceProjectId);
 
     const targetDataDir = this.projectDataDir(targetDir);
     const sourceDataDir = this.projectDataDir(sourceDir);
-    fs.mkdirSync(targetDataDir, { recursive: true });
+    await fs.promises.mkdir(targetDataDir, { recursive: true });
 
     const timestamp = utcTimestamp();
-    const existingPages = this.pagesFromProject(targetDir);
+    const existingPages = await this.pagesFromProject(targetDir);
     let nextSortOrder = existingPages.length;
     const importedPages: Page[] = [];
 
     for (const pageId of pageIds) {
-      const sourcePageEntry = this.pageEntriesFromProject(sourceDir).find(
+      const sourcePageEntry = (await this.pageEntriesFromProject(sourceDir)).find(
         (entry) => entry.page.id === pageId,
       );
       if (!sourcePageEntry) continue;
 
       const { page: sourcePage, pagePath: sourcePagePath } = sourcePageEntry;
       const { boardItems: sourceItems, connectorLinks: sourceConnectors } =
-        this.readPageXmlFile(sourcePagePath, sourcePage, sourceDataDir);
+        await this.readPageXmlFile(sourcePagePath, sourcePage, sourceDataDir);
 
       const itemIdMap = new Map(
         sourceItems.map((item) => [item.id, randomUUID()]),
@@ -626,10 +639,10 @@ export class WhiteboardRepository {
         const srcNoteFile = this.noteFileFromDataJson(item.data_json);
         if (!srcNoteFile || noteFileCopyMap.has(srcNoteFile)) continue;
         const srcNotePath = path.join(sourceDataDir, srcNoteFile);
-        if (!fs.existsSync(srcNotePath)) continue;
+        if (!(await exists(srcNotePath))) continue;
         const stem = path.basename(srcNoteFile, noteFileExtension);
-        const dstNotePath = uniquePath(targetDataDir, stem, noteFileExtension);
-        fs.copyFileSync(srcNotePath, dstNotePath);
+        const dstNotePath = await uniquePath(targetDataDir, stem, noteFileExtension);
+        await fs.promises.copyFile(srcNotePath, dstNotePath);
         noteFileCopyMap.set(srcNoteFile, path.basename(dstNotePath));
       }
 
@@ -693,11 +706,11 @@ export class WhiteboardRepository {
         }),
       );
 
-      const pageFile = uniquePagePath(
+      const pageFile = await uniquePagePath(
         targetDataDir,
         slugify(importedPage.name, 'page'),
       );
-      this.writePageXml(pageFile, importedPage, finalItems, importedConnectors);
+      await this.writePageXml(pageFile, importedPage, finalItems, importedConnectors);
       importedPages.push(importedPage);
     }
 
@@ -711,13 +724,13 @@ export class WhiteboardRepository {
       )
         continue;
       const srcNotePath = path.join(sourceDataDir, safeFile);
-      if (!fs.existsSync(srcNotePath)) continue;
+      if (!(await exists(srcNotePath))) continue;
       const stem = path.basename(safeFile, noteFileExtension);
-      const dstNotePath = uniquePath(targetDataDir, stem, noteFileExtension);
+      const dstNotePath = await uniquePath(targetDataDir, stem, noteFileExtension);
       const dstNoteFile = path.basename(dstNotePath);
-      fs.copyFileSync(srcNotePath, dstNotePath);
-      const content = fs.readFileSync(dstNotePath, 'utf8');
-      const stats = fs.statSync(dstNotePath);
+      await fs.promises.copyFile(srcNotePath, dstNotePath);
+      const content = await fs.promises.readFile(dstNotePath, 'utf8');
+      const stats = await fs.promises.stat(dstNotePath);
       importedNotes.push({
         note_file: dstNoteFile,
         title:
@@ -731,15 +744,15 @@ export class WhiteboardRepository {
 
     if (importedPages.length > 0 || importedNotes.length > 0) {
       this.touchProject(targetMetadata, timestamp);
-      writeJsonAtomic(this.metadataPath(targetDir), targetMetadata);
+      await writeJsonAtomic(this.metadataPath(targetDir), targetMetadata);
     }
 
     return { pages: importedPages, notes: importedNotes };
   }
 
-  updatePageViewport(pageId: string, payload: PageViewportPayload): Page {
+  async updatePageViewport(pageId: string, payload: PageViewportPayload): Promise<Page> {
     const { projectDir, metadata, page, pagePath } =
-      this.findPageMetadata(pageId);
+      await this.findPageMetadata(pageId);
     const nextPage = {
       ...page,
       viewport_x: payload.viewport_x,
@@ -747,10 +760,10 @@ export class WhiteboardRepository {
       zoom: payload.zoom,
       updated_at: utcTimestamp(),
     };
-    const board = this.getPageBoardData(pageId);
+    const board = await this.getPageBoardData(pageId);
     this.touchProject(metadata, nextPage.updated_at);
-    writeJsonAtomic(this.metadataPath(projectDir), metadata);
-    this.writePageXml(
+    await writeJsonAtomic(this.metadataPath(projectDir), metadata);
+    await this.writePageXml(
       pagePath,
       nextPage,
       board.board_items,
@@ -759,23 +772,23 @@ export class WhiteboardRepository {
     return nextPage;
   }
 
-  listBoardItems(pageId: string): BoardItem[] {
-    return this.readPageXml(pageId).boardItems;
+  async listBoardItems(pageId: string): Promise<BoardItem[]> {
+    return (await this.readPageXml(pageId)).boardItems;
   }
 
-  getBoardItem(itemId: string): BoardItem {
-    for (const page of this.allPages()) {
-      for (const item of this.readPageXml(page.id).boardItems) {
+  async getBoardItem(itemId: string): Promise<BoardItem> {
+    for (const page of await this.allPages()) {
+      for (const item of (await this.readPageXml(page.id)).boardItems) {
         if (item.id === itemId) return item;
       }
     }
     throw new HttpError(404, `Board item '${itemId}' was not found.`);
   }
 
-  createBoardItem(payload: BoardItemCreatePayload): BoardItem {
-    const page = this.getPage(payload.page_id);
+  async createBoardItem(payload: BoardItemCreatePayload): Promise<BoardItem> {
+    const page = await this.getPage(payload.page_id);
     if (payload.parent_item_id) {
-      const parent = this.getBoardItem(payload.parent_item_id);
+      const parent = await this.getBoardItem(payload.parent_item_id);
       if (parent.page_id !== payload.page_id) {
         throw new HttpError(
           400,
@@ -789,24 +802,24 @@ export class WhiteboardRepository {
       created_at: utcTimestamp(),
       updated_at: utcTimestamp(),
     };
-    const { boardItems, connectorLinks } = this.readPageXml(page.id);
-    const { projectDir } = this.findPageMetadata(page.id);
-    const persistedItem = this.writeMarkdownBackedNote(
+    const { boardItems, connectorLinks } = await this.readPageXml(page.id);
+    const { projectDir } = await this.findPageMetadata(page.id);
+    const persistedItem = await this.writeMarkdownBackedNote(
       this.projectDataDir(projectDir),
       item,
     );
     boardItems.push(persistedItem);
-    this.persistPageBoard(page, boardItems, connectorLinks);
+    await this.persistPageBoard(page, boardItems, connectorLinks);
     return this.readMarkdownBackedNote(
       this.projectDataDir(projectDir),
       persistedItem,
     );
   }
 
-  updateBoardItem(itemId: string, payload: BoardItemUpdatePayload): BoardItem {
-    const page = this.getPage(payload.page_id);
+  async updateBoardItem(itemId: string, payload: BoardItemUpdatePayload): Promise<BoardItem> {
+    const page = await this.getPage(payload.page_id);
     if (payload.parent_item_id) {
-      const parent = this.getBoardItem(payload.parent_item_id);
+      const parent = await this.getBoardItem(payload.parent_item_id);
       if (parent.page_id !== payload.page_id) {
         throw new HttpError(
           400,
@@ -814,11 +827,11 @@ export class WhiteboardRepository {
         );
       }
     }
-    const { boardItems, connectorLinks } = this.readPageXml(payload.page_id);
+    const { boardItems, connectorLinks } = await this.readPageXml(payload.page_id);
     const index = boardItems.findIndex((item) => item.id === itemId);
     if (index === -1)
       throw new HttpError(404, `Board item '${itemId}' was not found.`);
-    const { projectDir, metadata } = this.findPageMetadata(payload.page_id);
+    const { projectDir, metadata } = await this.findPageMetadata(payload.page_id);
     const previousNoteFile =
       boardItems[index].type === 'note_paper'
         ? this.noteFileFromDataJson(boardItems[index].data_json)
@@ -830,20 +843,20 @@ export class WhiteboardRepository {
       updated_at: utcTimestamp(),
     };
     boardItems[index] = nextItem;
-    this.persistPageBoard(page, boardItems, connectorLinks);
+    await this.persistPageBoard(page, boardItems, connectorLinks);
     const nextNoteFile =
       nextItem.type === 'note_paper'
         ? this.noteFileFromDataJson(nextItem.data_json)
         : null;
     if (previousNoteFile && nextNoteFile && previousNoteFile !== nextNoteFile) {
-      this.renameProjectNoteFile(projectDir, previousNoteFile, nextNoteFile);
+      await this.renameProjectNoteFile(projectDir, previousNoteFile, nextNoteFile);
     }
     return nextItem;
   }
 
-  deleteBoardItem(itemId: string): void {
-    const page = this.findPageForBoardItem(itemId);
-    let { boardItems, connectorLinks } = this.readPageXml(page.id);
+  async deleteBoardItem(itemId: string): Promise<void> {
+    const page = await this.findPageForBoardItem(itemId);
+    let { boardItems, connectorLinks } = await this.readPageXml(page.id);
     if (!boardItems.some((item) => item.id === itemId)) {
       throw new HttpError(404, `Board item '${itemId}' was not found.`);
     }
@@ -870,43 +883,43 @@ export class WhiteboardRepository {
         (!connector.from_item_id || remainingIds.has(connector.from_item_id)) &&
         (!connector.to_item_id || remainingIds.has(connector.to_item_id)),
     );
-    this.persistPageBoard(page, boardItems, connectorLinks);
+    await this.persistPageBoard(page, boardItems, connectorLinks);
   }
 
-  listConnectorLinks(pageId: string): ConnectorLink[] {
-    return this.readPageXml(pageId).connectorLinks;
+  async listConnectorLinks(pageId: string): Promise<ConnectorLink[]> {
+    return (await this.readPageXml(pageId)).connectorLinks;
   }
 
-  getConnectorLink(connectorId: string): ConnectorLink {
-    for (const page of this.allPages()) {
-      for (const connector of this.readPageXml(page.id).connectorLinks) {
+  async getConnectorLink(connectorId: string): Promise<ConnectorLink> {
+    for (const page of await this.allPages()) {
+      for (const connector of (await this.readPageXml(page.id)).connectorLinks) {
         if (connector.id === connectorId) return connector;
       }
     }
     throw new HttpError(404, `Connector '${connectorId}' was not found.`);
   }
 
-  createConnectorLink(payload: ConnectorLinkCreatePayload): ConnectorLink {
-    const connectorItem = this.validateConnectorPayload(payload);
+  async createConnectorLink(payload: ConnectorLinkCreatePayload): Promise<ConnectorLink> {
+    const connectorItem = await this.validateConnectorPayload(payload);
     const connector = { ...payload, id: randomUUID() };
-    const { boardItems, connectorLinks } = this.readPageXml(
+    const { boardItems, connectorLinks } = await this.readPageXml(
       connectorItem.page_id,
     );
     connectorLinks.push(connector);
-    this.persistPageBoard(
-      this.getPage(connectorItem.page_id),
+    await this.persistPageBoard(
+      await this.getPage(connectorItem.page_id),
       boardItems,
       connectorLinks,
     );
     return connector;
   }
 
-  updateConnectorLink(
+  async updateConnectorLink(
     connectorId: string,
     payload: ConnectorLinkUpdatePayload,
-  ): ConnectorLink {
-    const connectorItem = this.validateConnectorPayload(payload);
-    const { boardItems, connectorLinks } = this.readPageXml(
+  ): Promise<ConnectorLink> {
+    const connectorItem = await this.validateConnectorPayload(payload);
+    const { boardItems, connectorLinks } = await this.readPageXml(
       connectorItem.page_id,
     );
     const index = connectorLinks.findIndex(
@@ -916,40 +929,40 @@ export class WhiteboardRepository {
       throw new HttpError(404, `Connector '${connectorId}' was not found.`);
     const nextConnector = { ...payload, id: connectorId };
     connectorLinks[index] = nextConnector;
-    this.persistPageBoard(
-      this.getPage(connectorItem.page_id),
+    await this.persistPageBoard(
+      await this.getPage(connectorItem.page_id),
       boardItems,
       connectorLinks,
     );
     return nextConnector;
   }
 
-  deleteConnectorLink(connectorId: string): void {
-    const page = this.findPageForConnector(connectorId);
-    const { boardItems, connectorLinks } = this.readPageXml(page.id);
+  async deleteConnectorLink(connectorId: string): Promise<void> {
+    const page = await this.findPageForConnector(connectorId);
+    const { boardItems, connectorLinks } = await this.readPageXml(page.id);
     const nextConnectors = connectorLinks.filter(
       (connector) => connector.id !== connectorId,
     );
     if (nextConnectors.length === connectorLinks.length) {
       throw new HttpError(404, `Connector '${connectorId}' was not found.`);
     }
-    this.persistPageBoard(page, boardItems, nextConnectors);
+    await this.persistPageBoard(page, boardItems, nextConnectors);
   }
 
-  replacePageBoardState(
+  async replacePageBoardState(
     pageId: string,
     boardItems: BoardItem[],
     connectorLinks: ConnectorLink[],
-  ): PageBoardData {
-    const page = this.getPage(pageId);
-    this.validateBoardStatePayload(pageId, boardItems, connectorLinks);
-    this.persistPageBoard(page, boardItems, connectorLinks);
+  ): Promise<PageBoardData> {
+    const page = await this.getPage(pageId);
+    await this.validateBoardStatePayload(pageId, boardItems, connectorLinks);
+    await this.persistPageBoard(page, boardItems, connectorLinks);
     return this.getPageBoardData(pageId);
   }
 
-  regulatePage(pageId: string): PageRegulateResult {
-    const page = this.getPage(pageId);
-    const { boardItems, connectorLinks } = this.readPageXml(pageId);
+  async regulatePage(pageId: string): Promise<PageRegulateResult> {
+    const page = await this.getPage(pageId);
+    const { boardItems, connectorLinks } = await this.readPageXml(pageId);
     const { boardItems: nextBoardItems, report: itemReport } =
       regulateBoardItems(boardItems);
     const itemIds = new Set(nextBoardItems.map((item) => item.id));
@@ -969,14 +982,14 @@ export class WhiteboardRepository {
         connectorLinks.length - nextConnectorLinks.length,
     };
 
-    this.persistPageBoard(page, nextBoardItems, nextConnectorLinks);
-    const regulated = this.getPageBoardData(pageId);
+    await this.persistPageBoard(page, nextBoardItems, nextConnectorLinks);
+    const regulated = await this.getPageBoardData(pageId);
     return { ...regulated, report };
   }
 
-  getPageBoardData(pageId: string): PageBoardData {
-    const nextPage = this.getPage(pageId);
-    const { boardItems, connectorLinks } = this.readPageXml(pageId);
+  async getPageBoardData(pageId: string): Promise<PageBoardData> {
+    const nextPage = await this.getPage(pageId);
+    const { boardItems, connectorLinks } = await this.readPageXml(pageId);
     return {
       page: nextPage,
       board_items: boardItems,
@@ -1004,10 +1017,10 @@ export class WhiteboardRepository {
     return path.join(projectDir, metadataFilename);
   }
 
-  private readProjectIndex(): ProjectIndex {
+  private async readProjectIndex(): Promise<ProjectIndex> {
     const indexPath = this.projectIndexPath();
-    if (!fs.existsSync(indexPath)) return { version: 1, projects: [] };
-    const payload = readJson(indexPath);
+    if (!(await exists(indexPath))) return { version: 1, projects: [] };
+    const payload = await readJson(indexPath);
     return {
       version: 1,
       projects: Array.isArray(payload.projects)
@@ -1016,8 +1029,8 @@ export class WhiteboardRepository {
     };
   }
 
-  private writeProjectIndex(index: ProjectIndex): void {
-    writeJsonAtomic(this.projectIndexPath(), index);
+  private async writeProjectIndex(index: ProjectIndex): Promise<void> {
+    await writeJsonAtomic(this.projectIndexPath(), index);
   }
 
   private storageKindForPath(projectDir: string): 'project_store' | 'external' {
@@ -1032,31 +1045,31 @@ export class WhiteboardRepository {
       : 'external';
   }
 
-  private writeProjectMarker(projectDir: string): void {
+  private async writeProjectMarker(projectDir: string): Promise<void> {
     const markerPath = this.projectDataDir(projectDir);
-    if (fs.existsSync(markerPath) && !fs.statSync(markerPath).isDirectory()) {
-      fs.rmSync(markerPath, { force: true });
+    if ((await exists(markerPath)) && !(await fs.promises.stat(markerPath)).isDirectory()) {
+      await fs.promises.rm(markerPath, { force: true });
     }
-    fs.mkdirSync(markerPath, { recursive: true });
+    await fs.promises.mkdir(markerPath, { recursive: true });
   }
 
-  private ensureProjectMetadata(
+  private async ensureProjectMetadata(
     projectDir: string,
     timestamp: string,
-  ): ProjectMetadata {
+  ): Promise<ProjectMetadata> {
     const markerPath = this.projectDataDir(projectDir);
     const metadataPath = this.metadataPath(projectDir);
     const legacyMetadataPath = this.legacyMetadataPath(projectDir);
     const hadPlanvasDataDir =
-      fs.existsSync(markerPath) && fs.statSync(markerPath).isDirectory();
-    this.writeProjectMarker(projectDir);
+      (await exists(markerPath)) && (await fs.promises.stat(markerPath)).isDirectory();
+    await this.writeProjectMarker(projectDir);
 
     let metadata: Partial<ProjectMetadata> = {};
     try {
-      if (fs.existsSync(metadataPath))
-        metadata = readJson(metadataPath) as Partial<ProjectMetadata>;
-      else if (fs.existsSync(legacyMetadataPath))
-        metadata = readJson(legacyMetadataPath) as Partial<ProjectMetadata>;
+      if (await exists(metadataPath))
+        metadata = (await readJson(metadataPath)) as Partial<ProjectMetadata>;
+      else if (await exists(legacyMetadataPath))
+        metadata = (await readJson(legacyMetadataPath)) as Partial<ProjectMetadata>;
     } catch (error) {
       if (hadPlanvasDataDir) throw error;
       metadata = {};
@@ -1069,7 +1082,7 @@ export class WhiteboardRepository {
         name: path.basename(projectDir) || 'Untitled Project',
         theme_color: 'default',
         default_style_json: null,
-        sort_order: this.listProjects().length,
+        sort_order: (await this.listProjects()).length,
         created_at: timestamp,
         updated_at: timestamp,
       };
@@ -1089,127 +1102,136 @@ export class WhiteboardRepository {
     }
 
     const completeMetadata = metadata as ProjectMetadata;
-    if (changed || !fs.existsSync(metadataPath))
-      writeJsonAtomic(metadataPath, completeMetadata);
+    if (changed || !(await exists(metadataPath)))
+      await writeJsonAtomic(metadataPath, completeMetadata);
     return completeMetadata;
   }
 
-  private registerProjectPath(
+  private async registerProjectPath(
     projectDir: string,
     projectId: string,
     storageKind: 'project_store' | 'external',
     timestamp: string,
-  ): void {
-    const index = this.readProjectIndex();
-    const resolvedPath = path.resolve(projectDir);
-    const resolvedPathKey = projectPathKey(resolvedPath);
-    const entry = index.projects.find(
-      (item) => projectPathKey(item.path) === resolvedPathKey,
-    );
-    if (!entry) {
-      index.projects.push({
-        project_id: projectId,
-        path: resolvedPath,
-        storage_kind: storageKind,
-        sort_order: index.projects.length,
-        added_at: timestamp,
-        last_seen_at: timestamp,
-      });
-    } else {
-      entry.project_id = projectId;
-      entry.path = resolvedPath;
-      entry.storage_kind = storageKind;
-      entry.last_seen_at = timestamp;
-    }
-    this.writeProjectIndex(index);
-  }
-
-  private updateProjectIndexPath(projectId: string, projectDir: string): void {
-    const index = this.readProjectIndex();
-    const entry = index.projects.find((item) => item.project_id === projectId);
-    if (entry) {
-      entry.path = path.resolve(projectDir);
-      entry.storage_kind = this.storageKindForPath(projectDir);
-      entry.last_seen_at = utcTimestamp();
-    }
-    this.writeProjectIndex(index);
-  }
-
-  private removeProjectFromIndex(projectId: string): void {
-    const index = this.readProjectIndex();
-    index.projects = index.projects.filter(
-      (entry) => entry.project_id !== projectId,
-    );
-    this.writeProjectIndex(index);
-  }
-
-  private refreshProjectIndex(): ProjectIndex {
-    const timestamp = utcTimestamp();
-    const index = this.readProjectIndex();
-    index.projects = dedupeProjectIndexEntriesByPath(index.projects);
-
-    for (const projectDir of this.discoverProjectStoreDirs()) {
-      const metadata = this.ensureProjectMetadata(projectDir, timestamp);
-      this.ensureUniqueProjectIdentity(projectDir, metadata, timestamp, index);
-      const project = this.projectFromMetadata(
-        metadata,
-        projectDir,
-        'project_store',
-        true,
-      );
-      const projectDirKey = projectPathKey(projectDir);
-      let entry = index.projects.find(
-        (candidate) => projectPathKey(candidate.path) === projectDirKey,
+  ): Promise<void> {
+    return lockIndex(async () => {
+      const index = await this.readProjectIndex();
+      const resolvedPath = path.resolve(projectDir);
+      const resolvedPathKey = projectPathKey(resolvedPath);
+      const entry = index.projects.find(
+        (item) => projectPathKey(item.path) === resolvedPathKey,
       );
       if (!entry) {
-        entry = {
-          project_id: project.id,
-          path: path.resolve(projectDir),
-          storage_kind: 'project_store',
+        index.projects.push({
+          project_id: projectId,
+          path: resolvedPath,
+          storage_kind: storageKind,
           sort_order: index.projects.length,
-          added_at: project.created_at,
+          added_at: timestamp,
           last_seen_at: timestamp,
-        };
-        index.projects.push(entry);
+        });
       } else {
-        entry.project_id = project.id;
-        entry.path = path.resolve(projectDir);
-        entry.storage_kind = 'project_store';
+        entry.project_id = projectId;
+        entry.path = resolvedPath;
+        entry.storage_kind = storageKind;
         entry.last_seen_at = timestamp;
       }
-    }
-
-    for (const entry of index.projects) {
-      if (
-        fs.existsSync(this.metadataPath(entry.path)) ||
-        fs.existsSync(this.legacyMetadataPath(entry.path))
-      ) {
-        const metadata = this.ensureProjectMetadata(entry.path, timestamp);
-        this.ensureUniqueProjectIdentity(
-          entry.path,
-          metadata,
-          timestamp,
-          index,
-        );
-        entry.project_id = metadata.project.id;
-        entry.last_seen_at = timestamp;
-      }
-    }
-    this.writeProjectIndex(index);
-    return index;
+      await this.writeProjectIndex(index);
+    });
   }
 
-  private discoverProjectStoreDirs(): string[] {
+  private async updateProjectIndexPath(projectId: string, projectDir: string): Promise<void> {
+    return lockIndex(async () => {
+      const index = await this.readProjectIndex();
+      const entry = index.projects.find((item) => item.project_id === projectId);
+      if (entry) {
+        entry.path = path.resolve(projectDir);
+        entry.storage_kind = this.storageKindForPath(projectDir);
+        entry.last_seen_at = utcTimestamp();
+      }
+      await this.writeProjectIndex(index);
+    });
+  }
+
+  private async removeProjectFromIndex(projectId: string): Promise<void> {
+    return lockIndex(async () => {
+      const index = await this.readProjectIndex();
+      index.projects = index.projects.filter(
+        (entry) => entry.project_id !== projectId,
+      );
+      await this.writeProjectIndex(index);
+    });
+  }
+
+  private async refreshProjectIndex(): Promise<ProjectIndex> {
+    return lockIndex(async () => {
+      const timestamp = utcTimestamp();
+      const index = await this.readProjectIndex();
+      index.projects = dedupeProjectIndexEntriesByPath(index.projects);
+
+      for (const projectDir of await this.discoverProjectStoreDirs()) {
+        const metadata = await this.ensureProjectMetadata(projectDir, timestamp);
+        await this.ensureUniqueProjectIdentity(projectDir, metadata, timestamp, index);
+        const project = this.projectFromMetadata(
+          metadata,
+          projectDir,
+          'project_store',
+          true,
+        );
+        const projectDirKey = projectPathKey(projectDir);
+        let entry = index.projects.find(
+          (candidate) => projectPathKey(candidate.path) === projectDirKey,
+        );
+        if (!entry) {
+          entry = {
+            project_id: project.id,
+            path: path.resolve(projectDir),
+            storage_kind: 'project_store',
+            sort_order: index.projects.length,
+            added_at: project.created_at,
+            last_seen_at: timestamp,
+          };
+          index.projects.push(entry);
+        } else {
+          entry.project_id = project.id;
+          entry.path = path.resolve(projectDir);
+          entry.storage_kind = 'project_store';
+          entry.last_seen_at = timestamp;
+        }
+      }
+
+      for (const entry of index.projects) {
+        if (
+          (await exists(this.metadataPath(entry.path))) ||
+          (await exists(this.legacyMetadataPath(entry.path)))
+        ) {
+          const metadata = await this.ensureProjectMetadata(entry.path, timestamp);
+          await this.ensureUniqueProjectIdentity(
+            entry.path,
+            metadata,
+            timestamp,
+            index,
+          );
+          entry.project_id = metadata.project.id;
+          entry.last_seen_at = timestamp;
+        }
+      }
+      await this.writeProjectIndex(index);
+      return index;
+    });
+  }
+
+  private async discoverProjectStoreDirs(): Promise<string[]> {
     const candidates: string[] = [];
     for (const baseDir of [this.projectStoreDir(), this.settings.planvasRoot]) {
-      if (!fs.existsSync(baseDir)) continue;
-      for (const childName of fs.readdirSync(baseDir)) {
+      if (!(await exists(baseDir))) continue;
+      const childNames = await fs.promises.readdir(baseDir);
+      for (const childName of childNames) {
         if (childName === projectStoreDirname) continue;
         const child = path.join(baseDir, childName);
         if (
-          fs.statSync(child).isDirectory() &&
-          (fs.existsSync(this.metadataPath(child)) ||
-            fs.existsSync(this.legacyMetadataPath(child)))
+          (await fs.promises.stat(child)).isDirectory() &&
+          ((await exists(this.metadataPath(child))) ||
+            (await exists(this.legacyMetadataPath(child))))
         ) {
           candidates.push(child);
         }
@@ -1218,24 +1240,24 @@ export class WhiteboardRepository {
     return candidates;
   }
 
-  private iterProjectMetadata(
+  private async iterProjectMetadata(
     options: { includeMissing?: boolean } = {},
-  ): ProjectEntry[] {
-    if (!fs.existsSync(this.settings.planvasRoot)) return [];
-    const index = this.refreshProjectIndex();
+  ): Promise<ProjectEntry[]> {
+    if (!(await exists(this.settings.planvasRoot))) return [];
+    const index = await this.refreshProjectIndex();
     const entries: ProjectEntry[] = [];
     for (const entry of index.projects) {
       const projectDir = entry.path;
       const metadataPath = this.metadataPath(projectDir);
       const legacyMetadataPath = this.legacyMetadataPath(projectDir);
       if (
-        fs.existsSync(projectDir) &&
-        fs.statSync(projectDir).isDirectory() &&
-        (fs.existsSync(metadataPath) || fs.existsSync(legacyMetadataPath))
+        (await exists(projectDir)) &&
+        (await fs.promises.stat(projectDir)).isDirectory() &&
+        ((await exists(metadataPath)) || (await exists(legacyMetadataPath)))
       ) {
-        const metadata = fs.existsSync(metadataPath)
-          ? (readJson(metadataPath) as ProjectMetadata)
-          : this.ensureProjectMetadata(projectDir, utcTimestamp());
+        const metadata = (await exists(metadataPath))
+          ? ((await readJson(metadataPath)) as ProjectMetadata)
+          : await this.ensureProjectMetadata(projectDir, utcTimestamp());
         const project = this.projectFromMetadata(
           metadata,
           projectDir,
@@ -1265,15 +1287,16 @@ export class WhiteboardRepository {
     return entries;
   }
 
-  private ensureUniqueProjectIdentity(
+  private async ensureUniqueProjectIdentity(
     projectDir: string,
     metadata: ProjectMetadata,
     timestamp: string,
-    projectIndex = this.readProjectIndex(),
-  ): void {
+    projectIndex?: ProjectIndex,
+  ): Promise<void> {
     const projectId = metadata.project.id;
     const projectDirKey = projectPathKey(projectDir);
-    const sameIdEntries = projectIndex.projects
+    const index = projectIndex ?? await this.readProjectIndex();
+    const sameIdEntries = index.projects
       .filter((entry) => entry.project_id === projectId)
       .sort(compareProjectIndexEntries);
     if (sameIdEntries.length === 0) {
@@ -1298,10 +1321,10 @@ export class WhiteboardRepository {
       id: nextProjectId,
       updated_at: timestamp,
     };
-    writeJsonAtomic(this.metadataPath(projectDir), metadata);
+    await writeJsonAtomic(this.metadataPath(projectDir), metadata);
 
-    for (const pageEntry of this.pageEntriesFromProject(projectDir)) {
-      this.replaceStoredPage(projectDir, pageEntry.pagePath, {
+    for (const pageEntry of await this.pageEntriesFromProject(projectDir)) {
+      await this.replaceStoredPage(projectDir, pageEntry.pagePath, {
         ...pageEntry.page,
         project_id: nextProjectId,
         updated_at: timestamp,
@@ -1314,11 +1337,11 @@ export class WhiteboardRepository {
     );
   }
 
-  private findProjectMetadata(projectId: string): {
+  private async findProjectMetadata(projectId: string): Promise<{
     projectDir: string;
     metadata: ProjectMetadata;
-  } {
-    for (const entry of this.iterProjectMetadata()) {
+  }> {
+    for (const entry of await this.iterProjectMetadata()) {
       if (entry.metadata && entry.project.id === projectId) {
         return { projectDir: entry.projectDir, metadata: entry.metadata };
       }
@@ -1326,15 +1349,15 @@ export class WhiteboardRepository {
     throw new HttpError(404, `Project '${projectId}' was not found.`);
   }
 
-  private findPageMetadata(pageId: string): {
+  private async findPageMetadata(pageId: string): Promise<{
     projectDir: string;
     metadata: ProjectMetadata;
     page: Page;
     pagePath: string;
-  } {
-    for (const entry of this.iterProjectMetadata()) {
+  }> {
+    for (const entry of await this.iterProjectMetadata()) {
       if (!entry.metadata) continue;
-      const pageEntry = this.pageEntriesFromProject(entry.projectDir).find(
+      const pageEntry = (await this.pageEntriesFromProject(entry.projectDir)).find(
         (candidate) => candidate.page.id === pageId,
       );
       if (pageEntry)
@@ -1348,10 +1371,15 @@ export class WhiteboardRepository {
     throw new HttpError(404, `Page '${pageId}' was not found.`);
   }
 
-  private allPages(): Page[] {
-    return this.iterProjectMetadata().flatMap((entry) =>
-      entry.metadata ? this.pagesFromProject(entry.projectDir) : [],
-    );
+  private async allPages(): Promise<Page[]> {
+    const entries = await this.iterProjectMetadata();
+    const all: Page[] = [];
+    for (const entry of entries) {
+      if (entry.metadata) {
+        all.push(...(await this.pagesFromProject(entry.projectDir)));
+      }
+    }
+    return all;
   }
 
   private projectFromMetadata(
@@ -1376,52 +1404,51 @@ export class WhiteboardRepository {
     return project;
   }
 
-  private pagesFromProject(projectDir: string): Page[] {
-    return this.pageEntriesFromProject(projectDir).map((entry) => entry.page);
+  private async pagesFromProject(projectDir: string): Promise<Page[]> {
+    return (await this.pageEntriesFromProject(projectDir)).map((entry) => entry.page);
   }
 
-  private pageEntriesFromProject(projectDir: string): PageEntry[] {
+  private async pageEntriesFromProject(projectDir: string): Promise<PageEntry[]> {
     const projectDataDir = this.projectDataDir(projectDir);
-    if (!fs.existsSync(projectDataDir)) return [];
-    return fs
-      .readdirSync(projectDataDir, { withFileTypes: true })
-      .filter(
-        (entry) =>
-          entry.isFile() && entry.name.toLowerCase().endsWith('.semantic.xml'),
-      )
-      .map((entry) => {
-        const semanticPath = path.join(projectDataDir, entry.name);
-        return {
-          page: readPageRecordFromSemanticXml(semanticPath),
-          pagePath: stemPathFromVariantPath(semanticPath, 'semantic'),
-        };
-      })
-      .sort((left, right) => {
-        if (left.page.sort_order !== right.page.sort_order)
-          return left.page.sort_order - right.page.sort_order;
-        return left.page.created_at.localeCompare(right.page.created_at);
+    if (!(await exists(projectDataDir))) return [];
+    const entries = await fs.promises.readdir(projectDataDir, { withFileTypes: true });
+    const semanticEntries = entries.filter(
+      (entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.semantic.xml'),
+    );
+    const results: PageEntry[] = [];
+    for (const entry of semanticEntries) {
+      const semanticPath = path.join(projectDataDir, entry.name);
+      results.push({
+        page: await readPageRecordFromSemanticXml(semanticPath),
+        pagePath: stemPathFromVariantPath(semanticPath, 'semantic'),
       });
+    }
+    return results.sort((left, right) => {
+      if (left.page.sort_order !== right.page.sort_order)
+        return left.page.sort_order - right.page.sort_order;
+      return left.page.created_at.localeCompare(right.page.created_at);
+    });
   }
 
-  private replaceStoredPage(
+  private async replaceStoredPage(
     projectDir: string,
     pagePath: string,
     page: Page,
-  ): void {
-    const { boardItems, connectorLinks } = this.readPageXmlFile(
+  ): Promise<void> {
+    const { boardItems, connectorLinks } = await this.readPageXmlFile(
       pagePath,
       page,
       this.projectDataDir(projectDir),
     );
-    this.writePageXml(pagePath, page, boardItems, connectorLinks);
+    await this.writePageXml(pagePath, page, boardItems, connectorLinks);
   }
 
-  private renumberProjectPages(projectDir: string): void {
+  private async renumberProjectPages(projectDir: string): Promise<void> {
     const timestamp = utcTimestamp();
-    for (const [sortOrder, entry] of this.pageEntriesFromProject(
-      projectDir,
-    ).entries()) {
-      this.replaceStoredPage(projectDir, entry.pagePath, {
+    const entries = await this.pageEntriesFromProject(projectDir);
+    for (let sortOrder = 0; sortOrder < entries.length; sortOrder++) {
+      const entry = entries[sortOrder];
+      await this.replaceStoredPage(projectDir, entry.pagePath, {
         ...entry.page,
         sort_order: sortOrder,
         updated_at: timestamp,
@@ -1444,28 +1471,28 @@ export class WhiteboardRepository {
     };
   }
 
-  private persistPageBoard(
+  private async persistPageBoard(
     page: Page,
     boardItems: BoardItem[],
     connectorLinks: ConnectorLink[],
-  ): void {
+  ): Promise<void> {
     const {
       projectDir,
       metadata,
       page: currentPage,
       pagePath,
-    } = this.findPageMetadata(page.id);
+    } = await this.findPageMetadata(page.id);
     const nextPage = { ...currentPage, updated_at: utcTimestamp() };
     this.touchProject(metadata, nextPage.updated_at);
-    writeJsonAtomic(this.metadataPath(projectDir), metadata);
-    this.writePageXml(pagePath, nextPage, boardItems, connectorLinks);
+    await writeJsonAtomic(this.metadataPath(projectDir), metadata);
+    await this.writePageXml(pagePath, nextPage, boardItems, connectorLinks);
   }
 
-  private readPageXml(pageId: string): {
+  private async readPageXml(pageId: string): Promise<{
     boardItems: BoardItem[];
     connectorLinks: ConnectorLink[];
-  } {
-    const { projectDir, page, pagePath } = this.findPageMetadata(pageId);
+  }> {
+    const { projectDir, page, pagePath } = await this.findPageMetadata(pageId);
     return this.readPageXmlFile(
       pagePath,
       page,
@@ -1473,24 +1500,24 @@ export class WhiteboardRepository {
     );
   }
 
-  private readPageXmlFile(
+  private async readPageXmlFile(
     pagePath: string,
     page: Page,
     projectDataDir: string,
-  ): {
+  ): Promise<{
     boardItems: BoardItem[];
     connectorLinks: ConnectorLink[];
-  } {
+  }> {
     const semanticPath = pageSemanticPath(pagePath);
     const presentationPath = pagePresentationPath(pagePath);
-    if (!fs.existsSync(semanticPath) || !fs.existsSync(presentationPath)) {
+    if (!(await exists(semanticPath)) || !(await exists(presentationPath))) {
       return { boardItems: [], connectorLinks: [] };
     }
     let semanticXml: string;
     let presentationXml: string;
     try {
-      semanticXml = fs.readFileSync(semanticPath, 'utf8');
-      presentationXml = fs.readFileSync(presentationPath, 'utf8');
+      semanticXml = await fs.promises.readFile(semanticPath, 'utf8');
+      presentationXml = await fs.promises.readFile(presentationPath, 'utf8');
     } catch (error) {
       throw new HttpError(
         500,
@@ -1509,21 +1536,23 @@ export class WhiteboardRepository {
         { attributes: parseAttributes(match[1]), body: match[2] ?? '' },
       ]),
     );
-    const boardItems = [
-      ...semanticObjectsBlock.matchAll(
-        /<object\s+([^>]*)>([\s\S]*?)<\/object>/g,
-      ),
-    ]
-      .map((match) =>
-        this.boardItemFromV2Xml(
-          match[1],
-          match[2],
-          presentationByRef,
-          page.id,
-          projectDataDir,
+    const boardItems = (
+      await Promise.all(
+        [
+          ...semanticObjectsBlock.matchAll(
+            /<object\s+([^>]*)>([\s\S]*?)<\/object>/g,
+          ),
+        ].map((match) =>
+          this.boardItemFromV2Xml(
+            match[1],
+            match[2],
+            presentationByRef,
+            page.id,
+            projectDataDir,
+          ),
         ),
       )
-      .sort(compareBoardItems);
+    ).sort(compareBoardItems);
     const semanticLinksBlock = childBlock(semanticXml, 'links') ?? '';
     const connectorLinks = [
       ...semanticLinksBlock.matchAll(/<link\s+([^>]*?)>([\s\S]*?)<\/link>/g),
@@ -1535,16 +1564,18 @@ export class WhiteboardRepository {
     return { boardItems, connectorLinks };
   }
 
-  private writePageXml(
+  private async writePageXml(
     pagePath: string,
     page: Page,
     boardItems: BoardItem[],
     connectorLinks: ConnectorLink[],
-  ): void {
+  ): Promise<void> {
     const projectDataDir = path.dirname(pagePath);
-    const persistedItems = [...boardItems]
-      .sort(compareBoardItems)
-      .map((item) => this.writeMarkdownBackedNote(projectDataDir, item));
+    const persistedItems = await Promise.all(
+      [...boardItems]
+        .sort(compareBoardItems)
+        .map((item) => this.writeMarkdownBackedNote(projectDataDir, item)),
+    );
     const itemById = new Map(persistedItems.map((item) => [item.id, item]));
     const connectors = [...connectorLinks].sort((left, right) =>
       left.id.localeCompare(right.id),
@@ -1649,17 +1680,17 @@ export class WhiteboardRepository {
       presentationLines.push('    </item>');
     }
     presentationLines.push('  </items>', '</page_presentation>', '');
-    writeXmlLinesAtomic(pageSemanticPath(pagePath), semanticLines);
-    writeXmlLinesAtomic(pagePresentationPath(pagePath), presentationLines);
-    fs.rmSync(pagePath, { force: true });
+    await writeXmlLinesAtomic(pageSemanticPath(pagePath), semanticLines);
+    await writeXmlLinesAtomic(pagePresentationPath(pagePath), presentationLines);
+    await fs.promises.rm(pagePath, { force: true });
   }
 
-  private boardItemFromXml(
+  private async boardItemFromXml(
     attributeSource: string,
     body: string,
     pageId: string,
     projectDataDir: string,
-  ): BoardItem {
+  ): Promise<BoardItem> {
     const attributes = parseAttributes(attributeSource);
     const item: BoardItem = {
       id: requiredAttribute(attributes, 'id'),
@@ -1682,10 +1713,10 @@ export class WhiteboardRepository {
       created_at: requiredAttribute(attributes, 'created_at'),
       updated_at: requiredAttribute(attributes, 'updated_at'),
     };
-    return this.readMarkdownBackedNote(projectDataDir, item);
+    return await this.readMarkdownBackedNote(projectDataDir, item);
   }
 
-  private boardItemFromV2Xml(
+  private async boardItemFromV2Xml(
     attributeSource: string,
     body: string,
     presentationByRef: Map<
@@ -1694,7 +1725,7 @@ export class WhiteboardRepository {
     >,
     pageId: string,
     projectDataDir: string,
-  ): BoardItem {
+  ): Promise<BoardItem> {
     const semanticAttributes = parseAttributes(attributeSource);
     const id = requiredAttribute(semanticAttributes, 'id');
     const presentation = presentationByRef.get(id);
@@ -1727,22 +1758,22 @@ export class WhiteboardRepository {
       created_at: semanticAttributes.created_at ?? now,
       updated_at: semanticAttributes.updated_at ?? now,
     };
-    return this.readMarkdownBackedNote(projectDataDir, item);
+    return await this.readMarkdownBackedNote(projectDataDir, item);
   }
 
-  private readMarkdownBackedNote(
+  private async readMarkdownBackedNote(
     projectDataDir: string,
     item: BoardItem,
-  ): BoardItem {
+  ): Promise<BoardItem> {
     if (item.type !== 'note_paper') return item;
     const noteFile = this.noteFileFromDataJson(item.data_json);
     if (!noteFile) return item;
     const notePath = this.notePath(projectDataDir, noteFile);
-    if (!notePath || !fs.existsSync(notePath)) return item;
+    if (!notePath || !(await exists(notePath))) return item;
     try {
       return {
         ...item,
-        content: fs.readFileSync(notePath, 'utf8'),
+        content: await fs.promises.readFile(notePath, 'utf8'),
         content_format: 'markdown',
       };
     } catch {
@@ -1750,19 +1781,19 @@ export class WhiteboardRepository {
     }
   }
 
-  deleteProjectNote(projectId: string, noteFile: string): void {
-    const { projectDir } = this.findProjectMetadata(projectId);
+  async deleteProjectNote(projectId: string, noteFile: string): Promise<void> {
+    const { projectDir } = await this.findProjectMetadata(projectId);
     const projectDataDir = this.projectDataDir(projectDir);
     const notePath = this.notePath(projectDataDir, noteFile);
 
-    if (notePath && fs.existsSync(notePath)) {
-      fs.unlinkSync(notePath);
+    if (notePath && (await exists(notePath))) {
+      await fs.promises.unlink(notePath);
     }
 
     // Cleanup all note_paper items pointing to this file across all pages of the project
-    const pages = this.pagesFromProject(projectDir);
+    const pages = await this.pagesFromProject(projectDir);
     for (const page of pages) {
-      const { boardItems, connectorLinks } = this.readPageXml(page.id);
+      const { boardItems, connectorLinks } = await this.readPageXml(page.id);
       const originalCount = boardItems.length;
       const nextBoardItems = boardItems.filter((item) => {
         if (item.type !== 'note_paper') return true;
@@ -1770,15 +1801,15 @@ export class WhiteboardRepository {
       });
 
       if (nextBoardItems.length !== originalCount) {
-        this.persistPageBoard(page, nextBoardItems, connectorLinks);
+        await this.persistPageBoard(page, nextBoardItems, connectorLinks);
       }
     }
   }
 
-  private writeMarkdownBackedNote(
+  private async writeMarkdownBackedNote(
     projectDataDir: string,
     item: BoardItem,
-  ): BoardItem {
+  ): Promise<BoardItem> {
     if (item.type !== 'note_paper') return item;
     const existingNoteData = parseJsonObject(item.data_json);
     const existingNoteFile = this.noteFileFromDataJson(item.data_json);
@@ -1787,16 +1818,16 @@ export class WhiteboardRepository {
     const noteFile =
       existingNoteFile ??
       path.basename(
-        uniquePath(
+        await uniquePath(
           projectDataDir,
           slugify(title, `note-${item.id}`),
           noteFileExtension,
         ),
       );
     const notePath = this.notePath(projectDataDir, noteFile);
-    if (notePath && (item.content !== null || !fs.existsSync(notePath))) {
-      fs.mkdirSync(projectDataDir, { recursive: true });
-      fs.writeFileSync(notePath, item.content ?? '', 'utf8');
+    if (notePath && (item.content !== null || !(await exists(notePath)))) {
+      await fs.promises.mkdir(projectDataDir, { recursive: true });
+      await fs.promises.writeFile(notePath, item.content ?? '', 'utf8');
     }
     const noteData = {
       ...existingNoteData,
@@ -1815,31 +1846,31 @@ export class WhiteboardRepository {
     };
   }
 
-  private renameProjectNoteFile(
+  private async renameProjectNoteFile(
     projectDir: string,
     previousNoteFile: string,
     nextNoteFile: string,
-  ): void {
-    const metadata = this.ensureProjectMetadata(projectDir, utcTimestamp());
+  ): Promise<void> {
+    const metadata = await this.ensureProjectMetadata(projectDir, utcTimestamp());
     const projectDataDir = this.projectDataDir(projectDir);
     const previousPath = this.notePath(projectDataDir, previousNoteFile);
     const nextPath = this.notePath(projectDataDir, nextNoteFile);
     if (!previousPath || !nextPath) return;
 
-    const content = fs.existsSync(nextPath)
-      ? fs.readFileSync(nextPath, 'utf8')
-      : fs.existsSync(previousPath)
-        ? fs.readFileSync(previousPath, 'utf8')
+    const content = (await exists(nextPath))
+      ? await fs.promises.readFile(nextPath, 'utf8')
+      : (await exists(previousPath))
+        ? await fs.promises.readFile(previousPath, 'utf8')
         : '';
-    fs.mkdirSync(projectDataDir, { recursive: true });
-    fs.writeFileSync(nextPath, content, 'utf8');
+    await fs.promises.mkdir(projectDataDir, { recursive: true });
+    await fs.promises.writeFile(nextPath, content, 'utf8');
 
-    const pages = this.pagesFromProject(projectDir);
+    const pages = await this.pagesFromProject(projectDir);
     const timestamp = utcTimestamp();
     let changed = false;
     for (const page of pages) {
-      const pagePath = this.findPageMetadata(page.id).pagePath;
-      const { boardItems } = this.readPageXmlFile(
+      const pagePath = (await this.findPageMetadata(page.id)).pagePath;
+      const { boardItems } = await this.readPageXmlFile(
         pagePath,
         page,
         projectDataDir,
@@ -1863,20 +1894,20 @@ export class WhiteboardRepository {
 
       if (!pageChanged) continue;
       changed = true;
-      const { connectorLinks } = this.readPageXmlFile(
+      const { connectorLinks } = await this.readPageXmlFile(
         pagePath,
         page,
         projectDataDir,
       );
       const nextPage = { ...page, updated_at: timestamp };
-      this.writePageXml(pagePath, nextPage, nextBoardItems, connectorLinks);
+      await this.writePageXml(pagePath, nextPage, nextBoardItems, connectorLinks);
     }
 
     if (changed) {
       this.touchProject(metadata, timestamp);
-      writeJsonAtomic(this.metadataPath(projectDir), metadata);
+      await writeJsonAtomic(this.metadataPath(projectDir), metadata);
     }
-    if (fs.existsSync(previousPath)) fs.rmSync(previousPath, { force: true });
+    if (await exists(previousPath)) await fs.promises.rm(previousPath, { force: true });
   }
 
   private noteFileFromDataJson(dataJson: string | null): string | null {
@@ -1895,20 +1926,20 @@ export class WhiteboardRepository {
     return notePath;
   }
 
-  private findPageForBoardItem(itemId: string): Page {
-    for (const page of this.allPages()) {
+  private async findPageForBoardItem(itemId: string): Promise<Page> {
+    for (const page of await this.allPages()) {
       if (
-        this.readPageXml(page.id).boardItems.some((item) => item.id === itemId)
+        (await this.readPageXml(page.id)).boardItems.some((item) => item.id === itemId)
       )
         return page;
     }
     throw new HttpError(404, `Board item '${itemId}' was not found.`);
   }
 
-  private findPageForConnector(connectorId: string): Page {
-    for (const page of this.allPages()) {
+  private async findPageForConnector(connectorId: string): Promise<Page> {
+    for (const page of await this.allPages()) {
       if (
-        this.readPageXml(page.id).connectorLinks.some(
+        (await this.readPageXml(page.id)).connectorLinks.some(
           (connector) => connector.id === connectorId,
         )
       )
@@ -2025,15 +2056,15 @@ export class WhiteboardRepository {
     return duplicatedItemId ?? null;
   }
 
-  private validateConnectorPayload(
+  private async validateConnectorPayload(
     payload: ConnectorLinkCreatePayload | ConnectorLinkUpdatePayload,
-  ): BoardItem {
-    const connectorItem = this.getBoardItem(payload.connector_item_id);
+  ): Promise<BoardItem> {
+    const connectorItem = await this.getBoardItem(payload.connector_item_id);
     const fromItem = payload.from_item_id
-      ? this.getBoardItem(payload.from_item_id)
+      ? await this.getBoardItem(payload.from_item_id)
       : null;
     const toItem = payload.to_item_id
-      ? this.getBoardItem(payload.to_item_id)
+      ? await this.getBoardItem(payload.to_item_id)
       : null;
     this.validateConnectorTargets(connectorItem, fromItem, toItem);
     return connectorItem;
@@ -2121,57 +2152,66 @@ function slugify(value: string, fallback = 'untitled'): string {
   return normalized.slice(0, 80) || fallback;
 }
 
-function uniquePath(parent: string, stem: string, suffix = ''): string {
+async function exists(targetPath: string): Promise<boolean> {
+  try {
+    await fs.promises.access(targetPath, fs.constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function uniquePath(parent: string, stem: string, suffix = ''): Promise<string> {
   let candidate = path.join(parent, `${stem}${suffix}`);
   let index = 2;
-  while (fs.existsSync(candidate)) {
+  while (await exists(candidate)) {
     candidate = path.join(parent, `${stem}-${index}${suffix}`);
     index += 1;
   }
   return candidate;
 }
 
-function uniquePagePath(parent: string, stem: string): string {
+async function uniquePagePath(parent: string, stem: string): Promise<string> {
   let candidate = path.join(parent, `${stem}.xml`);
   let index = 2;
-  while (pageXmlFilesExist(candidate)) {
+  while (await pageXmlFilesExist(candidate)) {
     candidate = path.join(parent, `${stem}-${index}.xml`);
     index += 1;
   }
   return candidate;
 }
 
-function pagePathForName(
+async function pagePathForName(
   parent: string,
   currentPagePath: string,
   pageName: string,
-): string {
+): Promise<string> {
   const nextPath = path.join(parent, `${slugify(pageName, 'page')}.xml`);
   if (sameFilesystemPath(nextPath, currentPagePath)) return currentPagePath;
   return uniquePagePath(parent, slugify(pageName, 'page'));
 }
 
-function pageXmlFilesExist(pagePath: string): boolean {
+async function pageXmlFilesExist(pagePath: string): Promise<boolean> {
   return (
-    fs.existsSync(pagePath) ||
-    fs.existsSync(pageSemanticPath(pagePath)) ||
-    fs.existsSync(pagePresentationPath(pagePath))
+    (await exists(pagePath)) ||
+    (await exists(pageSemanticPath(pagePath))) ||
+    (await exists(pagePresentationPath(pagePath)))
   );
 }
 
-function writeJsonAtomic(targetPath: string, payload: unknown): void {
-  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+async function writeJsonAtomic(targetPath: string, payload: unknown): Promise<void> {
+  await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
   const tempPath = path.join(
     path.dirname(targetPath),
     `.tmp-${randomUUID()}.json`,
   );
-  fs.writeFileSync(tempPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
-  fs.renameSync(tempPath, targetPath);
+  await fs.promises.writeFile(tempPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  await fs.promises.rename(tempPath, targetPath);
 }
 
-function readJson(targetPath: string): Record<string, unknown> {
+async function readJson(targetPath: string): Promise<Record<string, unknown>> {
   try {
-    const payload = JSON.parse(fs.readFileSync(targetPath, 'utf8')) as unknown;
+    const payload = JSON.parse(await fs.promises.readFile(targetPath, 'utf8')) as unknown;
     if (
       typeof payload === 'object' &&
       payload !== null &&
@@ -2560,10 +2600,10 @@ function stemPathFromVariantPath(
   return `${variantPath.slice(0, -suffix.length)}.xml`;
 }
 
-function readPageRecordFromSemanticXml(semanticPath: string): Page {
+async function readPageRecordFromSemanticXml(semanticPath: string): Promise<Page> {
   let semanticXml: string;
   try {
-    semanticXml = fs.readFileSync(semanticPath, 'utf8');
+    semanticXml = await fs.promises.readFile(semanticPath, 'utf8');
   } catch {
     throw new HttpError(500, `Page XML '${semanticPath}' could not be read.`);
   }
@@ -2590,23 +2630,23 @@ function readPageRecordFromSemanticXml(semanticPath: string): Page {
   };
 }
 
-function writeXmlLinesAtomic(targetPath: string, lines: string[]): void {
-  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+async function writeXmlLinesAtomic(targetPath: string, lines: string[]): Promise<void> {
+  await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
   const tempPath = path.join(
     path.dirname(targetPath),
     `.tmp-${randomUUID()}.xml`,
   );
-  fs.writeFileSync(tempPath, lines.join('\n'), 'utf8');
-  fs.renameSync(tempPath, targetPath);
+  await fs.promises.writeFile(tempPath, lines.join('\n'), 'utf8');
+  await fs.promises.rename(tempPath, targetPath);
 }
 
-function deletePageXmlFiles(pagePath: string): void {
+async function deletePageXmlFiles(pagePath: string): Promise<void> {
   for (const targetPath of [
     pagePath,
     pageSemanticPath(pagePath),
     pagePresentationPath(pagePath),
   ]) {
-    fs.rmSync(targetPath, { force: true });
+    await fs.promises.rm(targetPath, { force: true });
   }
 }
 

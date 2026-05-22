@@ -1,4 +1,4 @@
-﻿# Whiteboard Planning App Spec
+# Whiteboard Planning App Spec
 
 ## Persistence Update Notes
 
@@ -107,6 +107,10 @@
 ## Table And Small-Item Sizing Update Notes
 
 - `table` must support up to `20 x 20` cells.
+- `table` edge controls must allow adding a row above or below the current table, and adding a column to the left or right of the current table.
+- Adding a `table` row or column from an outer edge must grow the table outward in that direction while preserving the existing cells' pixel sizes and positions.
+- Deleting a `table` row or column must remove that row or column, delete any `small_item` children contained by the removed cells, and close the remaining cells together.
+- When a `table` changes size or row / column structure, surviving `small_item` children must follow their containing cell through the table cell layout, not keep absolute canvas positions.
 - Every `table` cell must stay at least as large as the minimum `text_box` size.
 - Clicking the toolbar `table` tool opens a fixed-origin table insertion preview that expands away from the toolbar dock: down-right for top/left toolbars, up-right for bottom toolbars, and down-left for right toolbars. Clicking the `table` tool again cancels the pending table insertion.
 - The minimum `text_box`, `sticky_note`, and `table` cell size should be `48 x 48`, matching two default text line-heights while staying aligned to the canvas grid.
@@ -159,6 +163,14 @@
 - Mini map 應顯示當前 viewport 的位置框，使用者可拖曳 viewport 框來平移畫布。
 - Mini map 應能正確顯示已縮回的 `frame` 物件之代表內容，不得因縮回狀態顯示錯誤範圍。
 - 切換到 Page 時，若 Page 有既有物件，初始 viewport 應設定為讓所有物件適合在 80% 的畫布可見範圍內；若 Page 為空，使用預設縮放。
+
+## Cross-Page Copy and Paste Update Notes
+
+- Clipboard data must be stored in `window.localStorage` (or memory fallback if `window.localStorage` is unavailable) to allow copy-pasting of whiteboard items across different pages (and different projects).
+- Clipboard entries store the original item IDs and the full payloads of the selected items (retaining hierarchy like parent frame IDs).
+- When pasting, the paste count is incremented, and items are offset on the target page based on the paste count to avoid visual overlap.
+- When copying new items, the paste count is reset to 0.
+- When copy-pasting objects, any parent-child frame containment relationships between the copied objects must be preserved by mapping parent IDs to their newly pasted equivalent IDs.
 
 ## 1. 專案背景
 

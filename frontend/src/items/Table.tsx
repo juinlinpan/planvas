@@ -16,12 +16,15 @@ import {
   parseTableData,
   preserveOuterAddColLayout,
   preserveOuterAddRowLayout,
+  preserveOuterPrependColLayout,
+  preserveOuterPrependRowLayout,
   resizeColGroup,
   resizeRowGroup,
   DEFAULT_TABLE_LABEL_FONT_SIZE,
   sanitizeTableName,
   TABLE_CELL_MIN_HEIGHT,
   TABLE_CELL_MIN_WIDTH,
+  TABLE_MAX_DIMENSION,
   type SegmentGroup,
   serializeTableData,
   splitCellHorizontal,
@@ -522,12 +525,74 @@ export function Table({
 
   // ── Add row / col ────────────────────────────────────────────────────────
 
-  function handleAddRow(afterIndex: number) {
-    handleUpdate(addRow(tableData, afterIndex));
+  function handleAddOuterRow(edge: 'top' | 'bottom') {
+    if (tableData.rows >= TABLE_MAX_DIMENSION) {
+      return;
+    }
+
+    const nextHeight = Math.round(
+      (item.height * (tableData.rows + 1)) / tableData.rows,
+    );
+    const insertedData =
+      edge === 'top'
+        ? addRow(tableData, -1)
+        : addRow(tableData, tableData.rows - 1);
+    const nextData =
+      edge === 'top'
+        ? preserveOuterPrependRowLayout(
+            tableData,
+            insertedData,
+            item.height,
+            nextHeight,
+          )
+        : preserveOuterAddRowLayout(
+            tableData,
+            insertedData,
+            item.height,
+            nextHeight,
+          );
+
+    onUpdate({
+      ...item,
+      y: edge === 'top' ? item.y - (nextHeight - item.height) : item.y,
+      data_json: serializeTableData(nextData),
+      height: nextHeight,
+    });
   }
 
-  function handleAddCol(afterIndex: number) {
-    handleUpdate(addCol(tableData, afterIndex));
+  function handleAddOuterCol(edge: 'left' | 'right') {
+    if (tableData.cols >= TABLE_MAX_DIMENSION) {
+      return;
+    }
+
+    const nextWidth = Math.round(
+      (item.width * (tableData.cols + 1)) / tableData.cols,
+    );
+    const insertedData =
+      edge === 'left'
+        ? addCol(tableData, -1)
+        : addCol(tableData, tableData.cols - 1);
+    const nextData =
+      edge === 'left'
+        ? preserveOuterPrependColLayout(
+            tableData,
+            insertedData,
+            item.width,
+            nextWidth,
+          )
+        : preserveOuterAddColLayout(
+            tableData,
+            insertedData,
+            item.width,
+            nextWidth,
+          );
+
+    onUpdate({
+      ...item,
+      x: edge === 'left' ? item.x - (nextWidth - item.width) : item.x,
+      data_json: serializeTableData(nextData),
+      width: nextWidth,
+    });
   }
 
   // ── onEditEnd propagation ────────────────────────────────────────────────
@@ -846,7 +911,43 @@ export function Table({
           );
         })}
 
-      {/* Add row at end — expands table height so existing rows keep pixel size */}
+      {/* Add rows / columns at the table edges while existing cells keep pixel size */}
+      {showsStructureControls && (
+        <div className="table-v2-add-row-start">
+          <button
+            type="button"
+            className="table-v2-add-edge-btn"
+            aria-label="Add row above"
+            title="Add row above"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddOuterRow('top');
+            }}
+          >
+            + 列
+          </button>
+        </div>
+      )}
+
+      {showsStructureControls && (
+        <div className="table-v2-add-col-start">
+          <button
+            type="button"
+            className="table-v2-add-edge-btn table-v2-add-edge-btn--col"
+            aria-label="Add column left"
+            title="Add column left"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddOuterCol('left');
+            }}
+          >
+            + 欄
+          </button>
+        </div>
+      )}
+
       {showsStructureControls && (
         <div className="table-v2-add-row-end">
           <button
@@ -855,20 +956,7 @@ export function Table({
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
-              const nextHeight = Math.round(
-                (item.height * (tableData.rows + 1)) / tableData.rows,
-              );
-              const nextData = preserveOuterAddRowLayout(
-                tableData,
-                addRow(tableData, tableData.rows - 1),
-                item.height,
-                nextHeight,
-              );
-              onUpdate({
-                ...item,
-                data_json: serializeTableData(nextData),
-                height: nextHeight,
-              });
+              handleAddOuterRow('bottom');
             }}
           >
             + 列
@@ -885,20 +973,7 @@ export function Table({
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
-              const nextWidth = Math.round(
-                (item.width * (tableData.cols + 1)) / tableData.cols,
-              );
-              const nextData = preserveOuterAddColLayout(
-                tableData,
-                addCol(tableData, tableData.cols - 1),
-                item.width,
-                nextWidth,
-              );
-              onUpdate({
-                ...item,
-                data_json: serializeTableData(nextData),
-                width: nextWidth,
-              });
+              handleAddOuterCol('right');
             }}
           >
             + 欄

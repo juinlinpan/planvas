@@ -51,6 +51,10 @@ describe('Table', () => {
 
     expect(markup).toContain('table-v2-col-divider');
     expect(markup).toContain('table-v2-row-divider');
+    expect(markup).toContain('table-v2-add-row-start');
+    expect(markup).toContain('table-v2-add-row-end');
+    expect(markup).toContain('table-v2-add-col-start');
+    expect(markup).toContain('table-v2-add-col-end');
     expect(markup).not.toContain('table-v2-add-btn');
   });
 

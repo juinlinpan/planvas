@@ -285,7 +285,9 @@
 }
 
 /* Add row / col at edge */
+.table-v2-add-row-start,
 .table-v2-add-row-end,
+.table-v2-add-col-start,
 .table-v2-add-col-end {
   position: absolute;
   display: flex;
@@ -297,10 +299,20 @@
   pointer-events: none;
 }
 
+.table-v2:hover .table-v2-add-row-start,
 .table-v2:hover .table-v2-add-row-end,
+.table-v2:hover .table-v2-add-col-start,
 .table-v2:hover .table-v2-add-col-end {
   opacity: 1;
   pointer-events: auto;
+}
+
+.table-v2-add-row-start {
+  left: 0;
+  right: 0;
+  top: -18px;
+  min-height: 36px;
+  padding-bottom: 4px;
 }
 
 .table-v2-add-row-end {
@@ -309,6 +321,15 @@
   bottom: -18px;
   min-height: 36px;
   padding-top: 4px;
+}
+
+.table-v2-add-col-start {
+  top: 0;
+  bottom: 0;
+  left: -18px;
+  min-width: 36px;
+  padding-right: 4px;
+  flex-direction: column;
 }
 
 .table-v2-add-col-end {

@@ -1864,7 +1864,9 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
             colSpan,
           );
 
-          const newChildIds = [...existingChildIds, absorbedItemId];
+          const newChildIds = existingChildIds.includes(absorbedItemId)
+            ? existingChildIds
+            : [...existingChildIds, absorbedItemId];
           const nextTableData = updateTableCell(
             tableData,
             tableCellHit.cellId,

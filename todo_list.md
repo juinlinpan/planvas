@@ -1,4 +1,4 @@
-﻿# Whiteboard Planner Todo List
+# Whiteboard Planner Todo List
 
 ## Persistence Redesign Notes
 
@@ -127,6 +127,7 @@
 - [x] Raise the `table` dimension cap from `12 x 12` to `20 x 20`.
 - [x] Make every `table` cell respect the minimum `text_box` size.
 - [x] Make toolbar table insertion preview expand away from the current toolbar dock and allow a second table-tool click to cancel insertion.
+- [x] Let table edge controls add rows above or below and columns to the left or right.
 - [x] Set the minimum `text_box`, `sticky_note`, and `table` cell size to `48 x 48`, matching two default text line-heights while staying grid-aligned.
 - [x] Verify every board item minimum size, including `line`, `arrow`, and dynamic `table` minimum sizes, stays aligned to whole canvas grid units.
 - [x] Snap internal `table` row and column divider dragging to the canvas grid when `magnet` is enabled, with `Alt` as the temporary bypass.
@@ -176,6 +177,13 @@
 - [x] mini map 內以矩形顯示目前 viewport 位置與比例
 - [x] mini map 支援點擊與拖拉，可快速移動到畫布任意位置
 - [x] 新增 Page 後將 viewport 初始化至覆蓋 80% 畫布內容的最適縮放比例
+
+## Cross-Page Copy and Paste Update Notes
+
+- [x] Implement localStorage-backed clipboard helpers for cross-page copying and pasting.
+- [x] Update canvas copy, cut, paste, and check actions to read and write from localStorage with a memory fallback.
+- [x] Ensure that pasting offsets items to prevent visual overlap.
+- [x] Ensure that copy-pasting objects preserves parent-child frame containment relationships.
 
 請參考 `spec.md` 的完整需求說明與驗收條件，以下 MVP Todo 排列依建議實作順序，已完成項目以 [x] 標記。
 

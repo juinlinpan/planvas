@@ -79,7 +79,7 @@ export function createRequestHandler(
     try {
       const url = new URL(request.url ?? '/', 'http://127.0.0.1');
       if (request.method === 'GET' && url.pathname === '/') {
-        serveFrontendIndex(settings, response);
+        await serveFrontendIndex(settings, response);
         logRequestDuration(
           settings,
           requestLabel,
@@ -89,7 +89,7 @@ export function createRequestHandler(
         return;
       }
       if (request.method === 'GET' && url.pathname.startsWith('/assets/')) {
-        serveAsset(settings, url.pathname, response);
+        await serveAsset(settings, url.pathname, response);
         logRequestDuration(
           settings,
           requestLabel,
@@ -458,7 +458,10 @@ async function readRequestBody(request: IncomingMessage): Promise<unknown> {
 type DirEntry = { name: string; path: string };
 type DirListing = { current: string; home: string; dirs: DirEntry[] };
 
-function listDirectoryContents(settings: AppSettings, url: URL): DirListing {
+async function listDirectoryContents(
+  settings: AppSettings,
+  url: URL,
+): Promise<DirListing> {
   const home = path.dirname(settings.planvasRoot);
   const rawPath = url.searchParams.get('path');
   const target = rawPath ? path.resolve(rawPath) : home;
@@ -475,7 +478,9 @@ function listDirectoryContents(settings: AppSettings, url: URL): DirListing {
 
   let entries: fs.Dirent[];
   try {
-    entries = fs.readdirSync(normalizedTarget, { withFileTypes: true });
+    entries = await fs.promises.readdir(normalizedTarget, {
+      withFileTypes: true,
+    });
   } catch {
     throw new HttpError(400, `Cannot read directory: ${normalizedTarget}`);
   }
@@ -560,11 +565,20 @@ if ($null -ne $folder) {
   });
 }
 
-function serveFrontendIndex(
+async function fileExists(targetPath: string): Promise<boolean> {
+  try {
+    await fs.promises.access(targetPath, fs.constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function serveFrontendIndex(
   settings: AppSettings,
   response: ServerResponse,
-): void {
-  if (!fs.existsSync(settings.frontendIndexPath)) {
+): Promise<void> {
+  if (!(await fileExists(settings.frontendIndexPath))) {
     sendText(
       response,
       503,
@@ -575,11 +589,11 @@ function serveFrontendIndex(
   sendFile(response, settings.frontendIndexPath, 'text/html; charset=utf-8');
 }
 
-function serveAsset(
+async function serveAsset(
   settings: AppSettings,
   urlPath: string,
   response: ServerResponse,
-): void {
+): Promise<void> {
   const relativeAsset = urlPath.replace(/^\/assets\//, '');
   const assetPath = path.resolve(
     settings.frontendDistDir,
@@ -590,12 +604,20 @@ function serveAsset(
   const relativeToAssetsRoot = path.relative(assetsRoot, assetPath);
   if (
     relativeToAssetsRoot.startsWith('..') ||
-    path.isAbsolute(relativeToAssetsRoot) ||
-    !fs.existsSync(assetPath) ||
-    !fs.statSync(assetPath).isFile()
+    path.isAbsolute(relativeToAssetsRoot)
   ) {
     throw new HttpError(404, 'Request path was not found.');
   }
+
+  try {
+    const stat = await fs.promises.stat(assetPath);
+    if (!stat.isFile()) {
+      throw new Error();
+    }
+  } catch {
+    throw new HttpError(404, 'Request path was not found.');
+  }
+
   sendFile(response, assetPath, contentTypeFor(assetPath));
 }
 

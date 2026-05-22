@@ -12,6 +12,8 @@ export {
   getChildItemIdsInRows,
   getEffectiveTableCellChildLayoutDirection,
   getNextTableLayoutUpdatedAt,
+  getTableCellIdsInCols,
+  getTableCellIdsInRows,
   getTableCellDeleteOperation,
   getTableCellSummary,
   mergeCells,

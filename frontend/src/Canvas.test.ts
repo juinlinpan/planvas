@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import type { BoardItem, ConnectorLink, ProjectNote } from './api';
 import { resolveSidebarNoteDragFile } from './Canvas';
-import { buildClipboardPayload } from './useCanvasItemActions';
+import {
+  buildClipboardPayload,
+  getClipboardData,
+  setClipboardData,
+  getPasteCount,
+  setPasteCount,
+  generateUUID,
+} from './useCanvasItemActions';
 import {
   getAutoAnchors,
   getConnectorPoints,
@@ -483,5 +490,87 @@ describe('connector geometry helpers', () => {
     expect(migratedArrow?.data_json).toContain(
       '"endConnection":{"itemId":"to-item","anchor":"left"}',
     );
+  });
+
+  describe('clipboard helpers', () => {
+    it('generates a valid UUID v4', () => {
+      const uuid = generateUUID();
+      expect(uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+    });
+
+    it('saves and restores clipboard data and paste count from localStorage/memory fallback', () => {
+      // Mock window and localStorage in Node test environment if not present
+      const hasWindow = typeof window !== 'undefined';
+      if (!hasWindow) {
+        const store = new Map<string, string>();
+        const mockLocalStorage = {
+          getItem: (key: string) => store.get(key) ?? null,
+          setItem: (key: string, val: string) => store.set(key, val),
+          removeItem: (key: string) => store.delete(key),
+          clear: () => store.clear(),
+        };
+        (globalThis as any).window = {
+          localStorage: mockLocalStorage,
+        };
+      }
+
+      try {
+        // Clear before test
+        setClipboardData(null);
+        setPasteCount(0);
+
+        expect(getClipboardData()).toBeNull();
+        expect(getPasteCount()).toBe(0);
+
+        const testPayload = {
+          items: [
+            {
+              sourceId: 'item-1',
+              payload: {
+                page_id: 'page-1',
+                parent_item_id: null,
+                category: 'small_item' as any,
+                type: 'text_box',
+                title: 'Test',
+                content: 'Content',
+                content_format: 'plain_text',
+                x: 10,
+                y: 20,
+                width: 100,
+                height: 50,
+                rotation: 0,
+                z_index: 1,
+                is_collapsed: false,
+                style_json: null,
+                data_json: null,
+              },
+            },
+          ],
+        };
+
+        setClipboardData(testPayload);
+        setPasteCount(3);
+
+        expect(getClipboardData()).toEqual(testPayload);
+        expect(getPasteCount()).toBe(3);
+
+        // Verify that it is in localStorage
+        const stored = window.localStorage.getItem('planvas_clipboard');
+        expect(stored).not.toBeNull();
+        expect(JSON.parse(stored!)).toEqual(testPayload);
+
+        const storedCount = window.localStorage.getItem('planvas_paste_count');
+        expect(storedCount).toBe('3');
+
+        // Clear
+        setClipboardData(null);
+        expect(getClipboardData()).toBeNull();
+        expect(window.localStorage.getItem('planvas_clipboard')).toBeNull();
+      } finally {
+        if (!hasWindow) {
+          delete (globalThis as any).window;
+        }
+      }
+    });
   });
 });

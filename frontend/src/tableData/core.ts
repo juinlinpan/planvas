@@ -623,6 +623,52 @@ export function getChildItemIdsInCols(
   return [...new Set(childItemIds)];
 }
 
+export function getTableCellIdsInRows(
+  data: TableData,
+  rowIndexes: number[],
+): string[] {
+  const targetRows = new Set(rowIndexes);
+  const cellIds: string[] = [];
+
+  for (let row = 0; row < data.rows; row++) {
+    if (!targetRows.has(row)) {
+      continue;
+    }
+
+    for (let col = 0; col < data.cols; col++) {
+      const cell = data.cells[row]?.[col];
+      if (cell) {
+        cellIds.push(cell.id);
+      }
+    }
+  }
+
+  return [...new Set(cellIds)];
+}
+
+export function getTableCellIdsInCols(
+  data: TableData,
+  colIndexes: number[],
+): string[] {
+  const targetCols = new Set(colIndexes);
+  const cellIds: string[] = [];
+
+  for (let row = 0; row < data.rows; row++) {
+    for (let col = 0; col < data.cols; col++) {
+      if (!targetCols.has(col)) {
+        continue;
+      }
+
+      const cell = data.cells[row]?.[col];
+      if (cell) {
+        cellIds.push(cell.id);
+      }
+    }
+  }
+
+  return [...new Set(cellIds)];
+}
+
 export function deleteRows(data: TableData, rowIndexes: number[]): TableData {
   return [...new Set(rowIndexes)]
     .sort((a, b) => b - a)
@@ -1285,6 +1331,105 @@ export function preserveOuterAddRowLayout(
 }
 
 // ── Cumulative position helpers ─────────────────────────────────────────
+
+export function preserveOuterPrependColLayout(
+  previousData: TableData,
+  expandedData: TableData,
+  oldWidth: number,
+  newWidth: number,
+): TableData {
+  if (oldWidth <= 0 || newWidth <= 0 || newWidth <= oldWidth) {
+    return expandedData;
+  }
+  const oldAreaFraction = oldWidth / newWidth;
+  const newAreaFraction = 1 - oldAreaFraction;
+  const nextColPositions: Record<string, number> = {};
+  const nextRowPositions: Record<string, number> = {
+    ...(expandedData.rowDividerPositions ?? {}),
+  };
+
+  for (let boundary = 0; boundary < previousData.cols - 1; boundary += 1) {
+    for (let row = 0; row < previousData.rows; row += 1) {
+      nextColPositions[`c${boundary + 1}r${row}`] =
+        newAreaFraction +
+        getEffectiveColEdge(previousData, boundary + 1, row) *
+          oldAreaFraction;
+    }
+  }
+  for (let row = 0; row < previousData.rows; row += 1) {
+    nextColPositions[`c0r${row}`] = newAreaFraction;
+  }
+
+  for (let boundary = 0; boundary < previousData.rows - 1; boundary += 1) {
+    const inheritedY = getEffectiveRowEdge(previousData, boundary + 1, 0);
+    for (let col = 0; col < expandedData.cols; col += 1) {
+      const sourceCol = Math.max(0, col - 1);
+      nextRowPositions[`r${boundary}c${col}`] =
+        col === 0
+          ? inheritedY
+          : getEffectiveRowEdge(previousData, boundary + 1, sourceCol);
+    }
+  }
+
+  return {
+    ...expandedData,
+    colDividerPositions: nextColPositions,
+    rowDividerPositions: nextRowPositions,
+    colWidths: [
+      newAreaFraction,
+      ...previousData.colWidths.map((width) => width * oldAreaFraction),
+    ],
+  };
+}
+
+export function preserveOuterPrependRowLayout(
+  previousData: TableData,
+  expandedData: TableData,
+  oldHeight: number,
+  newHeight: number,
+): TableData {
+  if (oldHeight <= 0 || newHeight <= 0 || newHeight <= oldHeight) {
+    return expandedData;
+  }
+  const oldAreaFraction = oldHeight / newHeight;
+  const newAreaFraction = 1 - oldAreaFraction;
+  const nextColPositions: Record<string, number> = {
+    ...(expandedData.colDividerPositions ?? {}),
+  };
+  const nextRowPositions: Record<string, number> = {};
+
+  for (let boundary = 0; boundary < previousData.cols - 1; boundary += 1) {
+    const inheritedX = getEffectiveColEdge(previousData, boundary + 1, 0);
+    for (let row = 0; row < expandedData.rows; row += 1) {
+      const sourceRow = Math.max(0, row - 1);
+      nextColPositions[`c${boundary}r${row}`] =
+        row === 0
+          ? inheritedX
+          : getEffectiveColEdge(previousData, boundary + 1, sourceRow);
+    }
+  }
+
+  for (let boundary = 0; boundary < previousData.rows - 1; boundary += 1) {
+    for (let col = 0; col < previousData.cols; col += 1) {
+      nextRowPositions[`r${boundary + 1}c${col}`] =
+        newAreaFraction +
+        getEffectiveRowEdge(previousData, boundary + 1, col) * oldAreaFraction;
+    }
+  }
+  for (let col = 0; col < previousData.cols; col += 1) {
+    nextRowPositions[`r0c${col}`] = newAreaFraction;
+  }
+
+  return {
+    ...expandedData,
+    colDividerPositions: nextColPositions,
+    rowDividerPositions: nextRowPositions,
+    rowHeights: [
+      newAreaFraction,
+      ...previousData.rowHeights.map((height) => height * oldAreaFraction),
+    ],
+  };
+}
 
 export function getCumulativeColPositions(colWidths: number[]): number[] {
   const result: number[] = [0];

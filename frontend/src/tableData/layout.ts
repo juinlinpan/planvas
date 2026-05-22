@@ -9,5 +9,7 @@ export {
   getRootCellAt,
   preserveOuterAddColLayout,
   preserveOuterAddRowLayout,
+  preserveOuterPrependColLayout,
+  preserveOuterPrependRowLayout,
   scaleTableDividerPositions,
 } from './core';

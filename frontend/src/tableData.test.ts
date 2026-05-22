@@ -15,11 +15,15 @@ import {
   getTableMinSize,
   getEffectiveColEdge,
   getEffectiveRowEdge,
+  getTableCellIdsInCols,
+  getTableCellIdsInRows,
   getTableCellDeleteOperation,
   mergeCells,
   parseTableData,
   preserveOuterAddColLayout,
   preserveOuterAddRowLayout,
+  preserveOuterPrependColLayout,
+  preserveOuterPrependRowLayout,
   resizeColGroup,
   resizeRowGroup,
   scaleTableDividerPositions,
@@ -121,6 +125,23 @@ describe('tableData merge and split semantics', () => {
     expect(deleted.cols).toBe(2);
     expect(deleted.cells[0]?.[0]?.content).toBe('left');
     expect(deleted.cells[0]?.[1]?.content).toBe('right');
+  });
+
+  it('reports root cell ids in deleted rows and columns before structure removal', () => {
+    const data = createTableData(3, 3);
+    const rowCellIds = getTableCellIdsInRows(data, [1]);
+    const colCellIds = getTableCellIdsInCols(data, [2]);
+
+    expect(rowCellIds).toEqual([
+      data.cells[1]?.[0]?.id,
+      data.cells[1]?.[1]?.id,
+      data.cells[1]?.[2]?.id,
+    ]);
+    expect(colCellIds).toEqual([
+      data.cells[0]?.[2]?.id,
+      data.cells[1]?.[2]?.id,
+      data.cells[2]?.[2]?.id,
+    ]);
   });
 
   it('clears only selected cells and reports embedded child items', () => {
@@ -351,6 +372,72 @@ describe('tableData merge and split semantics', () => {
     );
     expect(getEffectiveRowEdge(expanded, 2, 1) * nextHeight).toBeCloseTo(
       oldHeight,
+      5,
+    );
+  });
+
+  it('preserves existing y positions when adding an outer row above', () => {
+    const oldHeight = 241;
+    const nextHeight = Math.round((oldHeight * 3) / 2);
+    const data = createTableData(2, 2);
+    data.rowDividerPositions = {
+      r0c0: 0.38,
+    };
+
+    const explicitOldPx = getEffectiveRowEdge(data, 1, 0) * oldHeight;
+    const defaultOldPx = getEffectiveRowEdge(data, 1, 1) * oldHeight;
+    const delta = nextHeight - oldHeight;
+
+    const expanded = preserveOuterPrependRowLayout(
+      data,
+      addRow(data, -1),
+      oldHeight,
+      nextHeight,
+    );
+
+    expect(getEffectiveRowEdge(expanded, 1, 0) * nextHeight).toBeCloseTo(
+      delta,
+      5,
+    );
+    expect(getEffectiveRowEdge(expanded, 2, 0) * nextHeight).toBeCloseTo(
+      delta + explicitOldPx,
+      5,
+    );
+    expect(getEffectiveRowEdge(expanded, 2, 1) * nextHeight).toBeCloseTo(
+      delta + defaultOldPx,
+      5,
+    );
+  });
+
+  it('preserves existing x positions when adding an outer column left', () => {
+    const oldWidth = 319;
+    const nextWidth = Math.round((oldWidth * 3) / 2);
+    const data = createTableData(2, 2);
+    data.colDividerPositions = {
+      c0r0: 0.42,
+    };
+
+    const explicitOldPx = getEffectiveColEdge(data, 1, 0) * oldWidth;
+    const defaultOldPx = getEffectiveColEdge(data, 1, 1) * oldWidth;
+    const delta = nextWidth - oldWidth;
+
+    const expanded = preserveOuterPrependColLayout(
+      data,
+      addCol(data, -1),
+      oldWidth,
+      nextWidth,
+    );
+
+    expect(getEffectiveColEdge(expanded, 1, 0) * nextWidth).toBeCloseTo(
+      delta,
+      5,
+    );
+    expect(getEffectiveColEdge(expanded, 2, 0) * nextWidth).toBeCloseTo(
+      delta + explicitOldPx,
+      5,
+    );
+    expect(getEffectiveColEdge(expanded, 2, 1) * nextWidth).toBeCloseTo(
+      delta + defaultOldPx,
       5,
     );
   });

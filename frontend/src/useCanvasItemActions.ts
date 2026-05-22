@@ -4,6 +4,7 @@ import {
   type SetStateAction,
   useCallback,
   useRef,
+  useState,
 } from 'react';
 import {
   type BoardItem,
@@ -152,6 +153,17 @@ function createOptimisticId(): string {
   return `optimistic-${globalThis.crypto?.randomUUID?.() ?? Date.now().toString(36)}`;
 }
 
+export function generateUUID(): string {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 function createOptimisticItem(payload: BoardItemPayload): BoardItem {
   const timestamp = new Date().toISOString();
   return {
@@ -185,6 +197,66 @@ export function buildClipboardPayload(
       backgroundColor: resolvedStyle.backgroundColor,
     }),
   };
+}
+
+const CLIPBOARD_STORAGE_KEY = 'planvas_clipboard';
+const PASTE_COUNT_STORAGE_KEY = 'planvas_paste_count';
+
+let memoryClipboard: ClipboardSnapshot | null = null;
+let memoryPasteCount = 0;
+
+export function getClipboardData(): ClipboardSnapshot | null {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const raw = window.localStorage.getItem(CLIPBOARD_STORAGE_KEY);
+      if (raw) {
+        return JSON.parse(raw) as ClipboardSnapshot;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to read clipboard from localStorage', e);
+  }
+  return memoryClipboard;
+}
+
+export function setClipboardData(data: ClipboardSnapshot | null) {
+  memoryClipboard = data;
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      if (data === null) {
+        window.localStorage.removeItem(CLIPBOARD_STORAGE_KEY);
+      } else {
+        window.localStorage.setItem(CLIPBOARD_STORAGE_KEY, JSON.stringify(data));
+      }
+    }
+  } catch (e) {
+    console.error('Failed to write clipboard to localStorage', e);
+  }
+}
+
+export function getPasteCount(): number {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const raw = window.localStorage.getItem(PASTE_COUNT_STORAGE_KEY);
+      if (raw) {
+        return parseInt(raw, 10) || 0;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to read paste count from localStorage', e);
+  }
+  return memoryPasteCount;
+}
+
+export function setPasteCount(count: number) {
+  memoryPasteCount = count;
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(PASTE_COUNT_STORAGE_KEY, String(count));
+    }
+  } catch (e) {
+    console.error('Failed to write paste count to localStorage', e);
+  }
 }
 
 interface UseCanvasItemActionsParams {
@@ -232,9 +304,8 @@ export function useCanvasItemActions({
   projectDefaultStyle = {},
   onProjectNotesChanged,
 }: UseCanvasItemActionsParams) {
-  const clipboardRef = useRef<ClipboardSnapshot | null>(null);
-  const pasteCountRef = useRef(0);
   const pendingItemIdRef = useRef<string | null>(null);
+  const [isPasting, setIsPasting] = useState(false);
 
   const handleDeleteItems = useCallback(
     async (itemIds: string[]) => {
@@ -264,17 +335,55 @@ export function useCanvasItemActions({
         relatedConnectors.map((connector) => connector.id),
       );
 
-      setItemsAndSync((current) =>
-        current
+      setItemsAndSync((current) => {
+        // Collect table items that need their childItemIds cleaned up
+        const tableUpdates = new Map<string, string>();
+        for (const item of current) {
+          if (
+            item.type !== ITEM_TYPE.table ||
+            relatedItemIds.has(item.id)
+          ) {
+            continue;
+          }
+          const tableData = parseTableData(item.data_json);
+          let changed = false;
+          const updatedCells = tableData.cells.map((row) =>
+            row.map((cell) => {
+              if (!cell) return cell;
+              const filtered = cell.childItemIds.filter(
+                (cid) => !relatedItemIds.has(cid),
+              );
+              if (filtered.length !== cell.childItemIds.length) {
+                changed = true;
+                return { ...cell, childItemIds: filtered };
+              }
+              return cell;
+            }),
+          );
+          if (changed) {
+            tableUpdates.set(
+              item.id,
+              serializeTableData({ ...tableData, cells: updatedCells }),
+            );
+          }
+        }
+
+        return current
           .filter((item) => !relatedItemIds.has(item.id))
-          .map((item) =>
-            item.parent_item_id !== null &&
-            deleteIdSet.has(item.parent_item_id) &&
-            !deleteIdSet.has(item.id)
-              ? { ...item, parent_item_id: null }
-              : item,
-          ),
-      );
+          .map((item) => {
+            if (tableUpdates.has(item.id)) {
+              return { ...item, data_json: tableUpdates.get(item.id)! };
+            }
+            if (
+              item.parent_item_id !== null &&
+              deleteIdSet.has(item.parent_item_id) &&
+              !deleteIdSet.has(item.id)
+            ) {
+              return { ...item, parent_item_id: null };
+            }
+            return item;
+          });
+      });
       setConnectorsAndSync((current) =>
         current.filter((connector) => !relatedConnectorIds.has(connector.id)),
       );
@@ -390,20 +499,19 @@ export function useCanvasItemActions({
       return;
     }
 
-    clipboardRef.current = {
+    setClipboardData({
       items: selectedItems.map((item) => ({
         sourceId: item.id,
         payload: buildClipboardPayload(item, projectDefaultStyle),
       })),
-    };
-    pasteCountRef.current = 0;
+    });
+    setPasteCount(0);
   }, [itemsRef, projectDefaultStyle, selectedIdsRef]);
 
-  const hasClipboardData = useCallback(
-    () =>
-      clipboardRef.current !== null && clipboardRef.current.items.length > 0,
-    [],
-  );
+  const hasClipboardData = useCallback(() => {
+    const clipboard = getClipboardData();
+    return clipboard !== null && clipboard.items.length > 0;
+  }, []);
 
   const handleCutSelection = useCallback(async () => {
     if (selectedIdsRef.current.length === 0) {
@@ -414,16 +522,15 @@ export function useCanvasItemActions({
   }, [handleCopySelection, handleDeleteSelection, selectedIdsRef]);
 
   const handlePasteSelection = useCallback(async () => {
-    const clipboard = clipboardRef.current;
+    const clipboard = getClipboardData();
     if (clipboard === null || clipboard.items.length === 0) {
       return;
     }
     const snapshotBeforePaste = captureBoardSnapshot();
 
-    const nextPasteCount = pasteCountRef.current + 1;
+    const nextPasteCount = getPasteCount() + 1;
     const offset = PASTE_OFFSET_STEP * nextPasteCount;
     const existingItemIds = new Set(itemsRef.current.map((item) => item.id));
-    const createdItems: BoardItem[] = [];
     const createdIdBySourceId = new Map<string, string>();
     const rootSourceId = clipboard.items[0]?.sourceId ?? null;
     const zBase =
@@ -431,8 +538,18 @@ export function useCanvasItemActions({
         ? 0
         : Math.max(...itemsRef.current.map((item) => item.z_index)) + 1;
 
+    setIsPasting(true);
     try {
+      // Map all source IDs to new generated UUIDs upfront
+      for (const entry of clipboard.items) {
+        createdIdBySourceId.set(entry.sourceId, generateUUID());
+      }
+
+      const timestamp = new Date().toISOString();
+      const createdItems: BoardItem[] = [];
+
       for (const [index, entry] of clipboard.items.entries()) {
+        const newId = createdIdBySourceId.get(entry.sourceId)!;
         const sourceParentId = entry.payload.parent_item_id;
         const nextParentId =
           sourceParentId !== null && createdIdBySourceId.has(sourceParentId)
@@ -441,48 +558,102 @@ export function useCanvasItemActions({
               ? sourceParentId
               : null;
 
-        const createdItem = await createBoardItem({
-          ...entry.payload,
+        // Map child items within table cells if it is a table item
+        let nextDataJson = entry.payload.data_json;
+        if (entry.payload.type === ITEM_TYPE.table && entry.payload.data_json) {
+          try {
+            const tableData = parseTableData(entry.payload.data_json);
+            const updatedCells = tableData.cells.map((row) =>
+              row.map((cell) => {
+                if (!cell) return null;
+                return {
+                  ...cell,
+                  childItemIds: cell.childItemIds.map((childId) =>
+                    createdIdBySourceId.get(childId) ?? (existingItemIds.has(childId) ? childId : childId)
+                  ),
+                };
+              })
+            );
+            nextDataJson = serializeTableData({
+              ...tableData,
+              cells: updatedCells,
+            });
+          } catch (tableErr) {
+            console.error('[Canvas] Failed to remap table childItemIds during paste', tableErr);
+          }
+        }
+
+        const createdItem: BoardItem = {
+          id: newId,
           page_id: pageId,
           parent_item_id: nextParentId,
+          category: entry.payload.category,
+          type: entry.payload.type,
+          title: entry.payload.title,
+          content: entry.payload.content,
+          content_format: entry.payload.content_format,
           x: entry.payload.x + offset,
           y: entry.payload.y + offset,
+          width: entry.payload.width,
+          height: entry.payload.height,
+          rotation: entry.payload.rotation,
           z_index: zBase + index,
-        });
+          is_collapsed: entry.payload.is_collapsed,
+          style_json: entry.payload.style_json,
+          data_json: nextDataJson,
+          created_at: timestamp,
+          updated_at: timestamp,
+        };
         createdItems.push(createdItem);
-        createdIdBySourceId.set(entry.sourceId, createdItem.id);
+      }
+
+      if (createdItems.length === 0) {
+        return;
+      }
+
+      // Execute bulk board state replace
+      const updatedData = await replacePageBoardState(pageId, {
+        board_items: [...itemsRef.current, ...createdItems],
+        connector_links: connectorsRef.current,
+      });
+
+      pushUndoSnapshot(snapshotBeforePaste);
+      setItemsAndSync(updatedData.board_items);
+      setConnectorsAndSync(updatedData.connector_links);
+      setPasteCount(nextPasteCount);
+
+      const pastedRootId =
+        rootSourceId !== null
+          ? (createdIdBySourceId.get(rootSourceId) ?? createdItems[0]?.id ?? null)
+          : (createdItems[0]?.id ?? null);
+      const pastedSelectionIds = createdItems.map((item) => item.id);
+      setSelection(
+        pastedRootId === null
+          ? pastedSelectionIds
+          : [
+              ...pastedSelectionIds.filter((itemId) => itemId !== pastedRootId),
+              pastedRootId,
+            ],
+      );
+      setEditingId(null);
+
+      const hasNotePaper = createdItems.some((item) => item.type === ITEM_TYPE.note_paper);
+      if (hasNotePaper) {
+        onProjectNotesChanged?.();
       }
     } catch (err) {
-      console.error('[Canvas] Failed to paste item', err);
+      console.error('[Canvas] Failed to perform bulk paste', err);
+    } finally {
+      setIsPasting(false);
     }
-
-    if (createdItems.length === 0) {
-      return;
-    }
-
-    pushUndoSnapshot(snapshotBeforePaste);
-    setItemsAndSync((current) => [...current, ...createdItems]);
-    pasteCountRef.current = nextPasteCount;
-
-    const pastedRootId =
-      rootSourceId !== null
-        ? (createdIdBySourceId.get(rootSourceId) ?? createdItems[0]?.id ?? null)
-        : (createdItems[0]?.id ?? null);
-    const pastedSelectionIds = createdItems.map((item) => item.id);
-    setSelection(
-      pastedRootId === null
-        ? pastedSelectionIds
-        : [
-            ...pastedSelectionIds.filter((itemId) => itemId !== pastedRootId),
-            pastedRootId,
-          ],
-    );
-    setEditingId(null);
   }, [
     captureBoardSnapshot,
+    connectorsRef,
     itemsRef,
+    onProjectNotesChanged,
     pageId,
     pushUndoSnapshot,
+    setConnectorsAndSync,
     setEditingId,
     setItemsAndSync,
     setSelection,
@@ -868,6 +1039,7 @@ export function useCanvasItemActions({
   );
 
   return {
+    isPasting,
     handleCreateItem,
     handleCreateSegmentItem,
     handleDeleteItems,

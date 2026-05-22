@@ -13,11 +13,9 @@ import {
   type BoardItemPayload,
   type ConnectorLink,
   createBoardItem,
-  deleteBoardItem,
   getPageBoardData,
   regulatePage,
   replacePageBoardState,
-  updateBoardItem,
   updatePageViewport,
   type Page,
   type ProjectNote,
@@ -34,7 +32,10 @@ import {
   getItemConnectorAnchors,
   normalizeConnectorArrowsToSegments,
 } from './canvasHelpers/connectorAnchors';
-import { findTableCellDropTarget } from './canvasHelpers/tableLayout';
+import {
+  findTableCellDropTarget,
+  relayoutTableItems,
+} from './canvasHelpers/tableLayout';
 import {
   getPrimarySelectionId,
   getUniqueItemIds,
@@ -45,7 +46,6 @@ import {
   sortItemsByLayer,
 } from './canvasHelpers/layerOrdering';
 import { summarizeFrameChild } from './canvasHelpers/contentSummary';
-import { toPayload } from './canvasHelpers/payloadConversion';
 import type { AnchorHit, TableCellHit } from './canvasHelpers/types';
 import {
   CANVAS_GRID_SIZE,
@@ -88,6 +88,8 @@ import {
   deleteRows,
   getChildItemIdsInCols,
   getChildItemIdsInRows,
+  getTableCellIdsInCols,
+  getTableCellIdsInRows,
   getTableCellDeleteOperation,
   parseTableData,
   serializeTableData,
@@ -581,6 +583,7 @@ export function Canvas({
   });
 
   const {
+    isPasting,
     handleCreateItem,
     handleCreateSegmentItem,
     handleDeleteItems,
@@ -992,23 +995,34 @@ export function Canvas({
           (sum, rowIndex) => sum + (tableData.rowHeights[rowIndex] ?? 0),
           0,
         );
-        nextTableData = deleteRows(tableData, operation.rowIndexes);
-        nextHeight = Math.max(1, tableItem.height * (1 - removedFraction));
-        clearedChildItemIds = getChildItemIdsInRows(
+        const clearedCells = clearTableCells(
           tableData,
-          operation.rowIndexes,
+          getTableCellIdsInRows(tableData, operation.rowIndexes),
         );
+        nextTableData = deleteRows(clearedCells.data, operation.rowIndexes);
+        nextHeight = Math.max(1, tableItem.height * (1 - removedFraction));
+        clearedChildItemIds = getUniqueItemIds([
+          ...clearedCells.clearedChildItemIds,
+          ...getChildItemIdsInRows(
+            tableData,
+            operation.rowIndexes,
+          ),
+        ]);
       } else if (operation.type === 'cols') {
         const removedFraction = operation.colIndexes.reduce(
           (sum, colIndex) => sum + (tableData.colWidths[colIndex] ?? 0),
           0,
         );
-        nextTableData = deleteCols(tableData, operation.colIndexes);
-        nextWidth = Math.max(1, tableItem.width * (1 - removedFraction));
-        clearedChildItemIds = getChildItemIdsInCols(
+        const clearedCells = clearTableCells(
           tableData,
-          operation.colIndexes,
+          getTableCellIdsInCols(tableData, operation.colIndexes),
         );
+        nextTableData = deleteCols(clearedCells.data, operation.colIndexes);
+        nextWidth = Math.max(1, tableItem.width * (1 - removedFraction));
+        clearedChildItemIds = getUniqueItemIds([
+          ...clearedCells.clearedChildItemIds,
+          ...getChildItemIdsInCols(tableData, operation.colIndexes),
+        ]);
       } else {
         const clearedCells = clearTableCells(tableData, operation.cellIds);
         nextTableData = clearedCells.data;
@@ -1023,23 +1037,29 @@ export function Canvas({
       };
       const clearedChildIdSet = new Set(clearedChildItemIds);
       const snapshotBeforeDelete = captureBoardSnapshot();
+      let nextItemsAfterDelete = itemsRef.current;
 
       pushUndoSnapshot(snapshotBeforeDelete);
-      setItemsAndSync((current) =>
-        current
+      setItemsAndSync((current) => {
+        const withoutDeletedChildren = current
           .filter((item) => !clearedChildIdSet.has(item.id))
-          .map((item) => (item.id === tableItem.id ? updatedTableItem : item)),
-      );
+          .map((item) => (item.id === tableItem.id ? updatedTableItem : item));
+        const relayoutResult = relayoutTableItems(withoutDeletedChildren, [
+          tableItem.id,
+        ]);
+        nextItemsAfterDelete = relayoutResult.items;
+        return nextItemsAfterDelete;
+      });
       setSelection([tableItem.id]);
       setEditingId(tableItem.id);
       setTableInspectorSelection(null);
       setTableCellSelectionResetKey((current) => current + 1);
 
       try {
-        await Promise.all([
-          updateBoardItem(updatedTableItem.id, toPayload(updatedTableItem)),
-          ...clearedChildItemIds.map((itemId) => deleteBoardItem(itemId)),
-        ]);
+        await replacePageBoardState(page.id, {
+          board_items: nextItemsAfterDelete,
+          connector_links: connectorsRef.current,
+        });
       } catch (err) {
         console.error('[Canvas] Failed to delete selected table cells', err);
       }
@@ -1053,6 +1073,7 @@ export function Canvas({
       setEditingId,
       setItemsAndSync,
       setSelection,
+      page.id,
     ],
   );
 
@@ -1737,11 +1758,13 @@ export function Canvas({
   });
 
   const cursorClass =
-    activeTool !== 'select'
-      ? 'cursor-crosshair'
-      : isSpaceDown
-        ? 'cursor-grab'
-        : '';
+    isPasting
+      ? 'cursor-wait'
+      : activeTool !== 'select'
+        ? 'cursor-crosshair'
+        : isSpaceDown
+          ? 'cursor-grab'
+          : '';
 
   const worldTransform = `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`;
 
@@ -2224,6 +2247,29 @@ export function Canvas({
               );
             }}
           >
+            {isPasting && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  zIndex: 9999,
+                  background: 'transparent',
+                  cursor: 'wait',
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onMouseUp={(e) => e.stopPropagation()}
+                onMouseMove={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onWheel={(e) => e.stopPropagation()}
+              />
+            )}
             <div
               className={`canvas-background canvas-background-${backgroundMode}`}
               style={{
