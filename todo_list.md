@@ -479,27 +479,27 @@ Split order:
   Keep in `App.tsx`: selected project/page/note ids and callbacks that change them.
   Verify: page tabs open on page selection, note tabs open from Notes, active tab switching works, tab close fallback still selects the previous page tab, tab drag reorder still works, `npm.cmd run build --workspace frontend`.
 
-- [ ] Extract left workspace sidebar rendering into `frontend/src/WorkspaceSidebar.tsx`.
+- [x] Extract left workspace sidebar rendering into `frontend/src/WorkspaceSidebar.tsx`.
   Scope: project header, sidebar collapse button, Pages box, Notes box, page rename/delete buttons, note open/delete buttons, note/page drag targets.
   Keep in `App.tsx`: data loading, mutations, selected ids, and mutation handlers.
   Verify: Home button, project settings button, sidebar collapse/restore, page create/rename/delete, note open/delete, note drag-to-page placement, page reorder, `npm.cmd run build --workspace frontend`.
 
-- [ ] Extract project settings dialog into `frontend/src/ProjectSettingsDialog.tsx`.
+- [x] Extract project settings dialog into `frontend/src/ProjectSettingsDialog.tsx`.
   Scope: project name form, theme dropdown, project path/reveal control, default style controls, and delete-project entry point.
   Keep in `App.tsx`: `selectedProjectDefaultStyle`, `handleSaveProjectName`, `handleChangeProjectTheme`, `handleChangeProjectDefaultStyle`, `handleRevealProject`, delete dialog state.
   Verify: project rename, theme change, default style changes, open folder, delete dialog launch, `npm.cmd run build --workspace frontend`.
 
-- [ ] Extract page import/export orchestration into `frontend/src/usePageImportExport.ts`.
+- [x] Extract page import/export orchestration into `frontend/src/usePageImportExport.ts`.
   Scope: PNG/PPTX/Markdown/HTML export click flow, export image modal data, Mermaid import modal state, cross-project import modal state, and file picker helpers if they remain local to `App.tsx`.
   Keep in `App.tsx`: selected project/page ids, `pages`, `projectNotes`, `setPages`, `setSelectedPageId`, note refresh callback, and `runMutation`.
   Verify: PNG export empty-page error, PNG export modal confirm/cancel, PPTX export, Markdown export, HTML export, Mermaid import, cross-project import, `npm.cmd run build --workspace frontend`.
 
-- [ ] Extract project/page/note loading and cache coordination into `frontend/src/useWorkspaceData.ts`.
+- [x] Extract project/page/note loading and cache coordination into `frontend/src/useWorkspaceData.ts`.
   Scope: `loadWorkspace`, `loadProjectSidebarData`, project notes refresh, focus/visibility refresh, board cache refs, page refresh tokens, selected page ref, and workspace entry retry.
   Keep in `App.tsx`: high-level view state and UI composition.
   Verify: initial home load, open project, browser back/forward route sync, project refresh, project notes refresh on focus, page cache restore, page refresh token reload, `npm.cmd run build --workspace frontend`.
 
-- [ ] Extract shared App utility helpers into focused files.
+- [x] Extract shared App utility helpers into focused files.
   Scope: move `buildUntitledPageName`, `selectFallbackId`, sidebar reorder helpers, file picker types/helpers, and App-only icons out of `App.tsx` when they are not already extracted.
   Verify: no `App.tsx`-local helper remains unless it directly coordinates top-level state, no unused local warnings in `App.tsx` under `tsc --noUnusedLocals --noUnusedParameters`, `npm.cmd run build --workspace frontend`.
 

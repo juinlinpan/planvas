@@ -7,6 +7,7 @@ import {
   useState,
   type DragEvent as ReactDragEvent,
 } from 'react';
+import { readStoredBoolean } from './utils';
 import {
   type BoardItem,
   type BoardItemPayload,
@@ -165,23 +166,6 @@ type TableInspectorSelection = {
 
 const INSPECTOR_COLLAPSED_STORAGE_KEY = 'whiteboard.canvasInspectorCollapsed';
 const RESET_ZOOM_STORAGE_KEY = 'whiteboard.resetZoomTarget';
-
-function readStoredBoolean(key: string, fallbackValue: boolean): boolean {
-  if (typeof window === 'undefined') {
-    return fallbackValue;
-  }
-
-  const storedValue = window.localStorage.getItem(key);
-  if (storedValue === 'true') {
-    return true;
-  }
-
-  if (storedValue === 'false') {
-    return false;
-  }
-
-  return fallbackValue;
-}
 
 function readStoredNumber(key: string, fallbackValue: number): number {
   if (typeof window === 'undefined') {
