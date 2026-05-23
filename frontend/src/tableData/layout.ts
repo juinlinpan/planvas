@@ -1,15 +1,20 @@
 export {
-  computeColSegmentGroups,
-  computeRowSegmentGroups,
   getCellBounds,
   getCumulativeColPositions,
   getCumulativeRowPositions,
   getEffectiveColEdge,
   getEffectiveRowEdge,
   getRootCellAt,
+} from './core';
+
+export {
+  computeColSegmentGroups,
+  computeRowSegmentGroups,
+} from './segmentGroups';
+
+export {
   preserveOuterAddColLayout,
   preserveOuterAddRowLayout,
   preserveOuterPrependColLayout,
   preserveOuterPrependRowLayout,
-  scaleTableDividerPositions,
-} from './core';
+} from './rowColOps';

@@ -1,26 +1,32 @@
 export {
-  addCol,
-  addRow,
-  clearTableCells,
-  countFilledTableCells,
-  deleteCol,
-  deleteCols,
-  deleteRow,
-  deleteRows,
-  findCellByChildItemId,
-  getChildItemIdsInCols,
-  getChildItemIdsInRows,
   getEffectiveTableCellChildLayoutDirection,
   getNextTableLayoutUpdatedAt,
-  getTableCellIdsInCols,
-  getTableCellIdsInRows,
+} from './core';
+
+export {
+  clearTableCells,
+  countFilledTableCells,
+  deleteCols,
+  deleteRows,
+  findCellByChildItemId,
   getTableCellDeleteOperation,
   getTableCellSummary,
+  getTableCellIdsInCols,
+  getTableCellIdsInRows,
+  getChildItemIdsInCols,
+  getChildItemIdsInRows,
   mergeCells,
-  resizeColumn,
-  resizeRow,
-  resizeTableData,
   splitCellHorizontal,
   splitCellVertical,
   updateTableCell,
-} from './core';
+} from './cellOps';
+
+export {
+  addCol,
+  addRow,
+  deleteCol,
+  deleteRow,
+  resizeColumn,
+  resizeRow,
+  resizeTableData,
+} from './rowColOps';

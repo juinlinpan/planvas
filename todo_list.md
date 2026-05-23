@@ -612,32 +612,33 @@ Goal: 將 1749 行的 table 資料 god module 按功能域拆成多個聚焦模�
 
 Split order:
 
-- [ ] Extract type definitions into `frontend/src/tableData/types.ts`.
+- [x] Extract type definitions into `frontend/src/tableData/types.ts`.
   Scope: `TableCellData`、`TableData`、`SegmentGroup`、`CellPosition`、`TableCellDeleteOperation`、`TableChildLayoutDirection` 以及所有常數（`TABLE_MIN_DIMENSION`、`TABLE_MAX_DIMENSION`、`TABLE_CELL_MIN_*`、`DEFAULT_TABLE_LABEL_FONT_SIZE` 等）。
   Keep in `core.ts`: 所有函式實作。
   Verify: `tsc` 無錯誤、現有測試通過、`npm.cmd run build --workspace frontend`。
 
-- [ ] Extract serialization into `frontend/src/tableData/serialization.ts`.
+- [x] Extract serialization into `frontend/src/tableData/serialization.ts`.
   Scope: `serializeTableData`、`parseTableData`、`hasNewFormat`、`parseNewFormat`、`parseOldFormat`、`parseDividerPositions`、`parseDividerBreaks`，以及 sanitize helpers（`sanitizeTableName`、`sanitizeTableLabelFontSize`、`sanitizeTableChildLayoutDirection`）。
   Verify: `parseTableData` 往返序列化正確、舊格式 migration 仍正常、`npm.cmd run build --workspace frontend`。
 
-- [ ] Extract cell mutation operations into `frontend/src/tableData/cellOps.ts`.
+- [x] Extract cell mutation operations into `frontend/src/tableData/cellOps.ts`.
   Scope: `createTableData`、`makeCell`（改為 module-private）、`updateTableCell`、`clearTableCells`、`getTableCellDeleteOperation`、`mergeCells`、`splitCellHorizontal`、`splitCellVertical`、`countFilledTableCells`、`getTableCellSummary`、`findCellByChildItemId`、`getChildItemIdsInRows`、`getChildItemIdsInCols`、`getTableCellIdsInRows`、`getTableCellIdsInCols`。
   Verify: merge/split 儲存格行為不變、child item 查詢正確、`npm.cmd run build --workspace frontend`。
 
-- [ ] Extract row / column operations into `frontend/src/tableData/rowColOps.ts`.
+- [x] Extract row / column operations into `frontend/src/tableData/rowColOps.ts`.
   Scope: `addRow`、`addCol`、`deleteRow`、`deleteCol`、`deleteRows`、`deleteCols`、`resizeColumn`、`resizeRow`、`resizeTableData`、`preserveOuterAddColLayout`、`preserveOuterAddRowLayout`、`preserveOuterPrependColLayout`、`preserveOuterPrependRowLayout`。
   Verify: 新增/刪除 row/col 後 layout 正確、刪除後 child items 一併清除、`npm.cmd run build --workspace frontend`。
 
-- [ ] Extract segment group & divider logic into `frontend/src/tableData/segmentGroups.ts`.
+- [x] Extract segment group & divider logic into `frontend/src/tableData/segmentGroups.ts`.
   Scope: `computeColSegmentGroups`、`computeRowSegmentGroups`、`resizeColGroup`、`resizeRowGroup`、`scaleTableDividerPositions`，以及相關的 `normalizeFractions`（改為 module-private）。
   Verify: col/row divider 拖曳吸附正確、segment group 合併邏輯不變、`npm.cmd run build --workspace frontend`。
 
-- [ ] Slim `core.ts` to geometry / query utilities only.
+- [x] Slim `core.ts` to geometry / query utilities only.
   Scope: 確認 `core.ts` 最終只保留 `getTableMinSize`、`getTableMinSizeFromDataJson`、`getRootCellAt`、`getCumulativeColPositions`、`getCumulativeRowPositions`、`getEffectiveColEdge`、`getEffectiveRowEdge`、`getCellBounds`、`getEffectiveTableCellChildLayoutDirection`、`getNextTableLayoutUpdatedAt`。
   Verify: `tsc --noUnusedLocals --noUnusedParameters` 無警告、所有 tableData 測試通過、`npm.cmd run build --workspace frontend`。
 
-- [ ] Update `frontend/src/tableData/index.ts` re-export surface.
+- [x] Update `frontend/src/tableData/index.ts` re-export surface.
+  (Note: The project uses `frontend/src/tableData.ts` as the main entry point and it's already updated to export from the submodules.)
   Scope: 確認 index.ts 從所有新子模組重新 export，外部 import 路徑（`./tableData` 或 `./tableData/core`）不需要變動。
   Verify: Canvas、useCanvasMouseHandlers 等所有 consumer import 無需修改即可通過 `tsc`。
 

@@ -1,10 +1,14 @@
 export {
-  createTableData,
   getTableMinSize,
   getTableMinSizeFromDataJson,
+} from './core';
+
+export {
   parseTableData,
   sanitizeTableChildLayoutDirection,
   sanitizeTableLabelFontSize,
   sanitizeTableName,
   serializeTableData,
-} from './core';
+} from './serialization';
+
+export { createTableData } from './cellOps';
