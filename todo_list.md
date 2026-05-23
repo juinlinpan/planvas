@@ -511,6 +511,144 @@ Rules for each split:
 - [ ] Do not change storage APIs, Page XML, project metadata, or backend behavior during this split.
 - [ ] After each extraction, update this checklist and delete any abandoned subtasks instead of leaving stale TODO text.
 
+### 23. `useCanvasMouseHandlers.ts` Module Split Plan
+
+Goal: 將 2074 行的單一巨型 hook 依互動職責拆成多個聚焦 hook，保持行為不變，每次只提取一個職責。
+
+Split order:
+
+- [x] Extract wheel / scroll target detection helpers into `frontend/src/canvasHelpers/scrollTarget.ts`.
+  Scope: `isScrollableOverflow`, `isScrollableWheelTarget` — 已提取為純函式。
+  Keep in `useCanvasMouseHandlers.ts`: 所有 state 與事件 handler。
+  Verify: ✅ `npm run build --workspace frontend` 通過。
+
+- [x] Extract viewport pan logic into `frontend/src/useCanvasPan.ts`.
+  Scope: `startViewportPan`、`handlePanMove`、`handlePanEnd` — 已提取。
+  Keep in `useCanvasMouseHandlers.ts`: dispatch 到 pan hook 的入口呼叫。
+  Verify: ✅ `npm run build --workspace frontend` 通過。
+
+- [x] Extract marquee selection logic into `frontend/src/useCanvasMarquee.ts`.
+  Scope: `startMarqueeSelection`、`handleMarqueeMove`、`handleMarqueeEnd` — 已提取。
+  Keep in `useCanvasMouseHandlers.ts`: 分派到 marquee hook 的呼叫。
+  Verify: ✅ `npm run build --workspace frontend` 通過。
+
+- [x] Extract item resize logic into `frontend/src/useCanvasResize.ts`.
+  Scope: `startResize`、`handleResizeMove`、`handleResizeEnd`，包含 magnet resize 吸附計算與 frame/table relayout — 已提取。
+  Keep in `useCanvasMouseHandlers.ts`: resize 入口分派。
+  Verify: ✅ `npm run build --workspace frontend` 通過。
+
+- [x] Extract segment endpoint & waypoint drag logic into `frontend/src/useCanvasSegmentDrag.ts`.
+  Scope: endpoint drag、waypoint drag、midpoint 插入，以及 `SegmentDraftState` 繪製流程 — 已提取。
+  Keep in `useCanvasMouseHandlers.ts`: 入口分派。
+  Verify: ✅ `npm run build --workspace frontend` 通過。
+
+- [x] Extract table insert preview logic into `frontend/src/useCanvasTableInsert.ts`.
+  Scope: `startTableInsertDraft`、`handleTableInsertMouseMove`、`handleTableInsertMouseUp` — 已提取。
+  Keep in `useCanvasMouseHandlers.ts`: 入口分派。
+  Verify: ✅ `npm run build --workspace frontend` 通過。
+
+- [ ] Slim `useCanvasMouseHandlers.ts` down to a thin coordinator — **部分完成**。
+  已完成：所有上述職責已提取，coordinator 現在只剩 `mousedown` / `mousemove` / `mouseup` / `wheel` 入口分派。
+  尚待完成：item drag/move 的核心 state 仍在 coordinator 中，可在後續步驟提取到 `useCanvasItemDrag.ts`。
+  Verify: `tsc --noUnusedLocals --noUnusedParameters` 無警告（useCanvasMouseHandlers.ts 本身已清乾淨）、`npm run build --workspace frontend` ✅。
+
+Rules for each split:
+
+- [x] 每步只提取一個互動域；不在同一次修改中調整行為。
+- [x] 透過參數與回傳值傳遞 state，不引入 React context。
+- [x] 不動 `canvasHelpers/` 下現有 pure 函式；只移動 hook 內的有狀態邏輯。
+- [x] 每步完成後更新本 checklist，刪除已過期的 TODO 子項。
+
+---
+
+### 24. `Canvas.tsx` Module Split Plan
+
+Goal: 將 1848 行的主元件從「渲染 + 狀態 + 副作用全混」拆成薄層協調者加多個職責分離元件，每次提取一個域。
+
+Split order:
+
+- [ ] Extract inline-edit session state into `frontend/src/useCanvasEditSession.ts`.
+  Scope: `EditSessionState` 初始化與更新、`handleStartEdit` / `handleCommitEdit` / `handleCancelEdit`，以及雙擊觸發 edit 的判斷。
+  Keep in `Canvas.tsx`: 傳入 `editSession` 與回調給下層元件。
+  Verify: text_box / sticky_note / note_paper 雙擊進入編輯、Escape 取消、點擊外部提交、`npm.cmd run build --workspace frontend`。
+
+- [ ] Extract sidebar note drag-drop-to-canvas logic into `frontend/src/useCanvasNoteDrop.ts`.
+  Scope: `onDragOver` / `onDrop` 針對 sidebar note 拖入畫布的處理（`resolveSidebarNoteDragFile` 呼叫與後續 `createBoardItem`）。
+  Keep in `Canvas.tsx`: 傳入 drop 回調給 canvas container div。
+  Verify: 從側欄 Notes box 拖放 note_paper 到畫布後出現、位置正確吸附到 grid、`npm.cmd run build --workspace frontend`。
+
+- [ ] Extract connector rendering into `frontend/src/CanvasConnectorLayer.tsx`.
+  Scope: 所有 `ConnectorLink` 的 SVG 渲染邏輯（segment path 計算、箭頭頭部、label、hover 樣式）。
+  Keep in `Canvas.tsx`: 傳入 `connectors`、`selectedIds`、`viewport` 等 props 給新元件。
+  Verify: arrow / line 顯示正確、label 顯示、端點 anchor 指示器、hover 高亮、`npm.cmd run build --workspace frontend`。
+
+- [ ] Extract per-item-type rendering into `frontend/src/CanvasItemLayer.tsx`.
+  Scope: `items.map(...)` 的 JSX 輸出，包含每個 item type 的 switch/dispatch 渲染，以及 frame collapse 預覽摘要。
+  Keep in `Canvas.tsx`: 傳入 `items`、`selectedIds`、`editSession`、`viewport` 等 props。
+  Verify: 所有 item 類型正常顯示、frame collapse/expand 正常、selected 高亮正常、`npm.cmd run build --workspace frontend`。
+
+- [ ] Extract canvas context menu rendering into `frontend/src/CanvasContextMenuLayer.tsx`.
+  Scope: item context menu 與 canvas context menu 的 JSX、visibility 判斷、位置計算。
+  Keep in `Canvas.tsx`: 傳入 `contextMenuState` 與 action 回調。
+  Verify: 右鍵物件顯示 cut/copy/paste/delete 選單、右鍵空白顯示 paste 選單、選單動作行為正確、`npm.cmd run build --workspace frontend`。
+
+- [ ] Verify `Canvas.tsx` is a thin coordinator after all extractions.
+  Scope: 確認 `Canvas.tsx` 只剩 hook 組合 + props 傳遞 + 最外層 div 結構，無業務邏輯散落。
+  Verify: `tsc --noUnusedLocals --noUnusedParameters` 無警告、所有 Canvas 相關測試通過、`npm.cmd run build --workspace frontend`。
+
+Rules for each split:
+
+- [ ] 每步只提取一個渲染或狀態域；不改變可見行為。
+- [ ] 新元件透過明確 props 接收資料；不引入新的全域 context。
+- [ ] 不影響 `useCanvasMouseHandlers` 的拆分進度；兩條線可並行。
+- [ ] 每步完成後更新本 checklist。
+
+---
+
+### 25. `frontend/src/tableData/core.ts` Module Split Plan
+
+Goal: 將 1749 行的 table 資料 god module 按功能域拆成多個聚焦模組，保持現有 `frontend/src/tableData/index.ts` re-export 介面不變。
+
+Split order:
+
+- [ ] Extract type definitions into `frontend/src/tableData/types.ts`.
+  Scope: `TableCellData`、`TableData`、`SegmentGroup`、`CellPosition`、`TableCellDeleteOperation`、`TableChildLayoutDirection` 以及所有常數（`TABLE_MIN_DIMENSION`、`TABLE_MAX_DIMENSION`、`TABLE_CELL_MIN_*`、`DEFAULT_TABLE_LABEL_FONT_SIZE` 等）。
+  Keep in `core.ts`: 所有函式實作。
+  Verify: `tsc` 無錯誤、現有測試通過、`npm.cmd run build --workspace frontend`。
+
+- [ ] Extract serialization into `frontend/src/tableData/serialization.ts`.
+  Scope: `serializeTableData`、`parseTableData`、`hasNewFormat`、`parseNewFormat`、`parseOldFormat`、`parseDividerPositions`、`parseDividerBreaks`，以及 sanitize helpers（`sanitizeTableName`、`sanitizeTableLabelFontSize`、`sanitizeTableChildLayoutDirection`）。
+  Verify: `parseTableData` 往返序列化正確、舊格式 migration 仍正常、`npm.cmd run build --workspace frontend`。
+
+- [ ] Extract cell mutation operations into `frontend/src/tableData/cellOps.ts`.
+  Scope: `createTableData`、`makeCell`（改為 module-private）、`updateTableCell`、`clearTableCells`、`getTableCellDeleteOperation`、`mergeCells`、`splitCellHorizontal`、`splitCellVertical`、`countFilledTableCells`、`getTableCellSummary`、`findCellByChildItemId`、`getChildItemIdsInRows`、`getChildItemIdsInCols`、`getTableCellIdsInRows`、`getTableCellIdsInCols`。
+  Verify: merge/split 儲存格行為不變、child item 查詢正確、`npm.cmd run build --workspace frontend`。
+
+- [ ] Extract row / column operations into `frontend/src/tableData/rowColOps.ts`.
+  Scope: `addRow`、`addCol`、`deleteRow`、`deleteCol`、`deleteRows`、`deleteCols`、`resizeColumn`、`resizeRow`、`resizeTableData`、`preserveOuterAddColLayout`、`preserveOuterAddRowLayout`、`preserveOuterPrependColLayout`、`preserveOuterPrependRowLayout`。
+  Verify: 新增/刪除 row/col 後 layout 正確、刪除後 child items 一併清除、`npm.cmd run build --workspace frontend`。
+
+- [ ] Extract segment group & divider logic into `frontend/src/tableData/segmentGroups.ts`.
+  Scope: `computeColSegmentGroups`、`computeRowSegmentGroups`、`resizeColGroup`、`resizeRowGroup`、`scaleTableDividerPositions`，以及相關的 `normalizeFractions`（改為 module-private）。
+  Verify: col/row divider 拖曳吸附正確、segment group 合併邏輯不變、`npm.cmd run build --workspace frontend`。
+
+- [ ] Slim `core.ts` to geometry / query utilities only.
+  Scope: 確認 `core.ts` 最終只保留 `getTableMinSize`、`getTableMinSizeFromDataJson`、`getRootCellAt`、`getCumulativeColPositions`、`getCumulativeRowPositions`、`getEffectiveColEdge`、`getEffectiveRowEdge`、`getCellBounds`、`getEffectiveTableCellChildLayoutDirection`、`getNextTableLayoutUpdatedAt`。
+  Verify: `tsc --noUnusedLocals --noUnusedParameters` 無警告、所有 tableData 測試通過、`npm.cmd run build --workspace frontend`。
+
+- [ ] Update `frontend/src/tableData/index.ts` re-export surface.
+  Scope: 確認 index.ts 從所有新子模組重新 export，外部 import 路徑（`./tableData` 或 `./tableData/core`）不需要變動。
+  Verify: Canvas、useCanvasMouseHandlers 等所有 consumer import 無需修改即可通過 `tsc`。
+
+Rules for each split:
+
+- [ ] 每步只移動同一功能域的函式；不在搬移過程中修改實作。
+- [ ] `tableData/index.ts` re-export 在全部步驟完成前保持對外相容。
+- [ ] 不改動 backend 儲存格式或 Page XML；只重組前端模組邊界。
+- [ ] 每步完成後更新本 checklist。
+
+---
+
 ## 建議實作順序
 
 1. 專案設定與初始化
@@ -521,3 +659,6 @@ Rules for each split:
 6. Snap / Connector 對齊
 7. 後端基礎設施與冒煙測試
 8. Frontend `App.tsx` module split
+9. `useCanvasMouseHandlers.ts` module split（section 23）— **大部分完成**，剩 `useCanvasItemDrag.ts` 提取
+10. `Canvas.tsx` module split（section 24）
+11. `tableData/core.ts` module split（section 25）

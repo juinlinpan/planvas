@@ -5,15 +5,12 @@ import {
   applyAndClearOriginalSize,
   getOriginalSize,
   storeOriginalSize,
-  updateOriginalSize,
 } from './canvasHelpers/core';
 import {
-  clampItemSize,
   clampItemToFrame,
   findFrameDropTarget,
   fitItemWithinBounds,
   getFrameChildFitSize,
-  getFrameChildren,
   getFrameContentBounds,
   getPartialFrameExitEjectPosition,
   isFrame,
@@ -24,16 +21,12 @@ import {
 import {
   detachDraggedSegments,
   getDraggableSelectionItemIds,
-  getItemMagnetBounds,
   getSelectionMagnetBounds,
   getUniqueItemIds,
-  isHiddenByCollapsedFrame,
   isInlineEditable,
 } from './canvasHelpers/selection';
 import {
-  findNearestConnectorAnchor,
   getAnchorPoint,
-  getItemsNearPoint,
   isAnchor,
 } from './canvasHelpers/connectorAnchors';
 import {
@@ -49,7 +42,6 @@ import {
   MIN_ZOOM,
   MAX_ZOOM,
   MAGNET_TOLERANCE,
-  CONNECTOR_SNAP_THRESHOLD,
 } from './canvasConstants';
 import { deleteConnector, replacePageBoardState, updateBoardItem } from './api';
 import {
@@ -76,32 +68,23 @@ import {
   buildSegmentGeometry,
   canTranslateSegmentItem,
   getSegmentConnections,
-  getSegmentWaypoints,
-  getSegmentWorldWaypoints,
   getSegmentWorldPoints,
+  getSegmentWorldWaypoints,
   hasStoredSegmentData,
-  insertWaypointAt,
-  moveWaypointAt,
-  updateSegmentEndpoint,
   type Point,
-  type SegmentConnection,
   type SegmentEndpoint,
 } from './segmentData';
 import {
   magnetMoveRect,
-  magnetResizeRect,
-  snapPointToGrid,
   snapValueToGrid,
 } from './magnet';
 import {
   findCellByChildItemId,
-  createTableData,
   getEffectiveTableCellChildLayoutDirection,
   parseTableData,
   serializeTableData,
   updateTableCell,
   getRootCellAt,
-  TABLE_MAX_DIMENSION,
 } from './tableData';
 import {
   ITEM_DEFAULT_SIZE,
@@ -109,53 +92,13 @@ import {
   type ActiveTool,
   type Viewport,
 } from './types';
-import {
-  getTableInsertCanvasDimensions,
-  getTableInsertCanvasSize,
-} from './tableInsertPreview';
 import { zoomViewportAroundPoint } from './viewport';
-
-function isScrollableOverflow(value: string): boolean {
-  return value === 'auto' || value === 'scroll' || value === 'overlay';
-}
-
-function isScrollableWheelTarget(
-  target: EventTarget | null,
-  container: HTMLElement | null,
-  deltaX: number,
-  deltaY: number,
-): boolean {
-  if (!(target instanceof Element) || !container) {
-    return false;
-  }
-
-  const prefersHorizontalScroll = Math.abs(deltaX) > Math.abs(deltaY);
-  let element: Element | null = target;
-
-  while (element && element !== container) {
-    if (element instanceof HTMLElement) {
-      const style = window.getComputedStyle(element);
-      const canScrollY =
-        isScrollableOverflow(style.overflowY) &&
-        element.scrollHeight > element.clientHeight;
-      const canScrollX =
-        isScrollableOverflow(style.overflowX) &&
-        element.scrollWidth > element.clientWidth;
-
-      if (prefersHorizontalScroll ? canScrollX : canScrollY) {
-        return true;
-      }
-
-      if (!prefersHorizontalScroll && deltaY === 0 && canScrollX) {
-        return true;
-      }
-    }
-
-    element = element.parentElement;
-  }
-
-  return false;
-}
+import { isScrollableWheelTarget } from './canvasHelpers/scrollTarget';
+import { useCanvasPan } from './useCanvasPan';
+import { useCanvasMarquee } from './useCanvasMarquee';
+import { useCanvasResize } from './useCanvasResize';
+import { useCanvasSegmentDrag } from './useCanvasSegmentDrag';
+import { useCanvasTableInsert } from './useCanvasTableInsert';
 
 export type UseCanvasMouseHandlersParams = {
   pageId: string;
@@ -291,9 +234,78 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     onOpenNote,
   } = params;
 
-  function getSnappedPoint(point: Point, shouldSnap: boolean): Point {
-    return shouldSnap ? snapPointToGrid(point, CANVAS_GRID_SIZE) : point;
-  }
+  const { startViewportPan, handlePanMove, handlePanEnd } = useCanvasPan({
+    viewportRef,
+    isSpaceRef,
+    panRef,
+    setViewportAndSync,
+    scheduleViewportSave,
+  });
+
+  const { startMarqueeSelection, handleMarqueeMove, handleMarqueeEnd } = useCanvasMarquee({
+    marqueeSelectionRef,
+    containerRef,
+    itemsRef,
+    selectedIdsRef,
+    screenToWorld,
+    setMarqueeSelection,
+    setSelection,
+    clearSelection,
+    setEditingId,
+  });
+
+  const { startResize, handleResizeMove, handleResizeEnd } = useCanvasResize({
+    resizeRef,
+    itemsRef,
+    viewportRef,
+    setItemsAndSync,
+    setConnectorsAndSync,
+    setSelection,
+    setEditingId,
+    captureBoardSnapshot,
+    recordHistoryCheckpoint,
+  });
+
+  const {
+    handleSegmentEndpointMouseDown: handleSegmentEndpointMouseDownFromHook,
+    handleSegmentWaypointMouseDown: handleSegmentWaypointMouseDownFromHook,
+    handleSegmentMidpointMouseDown: handleSegmentMidpointMouseDownFromHook,
+    handleSegmentDragMove,
+    handleSegmentDragEnd,
+  } = useCanvasSegmentDrag({
+    waypointDragRef,
+    segmentEndpointDragRef,
+    segmentDraft,
+    setSegmentDraft,
+    activeTool,
+    itemsRef,
+    setItemsAndSync,
+    setSelection,
+    setEditingId,
+    setAnchorIndicatorItems,
+    setActiveAnchorHit,
+    setDeletingWaypointInfo,
+    screenToWorld,
+    captureBoardSnapshot,
+    recordHistoryCheckpoint,
+    handleCreateSegmentItem,
+  });
+
+  const {
+    startTableInsertDraft: startTableInsertDraftFromHook,
+    handleTableInsertMouseMove,
+    handleTableInsertMouseUp,
+  } = useCanvasTableInsert({
+    tableInsertDraftRef,
+    containerRef,
+    magnetEnabled,
+    activeTool,
+    toolbarTableInsertPreviewActive,
+    screenToWorld,
+    setTableInsertPreview,
+    setActiveTool,
+    handleCreateItem,
+  });
 
   function handleWheel(e: React.WheelEvent) {
     const container = containerRef.current;
@@ -322,29 +334,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
   }
 
   function startTableInsertDraft(clientX: number, clientY: number) {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) {
-      return;
-    }
-    const worldPos = screenToWorld(clientX, clientY);
-    const snappedWorldPos = getSnappedPoint(worldPos, magnetEnabled);
-    tableInsertDraftRef.current = {
-      startClientX: clientX,
-      startClientY: clientY,
-      startWorldX: snappedWorldPos.x,
-      startWorldY: snappedWorldPos.y,
-    };
-    setTableInsertPreview({
-      cursorX: clientX - rect.left,
-      cursorY: clientY - rect.top,
-      cols: 1,
-      rows: 1,
-      isActive: true,
-      worldX: snappedWorldPos.x,
-      worldY: snappedWorldPos.y,
-      width: getTableInsertCanvasSize(0, 0).width,
-      height: getTableInsertCanvasSize(0, 0).height,
-    });
+    startTableInsertDraftFromHook(clientX, clientY);
   }
 
   function handleToggleFrameCollapse(frameId: string) {
@@ -412,39 +402,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
       return;
     }
 
-    setEditingId(null);
-    marqueeSelectionRef.current = {
-      startClientX: e.clientX,
-      startClientY: e.clientY,
-      appendToSelection: e.shiftKey || e.ctrlKey || e.metaKey,
-      baseSelectionIds: selectedIdsRef.current,
-    };
-    if (!(e.shiftKey || e.ctrlKey || e.metaKey)) {
-      clearSelection();
-    }
-  }
-
-  function startViewportPan(
-    e: React.MouseEvent,
-    options: { preventDefault?: boolean } = {},
-  ) {
-    const shouldStartPan =
-      e.button === 1 || (e.button === 0 && isSpaceRef.current);
-    if (!shouldStartPan) {
-      return false;
-    }
-
-    if (options.preventDefault !== false) {
-      e.preventDefault();
-    }
-    e.stopPropagation();
-    panRef.current = {
-      startMouseX: e.clientX,
-      startMouseY: e.clientY,
-      startVpX: viewportRef.current.x,
-      startVpY: viewportRef.current.y,
-    };
-    return true;
+    startMarqueeSelection(e);
   }
 
   function handleItemMouseDown(e: React.MouseEvent, itemId: string) {
@@ -558,24 +516,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     itemId: string,
     endpoint: SegmentEndpoint,
   ) {
-    if (startViewportPan(e)) {
-      return;
-    }
-
-    if (e.button !== 0) {
-      return;
-    }
-
-    e.preventDefault();
-    e.stopPropagation();
-    setSelection([itemId]);
-    setEditingId(null);
-    segmentEndpointDragRef.current = {
-      itemId,
-      endpoint,
-      connection: null,
-      snapshot: captureBoardSnapshot(),
-    };
+    handleSegmentEndpointMouseDownFromHook(e, itemId, endpoint, startViewportPan);
   }
 
   function handleSegmentWaypointMouseDown(
@@ -583,23 +524,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     itemId: string,
     waypointIndex: number,
   ) {
-    if (startViewportPan(e)) {
-      return;
-    }
-
-    if (e.button !== 0) {
-      return;
-    }
-
-    e.preventDefault();
-    e.stopPropagation();
-    setSelection([itemId]);
-    setEditingId(null);
-    waypointDragRef.current = {
-      itemId,
-      waypointIndex,
-      snapshot: captureBoardSnapshot(),
-    };
+    handleSegmentWaypointMouseDownFromHook(e, itemId, waypointIndex, startViewportPan);
   }
 
   function handleSegmentMidpointMouseDown(
@@ -607,339 +532,24 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     itemId: string,
     segmentIndex: number,
   ) {
-    if (startViewportPan(e)) {
-      return;
-    }
-
-    if (e.button !== 0) {
-      return;
-    }
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    const item = itemsRef.current.find((candidate) => candidate.id === itemId);
-    if (!item) {
-      return;
-    }
-
-    const worldPoint = screenToWorld(e.clientX, e.clientY);
-    const result = insertWaypointAt(item, segmentIndex, worldPoint);
-    if (result === null) {
-      return;
-    }
-
-    const snapshot = captureBoardSnapshot();
-    const { waypointIndex: newIndex, ...geometry } = result;
-
-    setItemsAndSync((current) =>
-      current.map((candidate) =>
-        candidate.id === itemId ? { ...candidate, ...geometry } : candidate,
-      ),
-    );
-    setSelection([itemId]);
-    setEditingId(null);
-
-    waypointDragRef.current = {
-      itemId,
-      waypointIndex: newIndex,
-      snapshot,
-    };
+    handleSegmentMidpointMouseDownFromHook(e, itemId, segmentIndex, startViewportPan);
   }
 
   function handleResizeMouseDown(e: React.MouseEvent, itemId: string) {
-    if (startViewportPan(e)) {
-      return;
-    }
-
-    if (e.button !== 0) {
-      return;
-    }
-
-    e.stopPropagation();
-    const item = itemsRef.current.find((candidate) => candidate.id === itemId);
-    if (!item) {
-      return;
-    }
-
-    setSelection([itemId]);
-    setEditingId(null);
-    resizeRef.current = {
-      itemId,
-      startMouseX: e.clientX,
-      startMouseY: e.clientY,
-      startWidth: item.width,
-      startHeight: item.height,
-      snapshot: captureBoardSnapshot(),
-    };
+    startResize(e, itemId, startViewportPan);
   }
 
   function handleMouseMove(e: React.MouseEvent) {
     const shouldUseMagnet = magnetEnabled && !e.altKey;
-    const marqueeSelection = marqueeSelectionRef.current;
-    if (marqueeSelection !== null) {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) {
-        return;
-      }
-
-      const left =
-        Math.min(marqueeSelection.startClientX, e.clientX) - rect.left;
-      const top = Math.min(marqueeSelection.startClientY, e.clientY) - rect.top;
-      const width = Math.abs(e.clientX - marqueeSelection.startClientX);
-      const height = Math.abs(e.clientY - marqueeSelection.startClientY);
-      setMarqueeSelection({ left, top, width, height });
-
-      const startWorld = screenToWorld(
-        marqueeSelection.startClientX,
-        marqueeSelection.startClientY,
-      );
-      const endWorld = screenToWorld(e.clientX, e.clientY);
-      const selectionRect = {
-        left: Math.min(startWorld.x, endWorld.x),
-        top: Math.min(startWorld.y, endWorld.y),
-        right: Math.max(startWorld.x, endWorld.x),
-        bottom: Math.max(startWorld.y, endWorld.y),
-      };
-      const enclosedIds = itemsRef.current
-        .filter((item) => !isHiddenByCollapsedFrame(item, itemsRef.current))
-        .filter((item) => {
-          const bounds = getItemMagnetBounds(item);
-          return (
-            bounds.x >= selectionRect.left &&
-            bounds.y >= selectionRect.top &&
-            bounds.x + bounds.width <= selectionRect.right &&
-            bounds.y + bounds.height <= selectionRect.bottom
-          );
-        })
-        .map((item) => item.id);
-      setSelection(
-        marqueeSelection.appendToSelection
-          ? getUniqueItemIds([
-              ...marqueeSelection.baseSelectionIds,
-              ...enclosedIds,
-            ])
-          : enclosedIds,
-      );
+    if (handleMarqueeMove(e)) {
       return;
     }
 
-    const waypointDrag = waypointDragRef.current;
-    if (waypointDrag) {
-      const item = itemsRef.current.find(
-        (candidate) => candidate.id === waypointDrag.itemId,
-      );
-      if (!item) {
-        return;
-      }
-
-      const rawPoint = screenToWorld(e.clientX, e.clientY);
-      const nextPoint = getSnappedPoint(rawPoint, shouldUseMagnet);
-      const nextGeometry = moveWaypointAt(
-        item,
-        waypointDrag.waypointIndex,
-        nextPoint,
-      );
-      if (nextGeometry === null) {
-        return;
-      }
-
-      // Check if dragged close enough to start/end to trigger delete
-      const SNAP_DELETE_DIST = 10;
-      const worldPts = getSegmentWorldPoints(item);
-      if (worldPts !== null) {
-        const dStart = Math.hypot(
-          rawPoint.x - worldPts.start.x,
-          rawPoint.y - worldPts.start.y,
-        );
-        const dEnd = Math.hypot(
-          rawPoint.x - worldPts.end.x,
-          rawPoint.y - worldPts.end.y,
-        );
-        if (dStart < SNAP_DELETE_DIST || dEnd < SNAP_DELETE_DIST) {
-          setDeletingWaypointInfo({
-            itemId: waypointDrag.itemId,
-            waypointIndex: waypointDrag.waypointIndex,
-          });
-        } else {
-          setDeletingWaypointInfo(null);
-        }
-      }
-
-      setItemsAndSync((current) =>
-        current.map((candidate) =>
-          candidate.id === waypointDrag.itemId
-            ? { ...candidate, ...nextGeometry }
-            : candidate,
-        ),
-      );
+    if (handleSegmentDragMove(e, shouldUseMagnet)) {
       return;
     }
 
-    const endpointDrag = segmentEndpointDragRef.current;
-    if (endpointDrag) {
-      const item = itemsRef.current.find(
-        (candidate) => candidate.id === endpointDrag.itemId,
-      );
-      if (!item) {
-        setAnchorIndicatorItems([]);
-        setActiveAnchorHit(null);
-        return;
-      }
-
-      const rawPoint = screenToWorld(e.clientX, e.clientY);
-      const snappedPoint = getSnappedPoint(rawPoint, shouldUseMagnet);
-
-      // Check for connector anchor attachment
-      const anchorHit = findNearestConnectorAnchor(
-        rawPoint,
-        itemsRef.current,
-        new Set([endpointDrag.itemId]),
-        CONNECTOR_SNAP_THRESHOLD,
-      );
-      const nextPoint = anchorHit ? anchorHit.point : snappedPoint;
-      const nextConn: SegmentConnection | null = anchorHit
-        ? { itemId: anchorHit.itemId, anchor: anchorHit.anchor }
-        : null;
-
-      endpointDrag.connection = nextConn;
-
-      // Show anchor indicators on nearby items
-      const nearbyItems = getItemsNearPoint(
-        rawPoint,
-        itemsRef.current,
-        new Set([endpointDrag.itemId]),
-        CONNECTOR_SNAP_THRESHOLD * 2,
-      );
-      setAnchorIndicatorItems(nearbyItems);
-      setActiveAnchorHit(anchorHit);
-
-      const nextGeometry = updateSegmentEndpoint(
-        item,
-        endpointDrag.endpoint,
-        nextPoint,
-        nextConn,
-      );
-      if (nextGeometry === null) {
-        return;
-      }
-
-      setItemsAndSync((current) =>
-        current.map((candidate) =>
-          candidate.id === endpointDrag.itemId
-            ? { ...candidate, ...nextGeometry }
-            : candidate,
-        ),
-      );
-      return;
-    }
-
-    if (segmentDraft !== null) {
-      const rawPoint = screenToWorld(e.clientX, e.clientY);
-      const snappedPoint = getSnappedPoint(rawPoint, shouldUseMagnet);
-
-      // Check for connector anchor attachment on the end point
-      const excludeIds = new Set<string>();
-      if (segmentDraft.startConnection) {
-        excludeIds.add(segmentDraft.startConnection.itemId);
-      }
-      const anchorHit = findNearestConnectorAnchor(
-        rawPoint,
-        itemsRef.current,
-        excludeIds,
-        CONNECTOR_SNAP_THRESHOLD,
-      );
-      const nextPoint = anchorHit ? anchorHit.point : snappedPoint;
-      const nextConn: SegmentConnection | null = anchorHit
-        ? { itemId: anchorHit.itemId, anchor: anchorHit.anchor }
-        : null;
-
-      // Show anchor indicators on nearby items
-      const nearbyItems = getItemsNearPoint(
-        rawPoint,
-        itemsRef.current,
-        excludeIds,
-        CONNECTOR_SNAP_THRESHOLD * 2,
-      );
-      setAnchorIndicatorItems(nearbyItems);
-      setActiveAnchorHit(anchorHit);
-
-      setSegmentDraft((current) =>
-        current === null
-          ? null
-          : { ...current, end: nextPoint, endConnection: nextConn },
-      );
-      return;
-    }
-
-    // When line/arrow tool is active but no draft, show anchor indicators on hover
-    if (activeTool === 'line' || activeTool === 'arrow') {
-      const worldPos = screenToWorld(e.clientX, e.clientY);
-      const nearbyItems = getItemsNearPoint(
-        worldPos,
-        itemsRef.current,
-        new Set(),
-        CONNECTOR_SNAP_THRESHOLD * 2,
-      );
-      setAnchorIndicatorItems(nearbyItems);
-
-      const anchorHit = findNearestConnectorAnchor(
-        worldPos,
-        itemsRef.current,
-        new Set(),
-        CONNECTOR_SNAP_THRESHOLD,
-      );
-      setActiveAnchorHit(anchorHit);
-    }
-
-    const resize = resizeRef.current;
-    if (resize) {
-      const vp = viewportRef.current;
-      const dx = (e.clientX - resize.startMouseX) / vp.zoom;
-      const dy = (e.clientY - resize.startMouseY) / vp.zoom;
-      const item = itemsRef.current.find(
-        (candidate) => candidate.id === resize.itemId,
-      );
-      if (!item) {
-        return;
-      }
-
-      const rawRect = {
-        x: item.x,
-        y: item.y,
-        width: resize.startWidth + dx,
-        height: resize.startHeight + dy,
-      };
-      const magnetRect = shouldUseMagnet
-        ? magnetResizeRect(rawRect, CANVAS_GRID_SIZE, MAGNET_TOLERANCE)
-        : { width: rawRect.width, height: rawRect.height };
-      const nextSize = clampItemSize(
-        item.type,
-        magnetRect.width,
-        magnetRect.height,
-        item.data_json,
-      );
-
-      setItemsAndSync((current) => {
-        const resizedItems = current.map((currentItem) => {
-          if (currentItem.id !== resize.itemId) {
-            return currentItem;
-          }
-
-          const updated = {
-            ...currentItem,
-            width: nextSize.width,
-            height: nextSize.height,
-          };
-          return currentItem.parent_item_id !== null
-            ? updateOriginalSize(updated, nextSize.width, nextSize.height)
-            : updated;
-        });
-
-        return item.type === ITEM_TYPE.table
-          ? relayoutTableItems(resizedItems, [resize.itemId]).items
-          : resizedItems;
-      });
+    if (handleResizeMove(e, shouldUseMagnet)) {
       return;
     }
 
@@ -1115,63 +725,11 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
       return;
     }
 
-    const pan = panRef.current;
-    if (pan) {
-      const nextViewport: Viewport = {
-        ...viewportRef.current,
-        x: pan.startVpX + (e.clientX - pan.startMouseX),
-        y: pan.startVpY + (e.clientY - pan.startMouseY),
-      };
-      setViewportAndSync(nextViewport);
+    if (handlePanMove(e)) {
       return;
     }
 
-    if (activeTool === 'table') {
-      if (toolbarTableInsertPreviewActive) {
-        setTableInsertPreview(null);
-        return;
-      }
-      const draft = tableInsertDraftRef.current;
-      if (draft === null) {
-        setTableInsertPreview(null);
-        return;
-      }
-
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) {
-        setTableInsertPreview(null);
-        return;
-      }
-
-      const worldPos = getSnappedPoint(
-        screenToWorld(e.clientX, e.clientY),
-        magnetEnabled,
-      );
-      const deltaWorldX = worldPos.x - draft.startWorldX;
-      const deltaWorldY = worldPos.y - draft.startWorldY;
-      const dims = getTableInsertCanvasDimensions(
-        deltaWorldX,
-        deltaWorldY,
-        TABLE_MAX_DIMENSION,
-        TABLE_MAX_DIMENSION,
-      );
-      const size = getTableInsertCanvasSize(
-        deltaWorldX,
-        deltaWorldY,
-        dims.rows,
-        dims.cols,
-      );
-      setTableInsertPreview({
-        cursorX: draft.startClientX - rect.left,
-        cursorY: draft.startClientY - rect.top,
-        cols: dims.cols,
-        rows: dims.rows,
-        isActive: true,
-        worldX: draft.startWorldX,
-        worldY: draft.startWorldY,
-        width: size.width,
-        height: size.height,
-      });
+    if (handleTableInsertMouseMove(e)) {
       return;
     }
   }
@@ -1182,208 +740,16 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     setActiveFrameDropTargetId(null);
     setActiveTableDropTarget(null);
 
-    const tableInsertDraft = tableInsertDraftRef.current;
-    tableInsertDraftRef.current = null;
-    setTableInsertPreview(null);
-    marqueeSelectionRef.current = null;
-    setMarqueeSelection(null);
-
-    if (tableInsertDraft !== null) {
-      const worldPos =
-        e === undefined
-          ? {
-              x:
-                tableInsertDraft.startWorldX +
-                ITEM_DEFAULT_SIZE[ITEM_TYPE.table].width,
-              y:
-                tableInsertDraft.startWorldY +
-                ITEM_DEFAULT_SIZE[ITEM_TYPE.table].height,
-            }
-          : getSnappedPoint(screenToWorld(e.clientX, e.clientY), magnetEnabled);
-      const deltaWorldX = worldPos.x - tableInsertDraft.startWorldX;
-      const deltaWorldY = worldPos.y - tableInsertDraft.startWorldY;
-      const dims = getTableInsertCanvasDimensions(
-        deltaWorldX,
-        deltaWorldY,
-        TABLE_MAX_DIMENSION,
-        TABLE_MAX_DIMENSION,
-      );
-      const size = getTableInsertCanvasSize(
-        deltaWorldX,
-        deltaWorldY,
-        dims.rows,
-        dims.cols,
-      );
-      void handleCreateItem({
-        type: ITEM_TYPE.table,
-        x: tableInsertDraft.startWorldX,
-        y: tableInsertDraft.startWorldY,
-        width: size.width,
-        height: size.height,
-        dataJson: serializeTableData(createTableData(dims.rows, dims.cols)),
-      });
-      setActiveTool('select');
+    handleMarqueeEnd();
+    if (handleTableInsertMouseUp(e)) {
       return;
     }
 
-    const waypointDrag = waypointDragRef.current;
-    if (waypointDrag) {
-      waypointDragRef.current = null;
-      setDeletingWaypointInfo(null);
-      const item = itemsRef.current.find(
-        (candidate) => candidate.id === waypointDrag.itemId,
-      );
-      if (item) {
-        // If the waypoint is too close to start or end, remove it
-        const worldPts = getSegmentWorldPoints(item);
-        const waypoints = getSegmentWaypoints(item);
-        const wp = waypoints[waypointDrag.waypointIndex];
-        const SNAP_DELETE_DIST = 10;
-        let shouldDelete = false;
-        if (wp !== undefined && worldPts !== null) {
-          const wpWorld = { x: item.x + wp.x, y: item.y + wp.y };
-          const dStart = Math.hypot(
-            wpWorld.x - worldPts.start.x,
-            wpWorld.y - worldPts.start.y,
-          );
-          const dEnd = Math.hypot(
-            wpWorld.x - worldPts.end.x,
-            wpWorld.y - worldPts.end.y,
-          );
-          shouldDelete = dStart < SNAP_DELETE_DIST || dEnd < SNAP_DELETE_DIST;
-        }
-
-        if (shouldDelete && worldPts !== null) {
-          const { startConnection, endConnection } =
-            getSegmentConnections(item);
-          const newWaypoints = waypoints.filter(
-            (_, i) => i !== waypointDrag.waypointIndex,
-          );
-          const newWorldWaypoints = newWaypoints.map((w) => ({
-            x: item.x + w.x,
-            y: item.y + w.y,
-          }));
-          const geometry = buildSegmentGeometry(
-            worldPts.start,
-            worldPts.end,
-            newWorldWaypoints,
-            startConnection,
-            endConnection,
-          );
-          const nextItem = { ...item, ...geometry };
-          setItemsAndSync((current) =>
-            current.map((candidate) =>
-              candidate.id === waypointDrag.itemId ? nextItem : candidate,
-            ),
-          );
-          persistItems([nextItem]);
-        } else {
-          persistItems([item]);
-        }
-        recordHistoryCheckpoint(waypointDrag.snapshot);
-      }
+    if (handleSegmentDragEnd(e, magnetEnabled)) {
       return;
     }
 
-    const endpointDrag = segmentEndpointDragRef.current;
-    if (endpointDrag) {
-      segmentEndpointDragRef.current = null;
-      const item = itemsRef.current.find(
-        (candidate) => candidate.id === endpointDrag.itemId,
-      );
-      if (item) {
-        persistItems([item]);
-        recordHistoryCheckpoint(endpointDrag.snapshot);
-      }
-      return;
-    }
-
-    const pendingSegmentDraft = segmentDraft;
-    if (pendingSegmentDraft !== null) {
-      // Snap end point to anchor if available
-      let finalEnd = pendingSegmentDraft.end;
-      let finalEndConn = pendingSegmentDraft.endConnection;
-      if (e !== undefined) {
-        const rawEnd = screenToWorld(e.clientX, e.clientY);
-        const snappedEnd = getSnappedPoint(rawEnd, magnetEnabled && !e.altKey);
-        const excludeIds = new Set<string>();
-        if (pendingSegmentDraft.startConnection) {
-          excludeIds.add(pendingSegmentDraft.startConnection.itemId);
-        }
-        const anchorHit = findNearestConnectorAnchor(
-          rawEnd,
-          itemsRef.current,
-          excludeIds,
-          CONNECTOR_SNAP_THRESHOLD,
-        );
-        finalEnd = anchorHit ? anchorHit.point : snappedEnd;
-        finalEndConn = anchorHit
-          ? { itemId: anchorHit.itemId, anchor: anchorHit.anchor }
-          : null;
-      }
-
-      setSegmentDraft(null);
-      void handleCreateSegmentItem({
-        ...pendingSegmentDraft,
-        end: finalEnd,
-        endConnection: finalEndConn,
-      });
-      return;
-    }
-
-    const resize = resizeRef.current;
-    if (resize) {
-      resizeRef.current = null;
-      const item = itemsRef.current.find(
-        (candidate) => candidate.id === resize.itemId,
-      );
-      if (item) {
-        let nextItems = itemsRef.current;
-        const changedIds = new Set<string>([item.id]);
-
-        if (isFrame(item)) {
-          const relayoutResult = relayoutFrameItems(nextItems, [item.id]);
-          nextItems = relayoutResult.items;
-          for (const changedId of relayoutResult.changedIds) {
-            changedIds.add(changedId);
-          }
-
-          if (relayoutResult.changedIds.length > 0) {
-            setItemsAndSync(nextItems);
-          }
-        }
-
-        if (item.type === ITEM_TYPE.table) {
-          const relayoutResult = relayoutTableItems(nextItems, [item.id]);
-          nextItems = relayoutResult.items;
-          for (const changedId of relayoutResult.changedIds) {
-            changedIds.add(changedId);
-          }
-          for (const child of getFrameChildren(nextItems, item.id)) {
-            changedIds.add(child.id);
-          }
-
-          if (relayoutResult.changedIds.length > 0) {
-            setItemsAndSync(nextItems);
-          }
-        }
-
-        persistItems(
-          nextItems.filter((candidate) => changedIds.has(candidate.id)),
-        );
-        syncConnectorAnchorsForItems(
-          [...changedIds],
-          itemsRef,
-          setConnectorsAndSync,
-        );
-        syncSegmentConnectionsForItems(
-          [...changedIds],
-          itemsRef,
-          setItemsAndSync,
-        );
-      }
-      recordHistoryCheckpoint(resize.snapshot);
-    }
+    handleResizeEnd();
 
     const drag = dragRef.current;
     if (drag) {
@@ -2027,10 +1393,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
       recordHistoryCheckpoint(drag.snapshot);
     }
 
-    if (panRef.current) {
-      panRef.current = null;
-      scheduleViewportSave(viewportRef.current);
-    }
+    handlePanEnd();
   }
 
   function handleItemDoubleClick(item: BoardItem) {
