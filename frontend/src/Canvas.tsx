@@ -5,14 +5,11 @@ import {
   useMemo,
   useRef,
   useState,
-  type DragEvent as ReactDragEvent,
 } from 'react';
 import { readStoredBoolean } from './utils';
 import {
   type BoardItem,
-  type BoardItemPayload,
   type ConnectorLink,
-  createBoardItem,
   replacePageBoardState,
   type Page,
   type PageBoardData,
@@ -22,12 +19,10 @@ import {
   findFrameDropTarget,
   getFrameChildren,
   getFrameOverlapScore,
-  isFrame,
   isSmallItem,
 } from './canvasHelpers/frameLayout';
 import {
   findNearestConnectorAnchor,
-  getItemConnectorAnchors,
 } from './canvasHelpers/connectorAnchors';
 import {
   findTableCellDropTarget,
@@ -36,13 +31,11 @@ import {
 import {
   getPrimarySelectionId,
   getUniqueItemIds,
-  isHiddenByCollapsedFrame,
 } from './canvasHelpers/selection';
 import {
   getLayerBlockIds,
   sortItemsByLayer,
 } from './canvasHelpers/layerOrdering';
-import { summarizeFrameChild } from './canvasHelpers/contentSummary';
 import type { AnchorHit, TableCellHit } from './canvasHelpers/types';
 import {
   CANVAS_GRID_SIZE,
@@ -52,7 +45,6 @@ import { snapPointToGrid } from './magnet';
 import type {
   ConnectorsUpdater,
   DragState,
-  EditSessionState,
   ItemsUpdater,
   PanState,
   ResizeState,
@@ -71,11 +63,7 @@ import { useCanvasItemActions } from './useCanvasItemActions';
 import { useCanvasMouseHandlers } from './useCanvasMouseHandlers';
 import { Inspector } from './Inspector';
 import {
-  buildSegmentGeometry,
-  canTranslateSegmentItem,
-  type Point,
   type SegmentConnection,
-  type SegmentEndpoint,
 } from './segmentData';
 import {
   createTableData,
@@ -93,23 +81,19 @@ import {
   updateTableCell,
 } from './tableData';
 import {
-  TABLE_INSERT_PREVIEW_CELL_HEIGHT,
-  TABLE_INSERT_PREVIEW_CELL_WIDTH,
   getDirectionalTableInsertDelta,
   getTableInsertDimensions,
   getTableInsertDirection,
   getTableInsertItemSize,
   getTableInsertPreviewPosition,
+  TABLE_INSERT_PREVIEW_CELL_HEIGHT,
+  TABLE_INSERT_PREVIEW_CELL_WIDTH,
   type TableInsertDockPosition,
   type TableInsertDirection,
 } from './tableInsertPreview';
 import { Toolbar } from './Toolbar';
-import { BoardItemRenderer } from './items/BoardItemRenderer';
-import { SegmentShape } from './items/SegmentShape';
 
 import {
-  ITEM_CATEGORY,
-  ITEM_CATEGORY_FOR_TYPE,
   ITEM_TYPE,
   type ActiveTool,
   type Viewport,
@@ -121,16 +105,11 @@ import {
   type CanvasBackgroundMode,
 } from './canvasBackground';
 import {
-  getCanvasContextMenuActionKeys,
-  getCanvasContextMenuPosition,
-  isCanvasContextMenuActionDisabled,
-  type CanvasContextMenuActionKey,
   type CanvasContextMenuState,
 } from './canvasContextMenu';
 import {
   adjustResetZoomByStep,
   adjustZoomByStep,
-  getDisplayZoom,
   getResetZoom,
   zoomViewportAroundPoint,
 } from './viewport';
@@ -143,6 +122,8 @@ import { CanvasRibbon } from './CanvasRibbon';
 import { CanvasMinimap, MINIMAP_WIDTH, MINIMAP_HEIGHT } from './CanvasMinimap';
 import { CanvasContextMenuLayer } from './CanvasContextMenuLayer';
 import { CanvasItemLayer } from './CanvasItemLayer';
+import { CanvasTableInsertPreviews } from './CanvasTableInsertPreviews';
+import { useCanvasContextMenuActions } from './useCanvasContextMenuActions';
 
 type Props = {
   page: Page;
@@ -179,25 +160,6 @@ function readStoredNumber(key: string, fallbackValue: number): number {
 
   const storedValue = Number(rawValue);
   return Number.isFinite(storedValue) ? storedValue : fallbackValue;
-}
-
-function createOptimisticId(): string {
-  return `optimistic-${globalThis.crypto?.randomUUID?.() ?? Date.now().toString(36)}`;
-}
-
-function createOptimisticItem(
-  payload: BoardItemPayload,
-  contentOverride?: string | null,
-): BoardItem {
-  const timestamp = new Date().toISOString();
-  return {
-    ...payload,
-    id: createOptimisticId(),
-    content:
-      contentOverride !== undefined ? contentOverride : payload.content,
-    created_at: timestamp,
-    updated_at: timestamp,
-  };
 }
 
 import { useCanvasEditSession } from './useCanvasEditSession';
@@ -558,8 +520,6 @@ export function Canvas({
     pushUndoSnapshot,
     recordHistoryCheckpoint,
     resetHistory,
-    clearPendingItemSave,
-    restoreBoardSnapshot,
     handleUndo,
     handleRedo,
   } = useCanvasHistory({
@@ -583,7 +543,6 @@ export function Canvas({
     isPasting,
     handleCreateItem,
     handleCreateSegmentItem,
-    handleDeleteItems,
     handleDeleteSelection,
     handleCopySelection,
     handleCutSelection,
@@ -1168,74 +1127,29 @@ export function Canvas({
     [hasClipboardData, setSelection],
   );
 
-  const handleContextMenuPaste = useCallback(() => {
-    if (!hasClipboardData()) {
-      return;
-    }
-    setContextMenu(null);
-    void handlePasteSelection();
-  }, [handlePasteSelection, hasClipboardData]);
-
-  const handleContextMenuCopy = useCallback(() => {
-    if (selectedIdsRef.current.length === 0) {
-      return;
-    }
-    handleCopySelection();
-    setContextMenu(null);
-  }, [handleCopySelection]);
-
-  const handleContextMenuCut = useCallback(() => {
-    if (selectedIdsRef.current.length === 0) {
-      return;
-    }
-    setContextMenu(null);
-    void handleCutSelection();
-  }, [handleCutSelection]);
-
-  const handleContextMenuDelete = useCallback(() => {
-    if (selectedIdsRef.current.length === 0) {
-      return;
-    }
-    setContextMenu(null);
-    void handleDeleteSelectedTableCells()
-      .then((deletedTableCells) => {
-        if (!deletedTableCells) {
-          void handleDeleteSelection();
-        }
-      })
-      .catch((err) => {
-        console.error('[Canvas] Failed to handle context delete', err);
-      });
-  }, [handleDeleteSelectedTableCells, handleDeleteSelection]);
-
-  const handleContextMenuTransformToNote = useCallback(() => {
-    const targetId = getPrimarySelectionId(selectedIdsRef.current);
-    if (targetId === null) {
-      return;
-    }
-    setContextMenu(null);
-    void handleTransformToNote(targetId);
-  }, [handleTransformToNote]);
-
-  const handleContextMenuBringForward = useCallback(() => {
-    handleLayerChange('bringForward');
-    setContextMenu(null);
-  }, [handleLayerChange]);
-
-  const handleContextMenuSendBackward = useCallback(() => {
-    handleLayerChange('sendBackward');
-    setContextMenu(null);
-  }, [handleLayerChange]);
-
-  const handleContextMenuBringToFront = useCallback(() => {
-    handleLayerChange('bringToFront');
-    setContextMenu(null);
-  }, [handleLayerChange]);
-
-  const handleContextMenuSendToBack = useCallback(() => {
-    handleLayerChange('sendToBack');
-    setContextMenu(null);
-  }, [handleLayerChange]);
+  const {
+    handleContextMenuPaste,
+    handleContextMenuCopy,
+    handleContextMenuCut,
+    handleContextMenuDelete,
+    handleContextMenuTransformToNote,
+    handleContextMenuBringForward,
+    handleContextMenuSendBackward,
+    handleContextMenuBringToFront,
+    handleContextMenuSendToBack,
+  } = useCanvasContextMenuActions({
+    setContextMenu,
+    hasClipboardData,
+    selectedIdsRef,
+    handlePasteSelection,
+    handleCopySelection,
+    handleCutSelection,
+    handleDeleteSelectedTableCells,
+    handleDeleteSelection,
+    getPrimarySelectionId,
+    handleTransformToNote,
+    handleLayerChange,
+  });
 
   function handleViewportZoom(targetZoom: number) {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -1400,38 +1314,11 @@ export function Canvas({
     <div
       className={`canvas-root ${isInspectorCollapsed ? 'is-inspector-collapsed' : ''}`}
     >
-      {toolbarTableInsertPreview !== null ? (
-        <div
-          className={`table-insert-preview table-insert-preview-fixed ${
-            toolbarTableInsertPreview.isActive ? 'is-dragging' : ''
-          }`}
-          style={getTableInsertPreviewPosition(
-            toolbarTableInsertPreview.cursorX,
-            toolbarTableInsertPreview.cursorY,
-            toolbarTableInsertPreview.direction ?? { x: 1, y: 1 },
-            toolbarTableInsertPreview.cols,
-            toolbarTableInsertPreview.rows,
-          )}
-        >
-          <div
-            className="table-insert-preview-grid"
-            style={{
-              gridTemplateColumns: `repeat(${toolbarTableInsertPreview.cols}, ${TABLE_INSERT_PREVIEW_CELL_WIDTH}px)`,
-              gridTemplateRows: `repeat(${toolbarTableInsertPreview.rows}, ${TABLE_INSERT_PREVIEW_CELL_HEIGHT}px)`,
-            }}
-          >
-            {Array.from({
-              length:
-                toolbarTableInsertPreview.rows * toolbarTableInsertPreview.cols,
-            }).map((_, index) => (
-              <span key={index} className="table-insert-preview-cell" />
-            ))}
-          </div>
-          <div className="table-insert-preview-label">
-            {toolbarTableInsertPreview.rows} × {toolbarTableInsertPreview.cols}
-          </div>
-        </div>
-      ) : null}
+      <CanvasTableInsertPreviews
+        tableInsertPreview={activeTool === ITEM_TYPE.table ? tableInsertPreview : null}
+        toolbarTableInsertPreview={toolbarTableInsertPreview}
+        viewport={viewport}
+      />
 
       <Toolbar
         activeTool={activeTool}
