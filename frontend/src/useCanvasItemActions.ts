@@ -1050,7 +1050,6 @@ export function useCanvasItemActions({
     handlePasteSelection,
     handleLayerChange,
     handleItemUpdate,
-    handleEditEnd,
     handleTransformToNote,
     flushPendingItemSave,
   };

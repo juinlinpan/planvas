@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import type { BoardItem, ConnectorLink, ProjectNote } from './api';
-import { resolveSidebarNoteDragFile } from './Canvas';
+import { Canvas } from './Canvas';
+import { resolveSidebarNoteDragFile } from './useCanvasNoteDrop';
 import {
   buildClipboardPayload,
   getClipboardData,

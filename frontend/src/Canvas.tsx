@@ -28,7 +28,6 @@ import {
 import {
   findNearestConnectorAnchor,
   getItemConnectorAnchors,
-  normalizeConnectorArrowsToSegments,
 } from './canvasHelpers/connectorAnchors';
 import {
   findTableCellDropTarget,
@@ -142,7 +141,8 @@ import { useCanvasBoardLoader } from './useCanvasBoardLoader';
 import { useCanvasViewportPersistence } from './useCanvasViewportPersistence';
 import { CanvasRibbon } from './CanvasRibbon';
 import { CanvasMinimap, MINIMAP_WIDTH, MINIMAP_HEIGHT } from './CanvasMinimap';
-import { CanvasContextMenuPortal } from './CanvasContextMenuPortal';
+import { CanvasContextMenuLayer } from './CanvasContextMenuLayer';
+import { CanvasItemLayer } from './CanvasItemLayer';
 
 type Props = {
   page: Page;
@@ -200,24 +200,8 @@ function createOptimisticItem(
   };
 }
 
-export function resolveSidebarNoteDragFile(
-  projectNotes: ProjectNote[],
-  draggedProjectNoteFile: string | null,
-  dataTransfer: Pick<DataTransfer, 'getData'>,
-): string | null {
-  const rawValue = dataTransfer.getData('text/plain');
-  const prefix = 'notes:';
-  if (rawValue.startsWith(prefix)) {
-    const noteFile = rawValue.slice(prefix.length);
-    if (projectNotes.some((note) => note.note_file === noteFile)) {
-      return noteFile;
-    }
-  }
-
-  return projectNotes.some((note) => note.note_file === draggedProjectNoteFile)
-    ? draggedProjectNoteFile
-    : null;
-}
+import { useCanvasEditSession } from './useCanvasEditSession';
+import { useCanvasNoteDrop } from './useCanvasNoteDrop';
 
 export function Canvas({
   page,
@@ -234,6 +218,14 @@ export function Canvas({
   importExportDisabled,
   projectDefaultStyleJson = null,
 }: Props) {
+  const {
+    editingId,
+    setEditingId,
+    editSessionRef,
+    handleCancelEdit,
+    handleDoubleClickForEdit,
+  } = useCanvasEditSession();
+
   const [viewport, setViewport] = useState<Viewport>({
     x: page.viewport_x,
     y: page.viewport_y,
@@ -242,7 +234,6 @@ export function Canvas({
   const [items, setItems] = useState<BoardItem[]>([]);
   const [connectors, setConnectors] = useState<ConnectorLink[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<ActiveTool>('select');
   const [backgroundMode, setBackgroundMode] = useState<CanvasBackgroundMode>(
     () => {
@@ -319,7 +310,6 @@ export function Canvas({
   const isSpaceRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const itemSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const editSessionRef = useRef<EditSessionState | null>(null);
   const toolbarTableInsertOriginRef = useRef<{
     clientX: number;
     clientY: number;
@@ -601,7 +591,6 @@ export function Canvas({
     handlePasteSelection,
     handleLayerChange,
     handleItemUpdate,
-    handleEditEnd,
     handleTransformToNote,
     flushPendingItemSave,
   } = useCanvasItemActions({
@@ -771,79 +760,6 @@ export function Canvas({
 
     return getFrameChildren(items, selectedItem.id).length;
   }, [items, selectedItem]);
-
-  const visibleItems = useMemo(
-    () =>
-      [...items]
-        .filter((item) => !isHiddenByCollapsedFrame(item, items))
-        .sort(
-          (a, b) =>
-            a.z_index - b.z_index || a.created_at.localeCompare(b.created_at),
-        ),
-    [items],
-  );
-  const frameChildrenById = useMemo(() => {
-    const childrenById = new Map<string, BoardItem[]>();
-    for (const item of items) {
-      if (item.parent_item_id === null) {
-        continue;
-      }
-
-      const children = childrenById.get(item.parent_item_id);
-      if (children === undefined) {
-        childrenById.set(item.parent_item_id, [item]);
-      } else {
-        children.push(item);
-      }
-    }
-
-    return childrenById;
-  }, [items]);
-  const frameChildSummariesById = useMemo(() => {
-    const summariesById = new Map<
-      string,
-      ReturnType<typeof summarizeFrameChild>[]
-    >();
-    for (const [frameId, childItems] of frameChildrenById) {
-      summariesById.set(frameId, childItems.map(summarizeFrameChild));
-    }
-
-    return summariesById;
-  }, [frameChildrenById]);
-
-  const segmentDraftPreviewItem = useMemo(() => {
-    if (segmentDraft === null) {
-      return null;
-    }
-
-    const geometry = buildSegmentGeometry(
-      segmentDraft.start,
-      segmentDraft.end,
-      null,
-    );
-    return {
-      id: '__segment-draft__',
-      page_id: page.id,
-      parent_item_id: null,
-      category:
-        ITEM_CATEGORY_FOR_TYPE[segmentDraft.type] ?? ITEM_CATEGORY.shape,
-      type: segmentDraft.type,
-      title: null,
-      content: null,
-      content_format: null,
-      x: geometry.x,
-      y: geometry.y,
-      width: geometry.width,
-      height: geometry.height,
-      rotation: geometry.rotation,
-      z_index: Number.MAX_SAFE_INTEGER,
-      is_collapsed: false,
-      style_json: null,
-      data_json: geometry.data_json,
-      created_at: 'draft',
-      updated_at: 'draft',
-    } satisfies BoardItem;
-  }, [page.id, segmentDraft]);
 
   const minimapLayout = useMemo(
     () =>
@@ -1179,75 +1095,6 @@ export function Canvas({
     };
   }
 
-  function getSidebarNoteDragFile(event: ReactDragEvent): string | null {
-    return resolveSidebarNoteDragFile(
-      projectNotes,
-      draggedProjectNoteFile,
-      event.dataTransfer,
-    );
-  }
-
-  async function handleProjectNoteDrop(
-    noteFile: string,
-    clientX: number,
-    clientY: number,
-  ): Promise<void> {
-    const note = projectNotes.find((entry) => entry.note_file === noteFile);
-    if (note === undefined) {
-      return;
-    }
-
-    const snapshotBeforeCreate = captureBoardSnapshot();
-    const worldPoint = screenToWorld(clientX, clientY);
-    const zIndexes = itemsRef.current.map((item) => item.z_index);
-    const maxZ = zIndexes.length > 0 ? Math.max(...zIndexes) : 0;
-
-    const payload: BoardItemPayload = {
-      page_id: page.id,
-      parent_item_id: null,
-      category: ITEM_CATEGORY.small_item,
-      type: ITEM_TYPE.note_paper,
-      title: note.title,
-      content: null,
-      content_format: 'markdown',
-      x: worldPoint.x,
-      y: worldPoint.y,
-      width: 264,
-      height: 216,
-      rotation: 0,
-      z_index: maxZ + 1,
-      is_collapsed: false,
-      style_json: null,
-      data_json: JSON.stringify({
-        noteFile: note.note_file,
-        noteFileManaged: false,
-      }),
-    };
-    const optimisticItem = createOptimisticItem(payload, note.content);
-
-    setItemsAndSync((current) => [...current, optimisticItem]);
-    setSelection([optimisticItem.id]);
-    setEditingId(null);
-
-    try {
-      const created = await createBoardItem(payload);
-      pushUndoSnapshot(snapshotBeforeCreate);
-      setItemsAndSync((current) =>
-        current.map((item) =>
-          item.id === optimisticItem.id ? created : item,
-        ),
-      );
-      setSelection([created.id]);
-      onProjectNotesChanged?.();
-    } catch (err) {
-      setItemsAndSync((current) =>
-        current.filter((item) => item.id !== optimisticItem.id),
-      );
-      setSelection([]);
-      console.error('[Canvas] Failed to place project note', err);
-    }
-  }
-
   const handleCanvasContextMenu = useCallback(
     (event: React.MouseEvent) => {
       event.preventDefault();
@@ -1390,63 +1237,6 @@ export function Canvas({
     setContextMenu(null);
   }, [handleLayerChange]);
 
-  const contextMenuActions = useMemo(
-    () =>
-      contextMenu === null ? [] : getCanvasContextMenuActionKeys(contextMenu),
-    [contextMenu],
-  );
-
-  const contextMenuPosition = useMemo(() => {
-    if (contextMenu === null) {
-      return null;
-    }
-
-    const viewportWidth =
-      typeof window === 'undefined'
-        ? contextMenu.clientX + 232
-        : window.innerWidth;
-    const viewportHeight =
-      typeof window === 'undefined'
-        ? contextMenu.clientY + 188
-        : window.innerHeight;
-
-    return getCanvasContextMenuPosition(
-      contextMenu,
-      viewportWidth,
-      viewportHeight,
-    );
-  }, [contextMenu]);
-
-  const contextMenuActionHandlers = useMemo<
-    Record<CanvasContextMenuActionKey, () => void>
-  >(
-    () => ({
-      cut: handleContextMenuCut,
-      copy: handleContextMenuCopy,
-      paste: handleContextMenuPaste,
-      delete: handleContextMenuDelete,
-      bringForward: handleContextMenuBringForward,
-      sendBackward: handleContextMenuSendBackward,
-      bringToFront: handleContextMenuBringToFront,
-      sendToBack: handleContextMenuSendToBack,
-      transformToNote: handleContextMenuTransformToNote,
-    }),
-    [
-      handleContextMenuCopy,
-      handleContextMenuBringForward,
-      handleContextMenuBringToFront,
-      handleContextMenuCut,
-      handleContextMenuDelete,
-      handleContextMenuPaste,
-      handleContextMenuSendBackward,
-      handleContextMenuSendToBack,
-      handleContextMenuTransformToNote,
-    ],
-  );
-
-
-
-
   function handleViewportZoom(targetZoom: number) {
     const rect = containerRef.current?.getBoundingClientRect();
     const nextViewport = zoomViewportAroundPoint(
@@ -1578,6 +1368,21 @@ export function Canvas({
     screenToWorld,
     startSegmentDraft,
     onOpenNote,
+    onDoubleClickForEdit: handleDoubleClickForEdit,
+  });
+
+  const { handleDragOver, handleDrop } = useCanvasNoteDrop({
+    pageId: page.id,
+    projectNotes,
+    draggedProjectNoteFile,
+    items,
+    screenToWorld,
+    captureBoardSnapshot,
+    pushUndoSnapshot,
+    setItemsAndSync,
+    setSelection,
+    setEditingId,
+    onProjectNotesChanged,
   });
 
   const cursorClass =
@@ -1669,25 +1474,8 @@ export function Canvas({
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             onWheel={handleWheel}
-            onDragOver={(event) => {
-              if (getSidebarNoteDragFile(event) !== null) {
-                event.preventDefault();
-                event.dataTransfer.dropEffect = 'copy';
-              }
-            }}
-            onDrop={(event) => {
-              const noteFile = getSidebarNoteDragFile(event);
-              if (noteFile === null) {
-                return;
-              }
-
-              event.preventDefault();
-              void handleProjectNoteDrop(
-                noteFile,
-                event.clientX,
-                event.clientY,
-              );
-            }}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
           >
             {isPasting && (
               <div
@@ -1817,131 +1605,34 @@ export function Canvas({
               className="canvas-world"
               style={{ transform: worldTransform, transformOrigin: '0 0' }}
             >
-              {visibleItems.map((item) => {
-                const childItems = isFrame(item)
-                  ? (frameChildrenById.get(item.id) ?? [])
-                  : [];
-                const itemAnimation = frameItemAnimations[item.id];
-                const isTableDropTarget =
-                  item.type === 'table' &&
-                  activeTableDropTarget?.tableId === item.id;
-                const itemClassName = [
-                  isFrame(item) && activeFrameDropTargetId === item.id
-                    ? 'is-frame-drop-target'
-                    : '',
-                  isTableDropTarget ? 'is-table-drop-target' : '',
-                  itemAnimation === 'ingest' ? 'is-frame-ingest' : '',
-                  itemAnimation === 'eject' ? 'is-frame-eject' : '',
-                ]
-                  .filter((className) => className.length > 0)
-                  .join(' ');
-                return (
-                  <BoardItemRenderer
-                    key={item.id}
-                    item={item}
-                    childCount={childItems.length}
-                    childSummaries={frameChildSummariesById.get(item.id) ?? []}
-                    className={itemClassName}
-                    isSelected={selectedIdSet.has(item.id)}
-                    isEditing={item.id === editingId}
-                    canTranslateSegment={canTranslateSegmentItem(item)}
-                    onMouseDown={(e) => handleItemMouseDown(e, item.id)}
-                    onContextMenu={(e) => handleItemContextMenu(e, item.id)}
-                    onEndpointMouseDown={(e, endpoint) =>
-                      handleSegmentEndpointMouseDown(e, item.id, endpoint)
-                    }
-                    onWaypointMouseDown={(e, waypointIndex) =>
-                      handleSegmentWaypointMouseDown(e, item.id, waypointIndex)
-                    }
-                    onMidpointMouseDown={(e, segmentIndex) =>
-                      handleSegmentMidpointMouseDown(e, item.id, segmentIndex)
-                    }
-                    deletingWaypointIndex={
-                      deletingWaypointInfo?.itemId === item.id
-                        ? deletingWaypointInfo.waypointIndex
-                        : undefined
-                    }
-                    onDoubleClick={() => handleItemDoubleClick(item)}
-                    onResizeMouseDown={(e) => handleResizeMouseDown(e, item.id)}
-                    onToggleCollapse={() => handleToggleFrameCollapse(item.id)}
-                    onUpdate={handleItemUpdate}
-                    onEditEnd={handleEditEnd}
-                    onTableCellInteractionStart={() =>
-                      handleItemDoubleClick(item)
-                    }
-                    onTableSelectedCellsChange={(cellIds) =>
-                      setTableInspectorSelection(
-                        cellIds.length === 0
-                          ? null
-                          : { tableId: item.id, cellIds },
-                      )
-                    }
-                    onTableDeleteSelectedCells={(cellIds) => {
-                      setTableInspectorSelection({ tableId: item.id, cellIds });
-                      void handleDeleteTableCells(item.id, cellIds).catch(
-                        (err) => {
-                          console.error(
-                            '[Canvas] Failed to handle table delete shortcut',
-                            err,
-                          );
-                        },
-                      );
-                    }}
-                    tableCellSelectionResetKey={tableCellSelectionResetKey}
-                    magnetEnabled={magnetEnabled}
-                    tableDropTargetCellId={
-                      isTableDropTarget
-                        ? (activeTableDropTarget?.cellId ?? null)
-                        : null
-                    }
-                    projectDefaultStyle={projectDefaultStyle}
-                  />
-                );
-              })}
-              {segmentDraftPreviewItem !== null ? (
-                <div
-                  className="board-item board-item-segment board-item-draft"
-                  style={{
-                    position: 'absolute',
-                    left: segmentDraftPreviewItem.x,
-                    top: segmentDraftPreviewItem.y,
-                    width: segmentDraftPreviewItem.width,
-                    height: segmentDraftPreviewItem.height,
-                    zIndex: segmentDraftPreviewItem.z_index,
-                    pointerEvents: 'none',
-                  }}
-                >
-                  <SegmentShape
-                    item={segmentDraftPreviewItem}
-                    isSelected={false}
-                    canTranslate={false}
-                    onMouseDown={() => {}}
-                    onEndpointMouseDown={() => {}}
-                    onWaypointMouseDown={() => {}}
-                    onMidpointMouseDown={() => {}}
-                    projectDefaultStyle={projectDefaultStyle}
-                  />
-                </div>
-              ) : null}
-              {/* Connector anchor indicators on nearby items */}
-              {anchorIndicatorItems.map((item) =>
-                getItemConnectorAnchors(item).map(({ anchor, point }) => {
-                  const isActive =
-                    activeAnchorHit !== null &&
-                    activeAnchorHit.itemId === item.id &&
-                    activeAnchorHit.anchor === anchor;
-                  return (
-                    <div
-                      key={`anchor-${item.id}-${anchor}`}
-                      className={`connector-anchor-indicator ${isActive ? 'is-active' : ''}`}
-                      style={{
-                        left: point.x,
-                        top: point.y,
-                      }}
-                    />
-                  );
-                }),
-              )}
+              <CanvasItemLayer
+                pageId={page.id}
+                items={items}
+                selectedIdSet={selectedIdSet}
+                editingId={editingId}
+                activeFrameDropTargetId={activeFrameDropTargetId}
+                activeTableDropTarget={activeTableDropTarget}
+                frameItemAnimations={frameItemAnimations}
+                deletingWaypointInfo={deletingWaypointInfo}
+                tableCellSelectionResetKey={tableCellSelectionResetKey}
+                magnetEnabled={magnetEnabled}
+                projectDefaultStyle={projectDefaultStyle}
+                segmentDraft={segmentDraft}
+                anchorIndicatorItems={anchorIndicatorItems}
+                activeAnchorHit={activeAnchorHit}
+                handleItemMouseDown={handleItemMouseDown}
+                handleItemContextMenu={handleItemContextMenu}
+                handleSegmentEndpointMouseDown={handleSegmentEndpointMouseDown}
+                handleSegmentWaypointMouseDown={handleSegmentWaypointMouseDown}
+                handleSegmentMidpointMouseDown={handleSegmentMidpointMouseDown}
+                handleItemDoubleClick={handleItemDoubleClick}
+                handleResizeMouseDown={handleResizeMouseDown}
+                handleToggleFrameCollapse={handleToggleFrameCollapse}
+                handleItemUpdate={handleItemUpdate}
+                handleEditEnd={handleCancelEdit}
+                setTableInspectorSelection={setTableInspectorSelection}
+                handleDeleteTableCells={handleDeleteTableCells}
+              />
             </div>
           </div>
         </div>
@@ -1989,11 +1680,17 @@ export function Canvas({
           }}
         />
       </div>
-      <CanvasContextMenuPortal
+      <CanvasContextMenuLayer
         contextMenu={contextMenu}
-        contextMenuPosition={contextMenuPosition}
-        contextMenuActions={contextMenuActions}
-        contextMenuActionHandlers={contextMenuActionHandlers}
+        onCut={handleContextMenuCut}
+        onCopy={handleContextMenuCopy}
+        onPaste={handleContextMenuPaste}
+        onDelete={handleContextMenuDelete}
+        onBringForward={handleContextMenuBringForward}
+        onSendBackward={handleContextMenuSendBackward}
+        onBringToFront={handleContextMenuBringToFront}
+        onSendToBack={handleContextMenuSendToBack}
+        onTransformToNote={handleContextMenuTransformToNote}
       />
     </div>
   );

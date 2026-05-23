@@ -1,5 +1,8 @@
+import { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  getCanvasContextMenuActionKeys,
+  getCanvasContextMenuPosition,
   isCanvasContextMenuActionDisabled,
   type CanvasContextMenuActionKey,
   type CanvasContextMenuState,
@@ -31,21 +34,83 @@ const CONTEXT_MENU_SHORTCUTS: Record<CanvasContextMenuActionKey, string> = {
 
 type Props = {
   contextMenu: CanvasContextMenuState | null;
-  contextMenuPosition: { left: number; top: number } | null;
-  contextMenuActions: CanvasContextMenuActionKey[];
-  contextMenuActionHandlers: Record<CanvasContextMenuActionKey, () => void>;
+  onCut: () => void;
+  onCopy: () => void;
+  onPaste: () => void;
+  onDelete: () => void;
+  onBringForward: () => void;
+  onSendBackward: () => void;
+  onBringToFront: () => void;
+  onSendToBack: () => void;
+  onTransformToNote: () => void;
 };
 
-/**
- * Renders the canvas right-click context menu as a portal to document.body.
- * Extracted from Canvas.tsx to separate the portal rendering concern.
- */
-export function CanvasContextMenuPortal({
+export function CanvasContextMenuLayer({
   contextMenu,
-  contextMenuPosition,
-  contextMenuActions,
-  contextMenuActionHandlers,
+  onCut,
+  onCopy,
+  onPaste,
+  onDelete,
+  onBringForward,
+  onSendBackward,
+  onBringToFront,
+  onSendToBack,
+  onTransformToNote,
 }: Props) {
+  const contextMenuActions = useMemo(
+    () =>
+      contextMenu === null ? [] : getCanvasContextMenuActionKeys(contextMenu),
+    [contextMenu],
+  );
+
+  const contextMenuPosition = useMemo(() => {
+    if (contextMenu === null) {
+      return null;
+    }
+
+    const viewportWidth =
+      typeof window === 'undefined'
+        ? contextMenu.clientX + 232
+        : window.innerWidth;
+    const viewportHeight =
+      typeof window === 'undefined'
+        ? contextMenu.clientY + 188
+        : window.innerHeight;
+
+    return getCanvasContextMenuPosition(
+      contextMenu,
+      viewportWidth,
+      viewportHeight,
+    );
+  }, [contextMenu]);
+
+  const contextMenuActionHandlers = useMemo<
+    Record<CanvasContextMenuActionKey, () => void>
+  >(
+    () => ({
+      cut: onCut,
+      copy: onCopy,
+      paste: onPaste,
+      delete: onDelete,
+      bringForward: onBringForward,
+      sendBackward: onSendBackward,
+      bringToFront: onBringToFront,
+      sendToBack: onSendToBack,
+      transformToNote: onTransformToNote,
+    }),
+    [
+      onCopy,
+      onBringForward,
+      onBringToFront,
+      onCut,
+      onDelete,
+      onPaste,
+      onSendBackward,
+      onSendToBack,
+      onTransformToNote,
+    ],
+  );
+
   if (
     contextMenu === null ||
     contextMenuPosition === null ||

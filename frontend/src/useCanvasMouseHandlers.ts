@@ -183,6 +183,7 @@ export type UseCanvasMouseHandlersParams = {
   screenToWorld: (x: number, y: number) => Point;
   startSegmentDraft: (type: SegmentDraftTool, x: number, y: number) => void;
   onOpenNote?: (noteFile: string) => void;
+  onDoubleClickForEdit?: (item: BoardItem) => boolean;
 };
 
 export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
@@ -232,6 +233,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     screenToWorld,
     startSegmentDraft,
     onOpenNote,
+    onDoubleClickForEdit,
   } = params;
 
   const { startViewportPan, handlePanMove, handlePanEnd } = useCanvasPan({
@@ -1415,8 +1417,8 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
       }
     }
 
-    if (isInlineEditable(item)) {
-      setEditingId(item.id);
+    if (onDoubleClickForEdit?.(item)) {
+      return;
     }
   }
 

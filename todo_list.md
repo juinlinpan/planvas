@@ -567,32 +567,33 @@ Goal: 將 1848 行的主元件從「渲染 + 狀態 + 副作用全混」拆成�
 
 Split order:
 
-- [ ] Extract inline-edit session state into `frontend/src/useCanvasEditSession.ts`.
+- [x] Extract inline-edit session state into `frontend/src/useCanvasEditSession.ts`.
   Scope: `EditSessionState` 初始化與更新、`handleStartEdit` / `handleCommitEdit` / `handleCancelEdit`，以及雙擊觸發 edit 的判斷。
   Keep in `Canvas.tsx`: 傳入 `editSession` 與回調給下層元件。
   Verify: text_box / sticky_note / note_paper 雙擊進入編輯、Escape 取消、點擊外部提交、`npm.cmd run build --workspace frontend`。
 
-- [ ] Extract sidebar note drag-drop-to-canvas logic into `frontend/src/useCanvasNoteDrop.ts`.
+- [x] Extract sidebar note drag-drop-to-canvas logic into `frontend/src/useCanvasNoteDrop.ts`.
   Scope: `onDragOver` / `onDrop` 針對 sidebar note 拖入畫布的處理（`resolveSidebarNoteDragFile` 呼叫與後續 `createBoardItem`）。
   Keep in `Canvas.tsx`: 傳入 drop 回調給 canvas container div。
   Verify: 從側欄 Notes box 拖放 note_paper 到畫布後出現、位置正確吸附到 grid、`npm.cmd run build --workspace frontend`。
 
-- [ ] Extract connector rendering into `frontend/src/CanvasConnectorLayer.tsx`.
+- [x] Extract connector rendering into `frontend/src/CanvasConnectorLayer.tsx`.
+  (Note: Legacy connector rendering was already removed/migrated to BoardItemRenderer; anchor indicators moved to CanvasItemLayer.)
   Scope: 所有 `ConnectorLink` 的 SVG 渲染邏輯（segment path 計算、箭頭頭部、label、hover 樣式）。
   Keep in `Canvas.tsx`: 傳入 `connectors`、`selectedIds`、`viewport` 等 props 給新元件。
   Verify: arrow / line 顯示正確、label 顯示、端點 anchor 指示器、hover 高亮、`npm.cmd run build --workspace frontend`。
 
-- [ ] Extract per-item-type rendering into `frontend/src/CanvasItemLayer.tsx`.
+- [x] Extract per-item-type rendering into `frontend/src/CanvasItemLayer.tsx`.
   Scope: `items.map(...)` 的 JSX 輸出，包含每個 item type 的 switch/dispatch 渲染，以及 frame collapse 預覽摘要。
   Keep in `Canvas.tsx`: 傳入 `items`、`selectedIds`、`editSession`、`viewport` 等 props。
   Verify: 所有 item 類型正常顯示、frame collapse/expand 正常、selected 高亮正常、`npm.cmd run build --workspace frontend`。
 
-- [ ] Extract canvas context menu rendering into `frontend/src/CanvasContextMenuLayer.tsx`.
+- [x] Extract canvas context menu rendering into `frontend/src/CanvasContextMenuLayer.tsx`.
   Scope: item context menu 與 canvas context menu 的 JSX、visibility 判斷、位置計算。
   Keep in `Canvas.tsx`: 傳入 `contextMenuState` 與 action 回調。
   Verify: 右鍵物件顯示 cut/copy/paste/delete 選單、右鍵空白顯示 paste 選單、選單動作行為正確、`npm.cmd run build --workspace frontend`。
 
-- [ ] Verify `Canvas.tsx` is a thin coordinator after all extractions.
+- [x] Verify `Canvas.tsx` is a thin coordinator after all extractions.
   Scope: 確認 `Canvas.tsx` 只剩 hook 組合 + props 傳遞 + 最外層 div 結構，無業務邏輯散落。
   Verify: `tsc --noUnusedLocals --noUnusedParameters` 無警告、所有 Canvas 相關測試通過、`npm.cmd run build --workspace frontend`。
 
