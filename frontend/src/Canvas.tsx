@@ -21,9 +21,7 @@ import {
   getFrameOverlapScore,
   isSmallItem,
 } from './canvasHelpers/frameLayout';
-import {
-  findNearestConnectorAnchor,
-} from './canvasHelpers/connectorAnchors';
+import { findNearestConnectorAnchor } from './canvasHelpers/connectorAnchors';
 import {
   findTableCellDropTarget,
   relayoutTableItems,
@@ -37,10 +35,7 @@ import {
   sortItemsByLayer,
 } from './canvasHelpers/layerOrdering';
 import type { AnchorHit, TableCellHit } from './canvasHelpers/types';
-import {
-  CANVAS_GRID_SIZE,
-  CONNECTOR_SNAP_THRESHOLD,
-} from './canvasConstants';
+import { CANVAS_GRID_SIZE, CONNECTOR_SNAP_THRESHOLD } from './canvasConstants';
 import { snapPointToGrid } from './magnet';
 import type {
   ConnectorsUpdater,
@@ -62,9 +57,7 @@ import { useCanvasHistory } from './useCanvasHistory';
 import { useCanvasItemActions } from './useCanvasItemActions';
 import { useCanvasMouseHandlers } from './useCanvasMouseHandlers';
 import { Inspector } from './Inspector';
-import {
-  type SegmentConnection,
-} from './segmentData';
+import { type SegmentConnection } from './segmentData';
 import {
   createTableData,
   clearTableCells,
@@ -93,20 +86,14 @@ import {
 } from './tableInsertPreview';
 import { Toolbar } from './Toolbar';
 
-import {
-  ITEM_TYPE,
-  type ActiveTool,
-  type Viewport,
-} from './types';
+import { ITEM_TYPE, type ActiveTool, type Viewport } from './types';
 import {
   CANVAS_BACKGROUND_STORAGE_KEY,
   DEFAULT_CANVAS_BACKGROUND_MODE,
   parseCanvasBackgroundMode,
   type CanvasBackgroundMode,
 } from './canvasBackground';
-import {
-  type CanvasContextMenuState,
-} from './canvasContextMenu';
+import { type CanvasContextMenuState } from './canvasContextMenu';
 import {
   adjustResetZoomByStep,
   adjustZoomByStep,
@@ -385,13 +372,16 @@ export function Canvas({
     }
   }, [activeFrameDropTargetId, activeTableDropTarget, items]);
 
-  const setItemsAndSync = useCallback((updater: ItemsUpdater) => {
-    const nextItems =
-      typeof updater === 'function' ? updater(itemsRef.current) : updater;
-    itemsRef.current = nextItems;
-    setItems(nextItems);
-    cacheBoardData(nextItems);
-  }, [cacheBoardData]);
+  const setItemsAndSync = useCallback(
+    (updater: ItemsUpdater) => {
+      const nextItems =
+        typeof updater === 'function' ? updater(itemsRef.current) : updater;
+      itemsRef.current = nextItems;
+      setItems(nextItems);
+      cacheBoardData(nextItems);
+    },
+    [cacheBoardData],
+  );
 
   useEffect(() => {
     const currentItems = itemsRef.current;
@@ -409,19 +399,27 @@ export function Canvas({
     }
   }, [editingId, projectNotes, setItemsAndSync]);
 
-  const setViewportAndSync = useCallback((nextViewport: Viewport) => {
-    viewportRef.current = nextViewport;
-    setViewport(nextViewport);
-    cacheBoardData(undefined, undefined, nextViewport);
-  }, [cacheBoardData]);
+  const setViewportAndSync = useCallback(
+    (nextViewport: Viewport) => {
+      viewportRef.current = nextViewport;
+      setViewport(nextViewport);
+      cacheBoardData(undefined, undefined, nextViewport);
+    },
+    [cacheBoardData],
+  );
 
-  const setConnectorsAndSync = useCallback((updater: ConnectorsUpdater) => {
-    const nextConnectors =
-      typeof updater === 'function' ? updater(connectorsRef.current) : updater;
-    connectorsRef.current = nextConnectors;
-    setConnectors(nextConnectors);
-    cacheBoardData(undefined, nextConnectors);
-  }, [cacheBoardData]);
+  const setConnectorsAndSync = useCallback(
+    (updater: ConnectorsUpdater) => {
+      const nextConnectors =
+        typeof updater === 'function'
+          ? updater(connectorsRef.current)
+          : updater;
+      connectorsRef.current = nextConnectors;
+      setConnectors(nextConnectors);
+      cacheBoardData(undefined, nextConnectors);
+    },
+    [cacheBoardData],
+  );
 
   const setSelection = useCallback((nextSelectedIds: string[]) => {
     const availableIds = new Set(itemsRef.current.map((item) => item.id));
@@ -598,7 +596,6 @@ export function Canvas({
     onViewportChange,
   });
 
-
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -729,8 +726,6 @@ export function Canvas({
     [containerSize, items, viewport],
   );
 
-
-
   useEffect(
     () => () => {
       // Flush any pending item save (don't cancel — the user's last edit must
@@ -782,10 +777,7 @@ export function Canvas({
         nextHeight = Math.max(1, tableItem.height * (1 - removedFraction));
         clearedChildItemIds = getUniqueItemIds([
           ...clearedCells.clearedChildItemIds,
-          ...getChildItemIdsInRows(
-            tableData,
-            operation.rowIndexes,
-          ),
+          ...getChildItemIdsInRows(tableData, operation.rowIndexes),
         ]);
       } else if (operation.type === 'cols') {
         const removedFraction = operation.colIndexes.reduce(
@@ -1185,7 +1177,6 @@ export function Canvas({
     setResetZoomTarget((current) => adjustResetZoomByStep(current, direction));
   }
 
-
   function startSegmentDraft(
     type: SegmentDraftTool,
     clientX: number,
@@ -1299,14 +1290,13 @@ export function Canvas({
     onProjectNotesChanged,
   });
 
-  const cursorClass =
-    isPasting
-      ? 'cursor-wait'
-      : activeTool !== 'select'
-        ? 'cursor-crosshair'
-        : isSpaceDown
-          ? 'cursor-grab'
-          : '';
+  const cursorClass = isPasting
+    ? 'cursor-wait'
+    : activeTool !== 'select'
+      ? 'cursor-crosshair'
+      : isSpaceDown
+        ? 'cursor-grab'
+        : '';
 
   const worldTransform = `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`;
 
@@ -1315,7 +1305,9 @@ export function Canvas({
       className={`canvas-root ${isInspectorCollapsed ? 'is-inspector-collapsed' : ''}`}
     >
       <CanvasTableInsertPreviews
-        tableInsertPreview={activeTool === ITEM_TYPE.table ? tableInsertPreview : null}
+        tableInsertPreview={
+          activeTool === ITEM_TYPE.table ? tableInsertPreview : null
+        }
         toolbarTableInsertPreview={toolbarTableInsertPreview}
         viewport={viewport}
       />
