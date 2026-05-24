@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { monitorEventLoopDelay, performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { buildSettings, type AppSettings } from './settings.js';
 import { getErrorCode, HttpError } from './httpError.js';
@@ -14,7 +15,9 @@ import {
   validateBoardItemPayload,
   validateBoardStatePayload,
   validateConnectorPayload,
+  validateImportFromPayload,
   validateNoteUpdate,
+  validateNoteRename,
   validateOrderedIds,
   validatePageCreate,
   validatePageUpdate,
@@ -25,6 +28,11 @@ import {
 } from './validation.js';
 
 const devOrigins = new Set(['http://127.0.0.1:5173', 'http://localhost:5173']);
+const slowRequestThresholdMs = 250;
+const eventLoopLagThresholdMs = 250;
+
+let diagnosticsStarted = false;
+let diagnosticsSettings: AppSettings | null = null;
 
 type RouteMatch = {
   params: Record<string, string>;
@@ -53,25 +61,41 @@ export function createRequestHandler(
   settings: AppSettings = buildSettings(),
 ): http.RequestListener {
   initializeStorage(settings);
+  startDiagnostics(settings);
   appendLog(settings, `Backend started with root ${settings.backendRoot}`);
 
   const routes = buildRoutes();
   return async (request, response) => {
+    const startedAt = performance.now();
+    const requestLabel = `${request.method ?? 'UNKNOWN'} ${request.url ?? '/'}`;
     applyCors(request, response);
     if (request.method === 'OPTIONS') {
       response.writeHead(204);
       response.end();
+      logRequestDuration(settings, requestLabel, startedAt, 204);
       return;
     }
 
     try {
       const url = new URL(request.url ?? '/', 'http://127.0.0.1');
       if (request.method === 'GET' && url.pathname === '/') {
-        serveFrontendIndex(settings, response);
+        await serveFrontendIndex(settings, response);
+        logRequestDuration(
+          settings,
+          requestLabel,
+          startedAt,
+          response.statusCode,
+        );
         return;
       }
       if (request.method === 'GET' && url.pathname.startsWith('/assets/')) {
-        serveAsset(settings, url.pathname, response);
+        await serveAsset(settings, url.pathname, response);
+        logRequestDuration(
+          settings,
+          requestLabel,
+          startedAt,
+          response.statusCode,
+        );
         return;
       }
 
@@ -92,11 +116,24 @@ export function createRequestHandler(
       if (route.statusCode === 204) {
         response.writeHead(204);
         response.end();
+        logRequestDuration(settings, requestLabel, startedAt, 204);
         return;
       }
       sendJson(response, route.statusCode ?? 200, { data: result });
+      logRequestDuration(
+        settings,
+        requestLabel,
+        startedAt,
+        route.statusCode ?? 200,
+      );
     } catch (error) {
       handleError(settings, request, response, error);
+      logRequestDuration(
+        settings,
+        requestLabel,
+        startedAt,
+        response.statusCode,
+      );
     }
   };
 }
@@ -138,6 +175,11 @@ function buildRoutes(): Route[] {
     },
     {
       method: 'GET',
+      pattern: /^\/fs\/dirs$/,
+      handler: ({ settings, url }) => listDirectoryContents(settings, url),
+    },
+    {
+      method: 'GET',
       pattern: /^\/projects$/,
       handler: ({ repository }) => repository.listProjects(),
     },
@@ -157,8 +199,8 @@ function buildRoutes(): Route[] {
     {
       method: 'POST',
       pattern: /^\/projects\/open-dialog$/,
-      handler: ({ repository }) =>
-        repository.openProjectPath(selectProjectDirectory()),
+      handler: async ({ repository }) =>
+        repository.openProjectPath(await selectProjectDirectory()),
     },
     {
       method: 'POST',
@@ -205,11 +247,39 @@ function buildRoutes(): Route[] {
     },
     {
       method: 'PATCH',
-      pattern: /^\/projects\/(?<projectId>[^/]+)\/notes\/(?<noteFile>[^/]+\.md)$/,
+      pattern:
+        /^\/projects\/(?<projectId>[^/]+)\/notes\/(?<noteFile>[^/]+\.md)$/,
       handler: ({ repository, body }, { params }) => {
         const { content } = validateNoteUpdate(body);
-        return repository.updateProjectNote(params.projectId, params.noteFile, content);
+        return repository.updateProjectNote(
+          params.projectId,
+          decodeURIComponent(params.noteFile),
+          content,
+        );
       },
+    },
+    {
+      method: 'PATCH',
+      pattern:
+        /^\/projects\/(?<projectId>[^/]+)\/notes\/(?<noteFile>[^/]+\.md)\/rename$/,
+      handler: ({ repository, body }, { params }) => {
+        const { note_file } = validateNoteRename(body);
+        return repository.renameProjectNote(
+          params.projectId,
+          decodeURIComponent(params.noteFile),
+          note_file,
+        );
+      },
+    },
+    {
+      method: 'DELETE',
+      pattern:
+        /^\/projects\/(?<projectId>[^/]+)\/notes\/(?<noteFile>[^/]+\.md)$/,
+      handler: ({ repository }, { params }) =>
+        repository.deleteProjectNote(
+          params.projectId,
+          decodeURIComponent(params.noteFile),
+        ),
     },
     {
       method: 'POST',
@@ -254,6 +324,20 @@ function buildRoutes(): Route[] {
         repository.duplicatePage(params.pageId),
     },
     {
+      method: 'POST',
+      pattern: /^\/projects\/(?<projectId>[^/]+)\/import-from$/,
+      statusCode: 201,
+      handler: ({ repository, body }, { params }) => {
+        const payload = validateImportFromPayload(body);
+        return repository.importFromProject(
+          params.projectId,
+          payload.source_project_id,
+          payload.page_ids,
+          payload.note_files,
+        );
+      },
+    },
+    {
       method: 'PATCH',
       pattern: /^\/pages\/(?<pageId>[^/]+)\/viewport$/,
       handler: ({ repository, body }, { params }) =>
@@ -269,13 +353,19 @@ function buildRoutes(): Route[] {
       method: 'PUT',
       pattern: /^\/pages\/(?<pageId>[^/]+)\/board-state$/,
       handler: ({ repository, body }, { params }) => {
-        const payload = validateBoardStatePayload(body);
+        const payload = validateBoardStatePayload(body, params.pageId);
         return repository.replacePageBoardState(
           params.pageId,
           payload.board_items,
           payload.connector_links,
         );
       },
+    },
+    {
+      method: 'POST',
+      pattern: /^\/pages\/(?<pageId>[^/]+)\/regulate$/,
+      handler: ({ repository }, { params }) =>
+        repository.regulatePage(params.pageId),
     },
     {
       method: 'GET',
@@ -365,7 +455,45 @@ async function readRequestBody(request: IncomingMessage): Promise<unknown> {
   }
 }
 
-function selectProjectDirectory(): string {
+type DirEntry = { name: string; path: string };
+type DirListing = { current: string; home: string; dirs: DirEntry[] };
+
+async function listDirectoryContents(
+  settings: AppSettings,
+  url: URL,
+): Promise<DirListing> {
+  const home = path.dirname(settings.planvasRoot);
+  const rawPath = url.searchParams.get('path');
+  const target = rawPath ? path.resolve(rawPath) : home;
+
+  const normalizedHome = path.resolve(home);
+  const normalizedTarget = path.resolve(target);
+
+  if (
+    normalizedTarget !== normalizedHome &&
+    !normalizedTarget.startsWith(normalizedHome + path.sep)
+  ) {
+    throw new HttpError(400, 'Path must be within the user home directory.');
+  }
+
+  let entries: fs.Dirent[];
+  try {
+    entries = await fs.promises.readdir(normalizedTarget, {
+      withFileTypes: true,
+    });
+  } catch {
+    throw new HttpError(400, `Cannot read directory: ${normalizedTarget}`);
+  }
+
+  const dirs = entries
+    .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+    .map((e) => ({ name: e.name, path: path.join(normalizedTarget, e.name) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return { current: normalizedTarget, home: normalizedHome, dirs };
+}
+
+function selectProjectDirectory(): Promise<string> {
   if (process.platform !== 'win32') {
     throw new HttpError(
       400,
@@ -373,39 +501,84 @@ function selectProjectDirectory(): string {
     );
   }
   const script = `
-Add-Type -AssemblyName System.Windows.Forms
-$dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-$dialog.Description = "Open Planvas Project"
-$dialog.ShowNewFolderButton = $true
-if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-  [Console]::Out.Write($dialog.SelectedPath)
+$shell = New-Object -ComObject Shell.Application
+$folder = $shell.BrowseForFolder(0, "Open Planvas Project", 0x51, 0)
+if ($null -ne $folder) {
+  [Console]::Out.Write($folder.Self.Path)
 } else {
   [Console]::Out.Write("__CANCELLED__")
 }
 `;
-  const result = spawnSync(
-    'powershell',
-    ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script],
-    { encoding: 'utf8' },
-  );
-  if (result.error || result.status !== 0) {
-    throw new HttpError(
-      400,
-      'Native folder picker is not available on this system.',
+  const encodedScript = Buffer.from(script, 'utf16le').toString('base64');
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      'powershell.exe',
+      [
+        '-STA',
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-EncodedCommand',
+        encodedScript,
+      ],
+      { windowsHide: false },
     );
-  }
-  const selectedPath = result.stdout.trim();
-  if (!selectedPath || selectedPath === '__CANCELLED__') {
-    throw new HttpError(400, 'Project folder selection was cancelled.');
-  }
-  return selectedPath;
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk: string) => {
+      stdout += chunk;
+    });
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', (chunk: string) => {
+      stderr += chunk;
+    });
+    child.on('error', (error) => {
+      reject(
+        new HttpError(
+          400,
+          `Native folder picker is not available on this system: ${error.message}`,
+        ),
+      );
+    });
+    child.on('close', (code) => {
+      if (code !== 0) {
+        const detail = stderr.trim();
+        reject(
+          new HttpError(
+            400,
+            detail.length > 0
+              ? `Native folder picker failed: ${detail}`
+              : 'Native folder picker is not available on this system.',
+          ),
+        );
+        return;
+      }
+      const selectedPath = stdout.trim();
+      if (!selectedPath || selectedPath === '__CANCELLED__') {
+        reject(new HttpError(400, 'Project folder selection was cancelled.'));
+        return;
+      }
+      resolve(selectedPath);
+    });
+  });
 }
 
-function serveFrontendIndex(
+async function fileExists(targetPath: string): Promise<boolean> {
+  try {
+    await fs.promises.access(targetPath, fs.constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function serveFrontendIndex(
   settings: AppSettings,
   response: ServerResponse,
-): void {
-  if (!fs.existsSync(settings.frontendIndexPath)) {
+): Promise<void> {
+  if (!(await fileExists(settings.frontendIndexPath))) {
     sendText(
       response,
       503,
@@ -416,11 +589,11 @@ function serveFrontendIndex(
   sendFile(response, settings.frontendIndexPath, 'text/html; charset=utf-8');
 }
 
-function serveAsset(
+async function serveAsset(
   settings: AppSettings,
   urlPath: string,
   response: ServerResponse,
-): void {
+): Promise<void> {
   const relativeAsset = urlPath.replace(/^\/assets\//, '');
   const assetPath = path.resolve(
     settings.frontendDistDir,
@@ -431,12 +604,20 @@ function serveAsset(
   const relativeToAssetsRoot = path.relative(assetsRoot, assetPath);
   if (
     relativeToAssetsRoot.startsWith('..') ||
-    path.isAbsolute(relativeToAssetsRoot) ||
-    !fs.existsSync(assetPath) ||
-    !fs.statSync(assetPath).isFile()
+    path.isAbsolute(relativeToAssetsRoot)
   ) {
     throw new HttpError(404, 'Request path was not found.');
   }
+
+  try {
+    const stat = await fs.promises.stat(assetPath);
+    if (!stat.isFile()) {
+      throw new Error();
+    }
+  } catch {
+    throw new HttpError(404, 'Request path was not found.');
+  }
+
   sendFile(response, assetPath, contentTypeFor(assetPath));
 }
 
@@ -485,6 +666,12 @@ function handleError(
     settings,
     `HTTP error ${httpError.statusCode} on ${request.method} ${request.url}: ${httpError.message}`,
   );
+  if (!(error instanceof HttpError)) {
+    appendLog(
+      settings,
+      `Unhandled request error detail: ${errorToLogString(error)}`,
+    );
+  }
   sendJson(response, httpError.statusCode, {
     error: {
       code: getErrorCode(httpError.statusCode),
@@ -492,6 +679,73 @@ function handleError(
       details: httpError.details,
     },
   });
+}
+
+function startDiagnostics(settings: AppSettings): void {
+  diagnosticsSettings = settings;
+  if (diagnosticsStarted) return;
+  diagnosticsStarted = true;
+
+  const delay = monitorEventLoopDelay({ resolution: 20 });
+  delay.enable();
+  const interval = setInterval(() => {
+    const activeSettings = diagnosticsSettings;
+    if (!activeSettings) return;
+    const maxMs = Number(delay.max) / 1_000_000;
+    const meanMs = Number(delay.mean) / 1_000_000;
+    if (maxMs >= eventLoopLagThresholdMs) {
+      appendLog(
+        activeSettings,
+        `Event loop lag detected max=${maxMs.toFixed(1)}ms mean=${meanMs.toFixed(1)}ms`,
+      );
+    }
+    delay.reset();
+  }, 10_000);
+  interval.unref();
+
+  process.on('unhandledRejection', (reason) => {
+    const activeSettings = diagnosticsSettings;
+    if (activeSettings) {
+      appendLog(
+        activeSettings,
+        `Unhandled promise rejection: ${errorToLogString(reason)}`,
+      );
+    }
+    console.error('Unhandled promise rejection:', reason);
+  });
+
+  process.on('uncaughtException', (error) => {
+    const activeSettings = diagnosticsSettings;
+    if (activeSettings) {
+      appendLog(
+        activeSettings,
+        `Uncaught exception: ${errorToLogString(error)}`,
+      );
+    }
+    console.error('Uncaught exception:', error);
+    process.exit(1);
+  });
+}
+
+function logRequestDuration(
+  settings: AppSettings,
+  requestLabel: string,
+  startedAt: number,
+  statusCode: number,
+): void {
+  const durationMs = performance.now() - startedAt;
+  if (durationMs < slowRequestThresholdMs) return;
+  appendLog(
+    settings,
+    `Slow request ${requestLabel} status=${statusCode} duration=${durationMs.toFixed(1)}ms`,
+  );
+}
+
+function errorToLogString(error: unknown): string {
+  if (error instanceof Error) {
+    return error.stack ?? `${error.name}: ${error.message}`;
+  }
+  return String(error);
 }
 
 function applyCors(request: IncomingMessage, response: ServerResponse): void {

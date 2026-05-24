@@ -1,6 +1,6 @@
-﻿/* ??????????????????????????????????????????
+/* ───────────────────────────────────────────
    Board item wrapper
-?????????????????????????????????????????? */
+   ─────────────────────────────────────────── */
 
 .board-item {
   cursor: move;
@@ -62,7 +62,7 @@
   }
 }
 
-/* Segment items (line/arrow) cannot be dragged ??use default cursor on the wrapper */
+/* Segment items (line/arrow) cannot be dragged — use default cursor on the wrapper */
 .board-item-segment {
   cursor: default;
   pointer-events: none;
@@ -109,18 +109,73 @@
   box-shadow: 0 16px 28px rgba(15, 23, 42, 0.14);
 }
 
+/* ── Resize handles (8-direction) ── */
+
 .board-item-resize-handle {
   position: absolute;
-  right: -6px;
-  bottom: -6px;
   width: 12px;
   height: 12px;
   border: 2px solid #fff;
   border-radius: 999px;
   background: var(--accent);
   box-shadow: var(--shadow-md);
-  cursor: nwse-resize;
   z-index: 8;
+  padding: 0;
+  margin: 0;
+}
+
+/* Corner handles */
+.board-item-resize-handle-nw {
+  top: -6px;
+  left: -6px;
+  cursor: nwse-resize;
+}
+
+.board-item-resize-handle-ne {
+  top: -6px;
+  right: -6px;
+  cursor: nesw-resize;
+}
+
+.board-item-resize-handle-se {
+  bottom: -6px;
+  right: -6px;
+  cursor: nwse-resize;
+}
+
+.board-item-resize-handle-sw {
+  bottom: -6px;
+  left: -6px;
+  cursor: nesw-resize;
+}
+
+/* Edge handles */
+.board-item-resize-handle-n {
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+
+.board-item-resize-handle-s {
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+
+.board-item-resize-handle-e {
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+
+.board-item-resize-handle-w {
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
 }
 
 .board-item-table-edge {
@@ -131,13 +186,18 @@
   border: none;
   background: transparent;
   cursor: move;
+  transition: background 80ms ease;
+}
+
+.board-item-table-edge:hover {
+  background: rgba(37, 99, 235, 0.06);
 }
 
 .board-item-table-edge-top,
 .board-item-table-edge-bottom {
   left: 0;
   width: 100%;
-  height: 8px;
+  height: 14px;
 }
 
 .board-item-table-edge-top {
@@ -153,7 +213,7 @@
 .board-item-table-edge-left,
 .board-item-table-edge-right {
   top: 0;
-  width: 8px;
+  width: 14px;
   height: 100%;
 }
 
@@ -296,7 +356,45 @@
   opacity: 1;
 }
 
-/* ?? Connector anchor indicators (draw.io style) ?? */
+.segment-text-label {
+  position: absolute;
+  min-width: 28px;
+  max-width: 220px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  line-height: 1.25;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-align: center;
+  pointer-events: auto;
+  user-select: text;
+}
+
+.segment-text-label.is-editing {
+  min-width: 120px;
+  min-height: 34px;
+  background: #fff !important;
+  box-shadow:
+    0 0 0 2px var(--accent-soft),
+    var(--shadow-sm);
+}
+
+.segment-text-editor {
+  display: block;
+  width: 160px;
+  min-height: 34px;
+  padding: 4px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1.25;
+  resize: both;
+  outline: none;
+}
+
+/* ── Connector anchor indicators (draw.io style) ── */
 
 .connector-anchor-indicator {
   position: absolute;
@@ -305,11 +403,15 @@
   border: 2px solid var(--accent);
   border-radius: 50%;
   background: var(--surface);
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.15), var(--shadow-sm);
+  box-shadow:
+    0 0 0 1px rgba(37, 99, 235, 0.15),
+    var(--shadow-sm);
   transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: 2147483646;
-  transition: transform 0.1s ease, background 0.1s ease;
+  transition:
+    transform 0.1s ease,
+    background 0.1s ease;
 }
 
 .connector-anchor-indicator.is-active {
@@ -317,7 +419,9 @@
   height: 20px;
   background: var(--accent);
   border-color: #fff;
-  box-shadow: 0 0 0 2px var(--accent), 0 0 8px rgba(37, 99, 235, 0.4);
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 8px rgba(37, 99, 235, 0.4);
   transform: translate(-50%, -50%) scale(1);
 }
 

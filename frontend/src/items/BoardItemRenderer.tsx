@@ -1,5 +1,8 @@
-import { type BoardItem } from '../api';
-import type { SegmentEndpoint } from '../segmentData';
+import { memo } from 'react';
+import { type BoardItem } from '../services/api';
+import type { ProjectDefaultStyle } from './itemStyles';
+import type { ResizeEdge } from '../types/canvas';
+import type { SegmentEndpoint } from '../utils/export/segmentData';
 import { Frame, type FrameSummaryEntry } from './Frame';
 import { NotePaper } from './NotePaper';
 import { SegmentShape } from './SegmentShape';
@@ -22,21 +25,30 @@ type Props = {
     e: React.MouseEvent<HTMLButtonElement>,
     endpoint: SegmentEndpoint,
   ) => void;
-  onWaypointMouseDown: (e: React.MouseEvent<HTMLButtonElement>, waypointIndex: number) => void;
-  onMidpointMouseDown: (e: React.MouseEvent<HTMLButtonElement>, segmentIndex: number) => void;
+  onWaypointMouseDown: (
+    e: React.MouseEvent<HTMLButtonElement>,
+    waypointIndex: number,
+  ) => void;
+  onMidpointMouseDown: (
+    e: React.MouseEvent<HTMLButtonElement>,
+    segmentIndex: number,
+  ) => void;
   deletingWaypointIndex?: number;
   onDoubleClick: () => void;
-  onResizeMouseDown: (e: React.MouseEvent) => void;
+  onResizeMouseDown: (e: React.MouseEvent, edge: ResizeEdge) => void;
   onToggleCollapse: () => void;
   onUpdate: (item: BoardItem) => void;
   onEditEnd: () => void;
   onTableCellInteractionStart?: () => void;
   onTableSelectedCellsChange?: (cellIds: string[]) => void;
+  onTableDeleteSelectedCells?: (cellIds: string[]) => void;
+  tableCellSelectionResetKey?: number;
   tableDropTargetCellId?: string | null;
   magnetEnabled?: boolean;
+  projectDefaultStyle?: ProjectDefaultStyle;
 };
 
-export function BoardItemRenderer({
+function BoardItemRendererComponent({
   item,
   childSummaries,
   childCount,
@@ -58,8 +70,11 @@ export function BoardItemRenderer({
   onEditEnd,
   onTableCellInteractionStart,
   onTableSelectedCellsChange,
+  onTableDeleteSelectedCells,
+  tableCellSelectionResetKey,
   tableDropTargetCellId,
   magnetEnabled,
+  projectDefaultStyle,
 }: Props) {
   const isSegmentItem = item.type === 'line' || item.type === 'arrow';
   const isStatic = renderMode === 'static';
@@ -82,14 +97,64 @@ export function BoardItemRenderer({
       onMouseDown(e);
     }
   };
-  const resizeHandle =
-    !isStatic && isSelected && !isEditing && !isSegmentItem ? (
-      <button
-        type="button"
-        className="board-item-resize-handle"
-        onMouseDown={onResizeMouseDown}
-        aria-label="Resize item"
-      />
+  const isTable = item.type === 'table';
+  const isInsideParent = item.parent_item_id !== null;
+  const resizeHandles =
+    !isStatic && isSelected && !isEditing && !isSegmentItem && !isInsideParent ? (
+      <>
+        <button
+          type="button"
+          className="board-item-resize-handle board-item-resize-handle-nw"
+          onMouseDown={(e) => onResizeMouseDown(e, 'nw')}
+          aria-label="Resize northwest"
+        />
+        <button
+          type="button"
+          className="board-item-resize-handle board-item-resize-handle-ne"
+          onMouseDown={(e) => onResizeMouseDown(e, 'ne')}
+          aria-label="Resize northeast"
+        />
+        <button
+          type="button"
+          className="board-item-resize-handle board-item-resize-handle-se"
+          onMouseDown={(e) => onResizeMouseDown(e, 'se')}
+          aria-label="Resize southeast"
+        />
+        <button
+          type="button"
+          className="board-item-resize-handle board-item-resize-handle-sw"
+          onMouseDown={(e) => onResizeMouseDown(e, 'sw')}
+          aria-label="Resize southwest"
+        />
+        {!isTable && (
+          <>
+            <button
+              type="button"
+              className="board-item-resize-handle board-item-resize-handle-n"
+              onMouseDown={(e) => onResizeMouseDown(e, 'n')}
+              aria-label="Resize north"
+            />
+            <button
+              type="button"
+              className="board-item-resize-handle board-item-resize-handle-e"
+              onMouseDown={(e) => onResizeMouseDown(e, 'e')}
+              aria-label="Resize east"
+            />
+            <button
+              type="button"
+              className="board-item-resize-handle board-item-resize-handle-s"
+              onMouseDown={(e) => onResizeMouseDown(e, 's')}
+              aria-label="Resize south"
+            />
+            <button
+              type="button"
+              className="board-item-resize-handle board-item-resize-handle-w"
+              onMouseDown={(e) => onResizeMouseDown(e, 'w')}
+              aria-label="Resize west"
+            />
+          </>
+        )}
+      </>
     ) : null;
 
   switch (item.type) {
@@ -104,15 +169,22 @@ export function BoardItemRenderer({
           <SegmentShape
             item={item}
             isSelected={isSelected}
+            isEditing={isEditing}
             canTranslate={canTranslateSegment}
-            onMouseDown={onMouseDown as (e: React.MouseEvent<SVGPathElement>) => void}
+            onMouseDown={
+              onMouseDown as (e: React.MouseEvent<SVGPathElement>) => void
+            }
             onContextMenu={onContextMenu}
+            onDoubleClick={onDoubleClick}
             onEndpointMouseDown={onEndpointMouseDown}
             onWaypointMouseDown={onWaypointMouseDown}
             onMidpointMouseDown={onMidpointMouseDown}
+            onUpdate={onUpdate}
+            onEditEnd={onEditEnd}
             deletingWaypointIndex={deletingWaypointIndex}
+            projectDefaultStyle={projectDefaultStyle}
           />
-          {resizeHandle}
+          {resizeHandles}
         </div>
       );
 
@@ -131,8 +203,9 @@ export function BoardItemRenderer({
             isEditing={isEditing}
             onUpdate={onUpdate}
             onEditEnd={onEditEnd}
+            projectDefaultStyle={projectDefaultStyle}
           />
-          {resizeHandle}
+          {resizeHandles}
         </div>
       );
 
@@ -145,6 +218,7 @@ export function BoardItemRenderer({
           onContextMenu={onContextMenu}
         >
           <Table
+            key={`table-${item.id}-${tableCellSelectionResetKey ?? 0}`}
             item={item}
             isSelected={isSelected}
             isEditing={isEditing}
@@ -153,8 +227,10 @@ export function BoardItemRenderer({
             onEditEnd={onEditEnd}
             onCellInteractionStart={onTableCellInteractionStart}
             onSelectedCellsChange={onTableSelectedCellsChange}
+            onDeleteSelectedCells={onTableDeleteSelectedCells}
             dropTargetCellId={tableDropTargetCellId}
             magnetEnabled={magnetEnabled}
+            projectDefaultStyle={projectDefaultStyle}
           />
           {isStatic ? null : (
             <>
@@ -192,7 +268,7 @@ export function BoardItemRenderer({
               />
             </>
           )}
-          {resizeHandle}
+          {resizeHandles}
         </div>
       );
 
@@ -211,8 +287,9 @@ export function BoardItemRenderer({
             isEditing={isEditing}
             onUpdate={onUpdate}
             onEditEnd={onEditEnd}
+            projectDefaultStyle={projectDefaultStyle}
           />
-          {resizeHandle}
+          {resizeHandles}
         </div>
       );
 
@@ -231,8 +308,10 @@ export function BoardItemRenderer({
             isEditing={isEditing}
             onUpdate={onUpdate}
             onEditEnd={onEditEnd}
+            projectDefaultStyle={projectDefaultStyle}
+            renderMode={renderMode}
           />
-          {resizeHandle}
+          {resizeHandles}
         </div>
       );
 
@@ -252,8 +331,9 @@ export function BoardItemRenderer({
             childSummaries={childSummaries}
             onToggleCollapse={onToggleCollapse}
             showToggle={!isStatic}
+            projectDefaultStyle={projectDefaultStyle}
           />
-          {resizeHandle}
+          {resizeHandles}
         </div>
       );
 
@@ -277,8 +357,44 @@ export function BoardItemRenderer({
           onContextMenu={onContextMenu}
         >
           {item.type}
-          {resizeHandle}
+          {resizeHandles}
         </div>
       );
   }
 }
+
+function areFrameSummariesEqual(
+  left: FrameSummaryEntry[],
+  right: FrameSummaryEntry[],
+): boolean {
+  if (left === right) return true;
+  if (left.length !== right.length) return false;
+  return left.every((entry, index) => {
+    const other = right[index];
+    return (
+      other !== undefined &&
+      entry.id === other.id &&
+      entry.type === other.type &&
+      entry.title === other.title &&
+      entry.body === other.body
+    );
+  });
+}
+
+export const BoardItemRenderer = memo(
+  BoardItemRendererComponent,
+  (prev, next) =>
+    prev.item === next.item &&
+    prev.childCount === next.childCount &&
+    prev.className === next.className &&
+    prev.renderMode === next.renderMode &&
+    prev.isSelected === next.isSelected &&
+    prev.isEditing === next.isEditing &&
+    prev.canTranslateSegment === next.canTranslateSegment &&
+    prev.deletingWaypointIndex === next.deletingWaypointIndex &&
+    prev.tableCellSelectionResetKey === next.tableCellSelectionResetKey &&
+    prev.tableDropTargetCellId === next.tableDropTargetCellId &&
+    prev.magnetEnabled === next.magnetEnabled &&
+    prev.projectDefaultStyle === next.projectDefaultStyle &&
+    areFrameSummariesEqual(prev.childSummaries, next.childSummaries),
+);

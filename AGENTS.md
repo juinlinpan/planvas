@@ -14,6 +14,10 @@
 - `.pv_project` is a directory, not a file.
 - Project metadata lives at `<project_dir>/.pv_project/metadata.json`.
 - Page XML files live under `<project_dir>/.pv_project/`.
+- Each Page is stored as two Page XML v2 files: `<page_name>.semantic.xml` and `<page_name>.presentation.xml`.
+- Page XML v2 `semantic` files describe board objects, frame containment, table cell containment, and canonical links.
+- Page XML v2 `presentation` files describe geometry, z-order, colors, patterns, shape styling, and connector routing.
+- AI and automation workflows should read only the Page XML v2 `semantic` file plus referenced markdown files unless they need visual layout details.
 - Markdown note files live under `<project_dir>/.pv_project/` and are treated as `note_paper` notes.
 - `note_paper` body text is stored in `.md` files; Page XML stores a reference to the markdown file instead of the note body.
 - The workspace left sidebar has a Notes box listing `.pv_project/*.md` project notes.
@@ -51,7 +55,7 @@
 - 不再預設包含桌面殼或 Tauri
 - backend 啟動目錄必須可寫入
 - Project 預設儲存根目錄必須位於 `<user_home>/.planvas/`
-- 每個 Project 是一個工作路徑：`<user_home>/.planvas/<project_name>/`
+- 每個 Project 是一個工作路徑；新建 Project 預設位於 `<user_home>/.planvas/project_store/<project_name>/`，外部開啟的 Project 可位於其他使用者選定路徑。
 - 每個 Project 目錄必須包含 `.pv_project/` 資料夾
 - 每個 Project 的 metadata 必須儲存在 `.pv_project/metadata.json`
 - 每個 Project 的 Page XML 檔案必須儲存在 `.pv_project/` 底下
@@ -131,20 +135,20 @@ Codex 在這個專案中，不只可以閱讀 `spec.md` 與 `todo_list.md`，也
 物件分類規則：
 
 - `line`、`table` 屬於 `shape`
-- `text_box`、`sticky_note`、`note_paper` 屬於 `small_item`
+- `text_box`、`note_paper` 屬於 `small_item`
+- `sticky_note` 屬於獨立的 `sticky_item`，不屬於 `small_item` 或 `large_item`
 - `frame` 屬於 `large_item`
 - `arrow` 屬於 `connector`
 
 重要互動規則：
 
 - 所有類別都可自由擺放
-- `frame` 可容納 `small_item`
+- `frame` 可容納 `small_item`，不可容納 `sticky_note`
 - `frame` 可展開 / 縮回
 - `frame` 縮回時，`text_box` 顯示完整文字
-- `frame` 縮回時，`sticky_note` 顯示部分文字
 - `frame` 縮回時，`note_paper` 只顯示第一個 Markdown H1
 - 白板要有磁鐵對齊功能
-- `arrow` 可連結所有 `small_item` 與 `large_item`
+- `arrow` 可連結所有 `small_item`、`sticky_item` 與 `large_item`
 
 ## 6. 工作方式
 

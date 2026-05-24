@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import type { BoardItem } from '../api';
-import { ITEM_CATEGORY, ITEM_TYPE } from '../types';
+import type { BoardItem } from '../services/api';
+import { ITEM_CATEGORY, ITEM_TYPE } from '../types/index';
 import { NotePaper } from './NotePaper';
 
 const FIXTURE_TIMESTAMP = '2026-04-12T00:00:00+00:00';
@@ -58,7 +58,9 @@ const done = true;
 
     expect(markup).toContain('Sprint Plan');
     expect(markup).toContain('<strong>MVP</strong>');
-    expect(markup).toContain('<code class="markdown-inline-code">healthz</code>');
+    expect(markup).toContain(
+      '<code class="markdown-inline-code">healthz</code>',
+    );
     expect(markup).toContain('<ul class="markdown-list">');
     expect(markup).toContain('<blockquote class="markdown-quote">');
     expect(markup).toContain('<pre class="markdown-code-block">');
@@ -84,7 +86,30 @@ const done = true;
     );
 
     expect(markup).toContain('Sprint Plan');
+    expect(markup).toContain('markdown-list');
+  });
+
+  it('renders title-only mode without the body preview', () => {
+    const markup = renderToStaticMarkup(
+      <NotePaper
+        item={createNotePaperItem({
+          data_json: JSON.stringify({
+            noteFile: 'sprint-plan.md',
+            noteDisplayMode: 'title',
+          }),
+          content: `# Sprint Plan
+
+- API sync`,
+        })}
+        isEditing={false}
+        onUpdate={() => {}}
+        onEditEnd={() => {}}
+      />,
+    );
+
+    expect(markup).toContain('Sprint Plan');
     expect(markup).not.toContain('markdown-list');
+    expect(markup).toContain('展開');
   });
 
   it('renders the editor in edit mode', () => {

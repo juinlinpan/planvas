@@ -11,6 +11,7 @@ export type Project = {
   id: string;
   name: string;
   theme_color: ProjectThemeColor;
+  default_style_json: string | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -82,6 +83,16 @@ export type PageBoardData = {
   connector_links: ConnectorLink[];
 };
 
+export type PageRegulateReport = {
+  removed_table_child_refs: number;
+  removed_connector_links: number;
+  normalized_items: number;
+};
+
+export type PageRegulateResult = PageBoardData & {
+  report: PageRegulateReport;
+};
+
 export type ProjectCreatePayload = {
   name: string;
   theme_color: ProjectThemeColor;
@@ -90,6 +101,7 @@ export type ProjectCreatePayload = {
 export type ProjectUpdatePayload = {
   name?: string;
   theme_color?: ProjectThemeColor;
+  default_style_json?: string | null;
 };
 
 export type PageCreatePayload = {
@@ -119,6 +131,12 @@ export type BoardItemUpdatePayload = BoardItemBase;
 export type ConnectorLinkCreatePayload = ConnectorLinkBase;
 export type ConnectorLinkUpdatePayload = ConnectorLinkBase;
 
+export type ImportFromPayload = {
+  source_project_id: string;
+  page_ids: string[];
+  note_files: string[];
+};
+
 export type PageBoardStatePayload = {
   board_items: BoardItem[];
   connector_links: ConnectorLink[];
@@ -126,7 +144,6 @@ export type PageBoardStatePayload = {
 
 export type ProjectMetadata = {
   project: Project;
-  pages: Array<Page & { file?: string }>;
 };
 
 export type ProjectIndexEntry = {

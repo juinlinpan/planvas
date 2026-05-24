@@ -1,4 +1,4 @@
-﻿# Whiteboard Planner Todo List
+# Whiteboard Planner Todo List
 
 ## Desktop Runtime Notes
 
@@ -20,7 +20,8 @@
 
 - [x] Replace SQLite-backed repository persistence with file-based Planvas project storage.
 - [x] Add default Planvas root resolution at `<user_home>/.planvas/`, with `WHITEBOARD_PLANVAS_ROOT` override.
-- [x] Store each Project as a working directory containing `.pv_project/metadata.json` and one XML file per Page under `.pv_project/`.
+- [x] Store each Project as a working directory containing `.pv_project/metadata.json` and two XML files per Page under `.pv_project/`.
+- [x] Rename Page XML sibling files when the user renames a Page, preserving the Page id and board content.
 - [x] Treat `.pv_project/*.md` files as project note files and surface them as `note_paper` notes.
 - [x] Store `note_paper` markdown bodies in `.pv_project/*.md` files while keeping Page XML limited to placement data and a markdown file reference.
 - [x] Add a left-sidebar Notes box that lists all project markdown notes.
@@ -38,11 +39,42 @@
 - [x] Preserve existing backend HTTP API shapes while replacing the underlying storage engine.
 - [x] Update backend tests for Planvas storage initialization and restart persistence.
 - [x] Replace DB access with a filesystem repository.
+- [x] Add backend diagnostics for slow HTTP requests, event loop lag, uncaught exceptions, and unhandled promise rejections.
+- [x] Reduce common multi-item save pressure by batching table-style and table-absorb changes through a single board-state write instead of parallel per-item writes.
+- [x] Make board item creation optimistic so newly created items appear immediately while backend persistence finishes in the background.
+- [x] Stop routine project-note refreshes from remounting the current Canvas, avoiding white flashes after note creation.
+- [x] Add a frontend per-Page board cache so switching back to an already loaded Page restores board data from memory instead of re-fetching it.
+- [x] Keep the per-Page board cache synchronized with live item, connector, and viewport changes.
+- [x] Flush pending viewport autosave on Canvas unmount instead of dropping the last debounced pan / zoom update.
+- [x] Move item and viewport autosave debounce to second-level timing to reduce high-frequency write pressure.
+- [x] Change Markdown editor saving to 5-second autosave plus immediate flush on window/tab leave and editor view switch, without remounting the current Page on note refresh.
+- [x] Add a Page XML regulate maintenance endpoint and canvas refresh action near `magnet` to rewrite current-schema Page XML, normalize `sticky_note` into standalone `sticky_item` / `sticky_object`, and remove stale table child references.
+
+## Page XML v2 Semantic Storage Notes
+
+- [x] Define the Page XML v2 schema with separate `<page_name>.semantic.xml` and `<page_name>.presentation.xml` files.
+- [x] Move AI-readable board meaning into the semantic file, including object content, frame containment, table cell containment, and canonical links.
+- [x] Keep geometry, z-order, colors, fill patterns, shape details, and connector route points in the presentation file.
+- [x] Model semantic object kinds as `large_object`, `small_object`, and semantic `link`.
+- [x] Treat `frame` and `table` as `large_object` types.
+- [x] Treat `text_box` and `note_paper` as `small_object` types.
+- [x] Treat `sticky_note` as standalone `sticky_object`, outside `small_object` and `large_object` containment.
+- [x] Treat `line` and `arrow` as semantic `link` records when they express a relationship.
+- [ ] Optionally keep decorative lines presentation-only in a later cleanup.
+- [x] Add semantic `frame` containment for direct `small_object` children.
+- [x] Add stable `table_cell` ids and semantic table cell containment for `small_object` children.
+- [x] Make semantic `links/link` records the canonical source of truth for relationships between objects or table cells.
+- [x] Generate or validate object-level `connections` indexes from canonical links so AI can quickly inspect incoming and outgoing relations.
+- [x] Preserve markdown-backed `note_paper` behavior by storing semantic note content as `content_ref type="markdown"` with the `.md` filename.
+- [x] Write new Page XML as v2 only; legacy v1 Page XML migration is intentionally out of scope for this change.
+- [x] Implement Page XML v2 writer output and reader round-trip for the existing HTTP API shape.
+- [x] Add tests for frame containment, table cell containment, semantic link canonical data, derived object connections, presentation-only lines, and markdown content references.
+- [ ] Update JSON export / import and future AI-readable snapshots to prefer the semantic layer while preserving current API compatibility.
 
 ## Navigation Update Notes
 
 - [x] Make the workspace left page sidebar and right inspector collapsible with a persistent restore handle.
-- [x] Opening a project from the home screen now lands on an actual page and creates a browser history entry.
+- [x] Opening a project from the home screen now creates a browser history entry and loads the workspace page list without auto-opening a page.
 - [x] The workspace left sidebar stays focused on page navigation and no longer shows a project details panel.
 - [x] Rework the sidebar header into a `Planvas` / `Home` top row plus a divided `Project` summary row with a settings icon trigger.
 - [x] Move all project controls into a dedicated settings modal that uses about 70% viewport width on desktop.
@@ -50,23 +82,30 @@
 - [x] Refresh the page delete button beside each page row with a cleaner icon treatment.
 - [x] Project delete now appears under the project name controls and requires typing `delete {project_name}` before returning to the home screen.
 - [x] Added a project-level `Change theme color` dropdown above `Delete project`, with `default`, `sage`, `sunset`, and `ocean` themes persisted on each project.
+- [x] Added Project Settings defaults for object text color, small-object fill color, large-object fill color, link stroke color, and link text color.
 - [x] Remove the old inline `Manage` panel from the left sidebar after moving project controls into the modal.
 - [x] Treat browser file picker cancellation during Project / Page export as a normal cancel without showing an error banner.
 - [x] Keep duplicate out of the left sidebar while allowing page rename and delete icon buttons there.
 - [x] The workspace `Home` button now sits beside the `Planvas` heading.
 - [x] Home now shows `Create Project`, `Open Project`, and `Refresh`; project JSON import is removed from the home screen.
+- [x] `Create Project` now uses an app modal instead of a browser prompt.
+- [x] `Open Project` uses the Windows native folder picker, with manual path entry as fallback.
+- [x] Manual `Open Project` paths can be absolute, `~`-based, or relative to `<user_home>`.
+- [x] Make `Open Project` dedupe by canonical filesystem path instead of Project name, preserving separate projects with the same name.
+- [x] Keep copied Project folders with duplicated metadata ids from replacing the original Project registration.
 - [x] Home project list is grouped into `project_store` projects first and other registered paths second.
 - [x] Home missing-path projects can be removed from `project.json` after Refresh.
+- [x] Re-entering a Project from Home refreshes that Project's Pages and Notes from disk even when the selected Project id did not change.
 - [x] Clicking `嚗??啣? Page` now creates `untitled_n` directly without a prompt dialog.
 
 ## Toolbar Menu Update Notes
 
-- [x] Rework top toolbar into Office-like `瑼?` / `蝺刻摩` clickable dropdown menus.
-- [x] Move page `import` / `export` under the `瑼?` dropdown.
+- [x] Rework top toolbar into Office-like `檔案` / `編輯` clickable dropdown menus.
+- [x] Move page `import` / `export` under the `檔案` dropdown.
 - [x] Add hover-triggered right submenu under `export` to host current and future formats.
 - [x] Keep `magnet` and `zoom` controls pinned to the far-right side of the toolbar.
 - [x] Replace the right-upper floating utility strip with the expandable canvas header ribbon.
-- [x] Group `瑼?`, `蝺刻摩`, and `瑼Ｚ?` in the expanded header ribbon, with `magnet` / `zoom` / `?` under `瑼Ｚ?`.
+- [x] Group `檔案`, `編輯`, and `檢視` in the expanded header ribbon, with `magnet` / `zoom` / `格線` under `檢視`.
 - [x] Keep the draggable toolbar focused on tool buttons only.
 
 ## Export And Read-Only Sharing Planning Notes
@@ -96,15 +135,20 @@
 - [x] Keep `text_box` read mode scrollbar-free and let it show as much text as the current size allows.
 - [x] Make `note_paper` read mode scroll its body when markdown content overflows.
 - [x] Prioritize the first Markdown `#` heading when a `note_paper` is too small to show both title and body comfortably.
+- [x] Let `note_paper` placements toggle on the Page between expanded markdown content and a title-only H1 summary view.
 - [x] Back `note_paper` content with `.md` files under `.pv_project/` instead of storing markdown text inside Page XML.
 - [x] Let the right inspector rename the markdown backing file for a selected `note_paper`.
 - [x] Add project-level note listing API and sidebar drag placement for markdown-backed notes.
+- [x] Refresh `.pv_project/*.md` project notes from disk when the workspace regains focus or the tab becomes visible, and update visible `note_paper` placements that reference changed files.
+- [x] Preserve active in-app markdown drafts when an external note refresh arrives.
 
 ## Table And Small-Item Sizing Update Notes
 
 - [x] Raise the `table` dimension cap from `12 x 12` to `20 x 20`.
 - [x] Make every `table` cell respect the minimum `text_box` size.
-- [x] Reduce the minimum `text_box` width by two grid columns so it aligns with `sticky_note`.
+- [x] Make toolbar table insertion preview expand away from the current toolbar dock and allow a second table-tool click to cancel insertion.
+- [x] Let table edge controls add rows above or below and columns to the left or right.
+- [x] Set the minimum `text_box`, `sticky_note`, and `table` cell size to `48 x 48`, matching two default text line-heights while staying grid-aligned.
 - [x] Verify every board item minimum size, including `line`, `arrow`, and dynamic `table` minimum sizes, stays aligned to whole canvas grid units.
 - [x] Snap internal `table` row and column divider dragging to the canvas grid when `magnet` is enabled, with `Alt` as the temporary bypass.
 
@@ -118,294 +162,544 @@
 - [x] Reuse the existing clipboard/delete handlers so right-click actions match keyboard shortcuts.
 - [x] Cover the new context-menu action visibility and viewport clamping with tests.
 
+## Inspector Tab Update Notes
+
+- [x] Add top-level `樣式` and `文字` tabs to the right inspector.
+- [x] Keep object size, object/background/line colors, item text content, table cell content, markdown filename, and frame collapse controls in `樣式`.
+- [x] Move font size, bold/italic text style, text alignment, table label font size, table cell text alignment, and line/arrow label placement into `文字`.
+- [x] Update Inspector tests for the tabbed layout and font-size editing from the `文字` tab.
+
+## Line Text Update Notes
+
+- [x] Let `line` store an optional text label in `content`.
+- [x] Let users double-click a `line` to edit its text label inline.
+- [x] Add right-inspector controls for `line` text front / center / back placement.
+- [x] Add right-inspector controls for `line` text top / middle / bottom placement.
+- [x] Add right-inspector controls for horizontal or slope-following `line` text direction.
+- [x] Group `line` text editing and text-related settings together in the inspector.
+- [x] Add right-inspector controls for `line` text background, text color, and font size.
+- [x] Keep the default `line` text background transparent.
+- [x] Reduce default `arrow` head size to a compact `14px` and make the inspector commit arrow-head-size edits after field completion so intermediate number entry does not jump.
+- [x] Remove the separate legacy connector-arrow renderer and migrate old connector-arrow placements into segment-arrow geometry on load.
+
+## Frame Exit Interaction Update Notes
+
+- [x] Preserve a dragged item's dropped position when it fully leaves its parent `frame`.
+- [x] Keep frame eject positioning only for partial frame exits.
+
 ## Table Text Layout And Inspector Update Notes
 
-- [x] 蝘駁 `table` ?喃?閫???? 甈?蝐日＊蝷箝?
-- [x] 霈?`text_box` ?批捆?箏?蝵桐葉憿舐內??
-- [x] 霈?`note_paper` ?批捆蝬剜??勗椰銝?喃??霈瘚???
-- [x] ?典??Inspector ??`table` ?啣? `??` ?憛??葉???賊?隤踵??
+- [x] 讓 `table` 儲存格與 `text_box` 支援文字水平對齊（左/中/右）與垂直對齊（上/中/下）設定，預設為水平置中、垂直置中
+- [x] 讓選取整張 `table` 時的字型大小、文字顏色、粗體與斜體設定同步套用到所有儲存格文字與格內 `small_item`
+- [x] 讓 `text_box` 在 read mode 下移除捲動列，盡可能顯示多行文字
+- [x] 讓 `note_paper` read mode 支援 Markdown 溢出捲動，內容過小時優先顯示 Markdown H1 標題，並可在 Page 上切換成只顯示標題
+- [x] 在 Inspector 中為 `table` 新增「鎖定欄」欄位，可設定各欄位隱藏與顯示行為
+- [x] 在 Inspector 中為 `table` 新增 optional「名子」欄位，輸入後才在表格左上方顯示小標籤，並保持未命名舊 Page 相容
+- [x] 在 Inspector 中為 `table` 名稱標籤新增獨立字級控制，並套用到 Page 上方標籤顯示
+- [x] 改善 `table` 新增 row / col 邊緣按鈕的可點擊範圍
 
 ## Minimap And New-Page Viewport Update Notes
 
-- [x] ??Canvas ?喃?閫憓?mini map嚗＊蝷箸撘萇?輻葬??
-- [x] mini map 憿舐內?桀? viewport 撠??拙耦獢?
-- [x] mini map 隞亙??拐辣??脣?暺＊蝷箏?撣?
-- [x] ?啣? Page ??閮?viewport ??函? 80% 蝚砌?鞊⊿?閬???
+- [x] 在 Canvas 畫布右下角加入 mini map，以縮圖方式呈現整體畫布內容
+- [x] mini map 內以矩形顯示目前 viewport 位置與比例
+- [x] mini map 支援點擊與拖拉，可快速移動到畫布任意位置
+- [x] 新增 Page 後將 viewport 初始化至覆蓋 80% 畫布內容的最適縮放比例
 
-靘 `spec.md` ????澆?颲佗??誑 MVP ?箔蜓嚗辣敺??格?唳?敺?
+## Cross-Page Copy and Paste Update Notes
+
+- [x] Implement localStorage-backed clipboard helpers for cross-page copying and pasting.
+- [x] Update canvas copy, cut, paste, and check actions to read and write from localStorage with a memory fallback.
+- [x] Ensure that pasting offsets items to prevent visual overlap.
+- [x] Ensure that copy-pasting objects preserves parent-child frame containment relationships.
+
+請參考 `spec.md` 的完整需求說明與驗收條件，以下 MVP Todo 排列依建議實作順序，已完成項目以 [x] 標記。
 
 ## MVP Todo
 
-### 1. 撠??箇?撱箇蔭
+### 1. 專案設定與初始化
 
-- [x] 撱箇?皜????桅?蝯?嚗frontend/`?backend/`
-- [x] 撱箇? React + TypeScript + Vite ?垢撠?
-- [x] 撱箇? TypeScript + Node.js backend 撠?
-- [x] 撱箇? root scripts嚗npm run dev`?dev:frontend`?dev:backend`?build`?lint`?format`?typecheck`?check`
-- [x] ?箏??垢 dev port `5173` ??backend dev port `18000`
-- [x] 撱箇? `GET /healthz` ??蝡臬摨瑟炎?仿?
-- [x] 撱箇? lint / formatter / type check
-- [x] 撱箇? Windows preflight / bootstrap scripts嚗撠項??Node.js LTS ?璈??潛憓炎??
+- [x] 建立基本專案結構：`frontend/` 與 `backend/` 資料夾
+- [x] 建立 React + TypeScript + Vite 前端架構
+- [x] 建立 TypeScript + Node.js backend 架構
+- [x] 建立 root scripts：`npm run dev`、`dev:frontend`、`dev:backend`、`build`、`lint`、`format`、`typecheck`、`check`
+- [x] Add `planvas` as a source checkout launch command that starts the unbuilt frontend and backend after dependencies are installed.
+- [x] 確認前端 dev port `5173` 與 backend dev port `18000`
+- [x] 建立 `GET /healthz` 基礎健康檢查端點
+- [x] 建立 lint / formatter / type check 設定
+- [x] 建立 Windows preflight / bootstrap scripts：確認 Node.js LTS 版本與執行環境前置條件
 
-### 2. ?祆?鞈??楝敺???
+### 2. 後端儲存與日誌設定
 
 - [x] Initialize `.planvas` project storage and `logs/` runtime output.
-- [x] Planvas file storage uses `<user_home>/.planvas/<project_name>/.pv_project/metadata.json` and page XML files under `.pv_project/`.
-- [x] 閮剖? log 頝臬???`<backend_root>/logs/`
-- [x] ????遣蝡撩撠?鞈?憭?
-- [x] 鋆?頝臬??????航炊??
+- [x] Planvas file storage uses `<user_home>/.planvas/project_store/<project_name>/.pv_project/metadata.json` for newly created projects, while external projects may live at user-selected paths with page XML files under `.pv_project/`.
+- [x] 設定 log 輸出目錄至 `<backend_root>/logs/`
+- [x] 確認後端重啟後資料不遺失
+- [x] 確認日誌路徑格式與輸出符合規範
 
 ### 3. Planvas File Storage
 
 - [x] Store Project records in `<project_name>/.pv_project/metadata.json`.
-- [x] Store Page records in the Project metadata page list.
-- [x] Store board items inside each Page XML file.
+- [x] Keep `.pv_project/metadata.json` limited to project-level settings and derive Pages / Notes live from `.pv_project/` contents.
+- [x] Store each Page's `viewport_x`, `viewport_y`, and `zoom` on that Page XML root instead of `metadata.json`.
+- [x] Store board item semantic and presentation data inside each Page's two XML files.
 - [x] Store `note_paper` bodies in sibling markdown files and keep only `data_json.noteFile` references in Page XML.
-- [x] Store connector links inside each Page XML file.
+- [x] Store connector links inside each Page semantic XML file.
 - [x] Keep page / item / connector ids stable inside metadata and XML files.
+- [x] Add `POST /pages/{page_id}/regulate` to repair Page XML v2 using the current schema: normalize existing `sticky_note` objects to standalone `sticky_item` / `sticky_object`, remove stale table child refs, normalize table child parent links, drop connector links with missing endpoints, and rewrite semantic / presentation XML.
 - [x] Replace DB access with a filesystem repository.
-- [x] 鋆??甈??揣撘?`project_id`?page_id`?parent_item_id`
+- [x] 確認各 API 回應欄位包含 `project_id`、`page_id`、`parent_item_id`
 
 ### 4. Backend API
 
-- [x] 撖虫? Project CRUD API
-- [x] 撖虫? Page CRUD API
-- [x] 撖虫? board item CRUD API
-- [x] 撖虫? connector CRUD API
-- [x] 撖虫? Page viewport API
-- [x] 撖虫? Page ?券?頛 API
-- [x] 撖虫? Page board state replace API嚗? Undo / Redo ??嚗?
-- [x] 蝯曹? success response format
-- [x] 蝯曹? error format
+- [x] 實作 Project CRUD API
+- [x] 實作 Page CRUD API
+- [x] 實作 board item CRUD API
+- [x] 實作 connector CRUD API
+- [x] 實作 Page viewport API
+- [x] 實作 Page 全頁讀取 API
+- [x] 實作 Page board state replace API（供 Undo / Redo 使用）
+- [x] 統一 success response format
+- [x] 統一 error format
 
-### 5. Frontend App Shell
+### 5. 前端 App 外殼
 
-- [x] 撱箇??湧? app layout
-- [x] 撖虫?擐?嚗?銝剜?靘?Project ?豢? / 撱箇? / ?臬?亙
-- [x] 撖虫?撌血 Project / Page 撠汗
-- [x] ??撌血撠汗?撠???儘霅?
-- [x] 撖虫?銝剖亢?賣???
-- [x] 撖虫??箸撌亙???湔?
-- [x] ?怠???身暺??楛嚗?擃??祇＊蝷箏銝??航?摨?
-- [x] ?怠??喃?閫?靘??舀芋撘????臬暺??蝺???
-- [x] 銝脫 backend API
-- [x] ???活頛?征????航炊???
+- [x] 建立基礎 app layout
+- [x] 實作路由：包含進入 Project 頁面、建立、開啟、主頁
+- [x] 實作 Project / Page 導航
+- [x] 確認導航切換有正確狀態更新
+- [x] 實作前端錯誤邊界處理
+- [x] 實作全局 toast 通知機制
+- [x] 正確處理後端 API 無回應或逾時：顯示錯誤提示
+- [x] 正確處理白板載入前的初始狀態：顯示 loading 狀態
+- [x] 串接 backend API
+- [x] 確認頁面路由跳轉與 API 串接完整運作
 
 ### 6. Project / Page UI
 
-- [x] ??敺??脣擐?嚗??脣撌乩??
-- [x] ?啣? Project
-- [x] ?臬 Project JSON snapshot
-- [x] ??賢? Project
-- [x] ?芷 Project
-- [x] 隞交??矽??Project ??
-- [x] ?啣? Page
-- [x] ??賢? Page
-- [x] ?芷 Page
-- [x] 銴ˊ Page
-- [x] ?函撣?toolbar ??獢黎蝯?靘?Page JSON export / import ??
-- [x] ?舀?臬 Page JSON ?啁征??Page嚗蒂?券?蝛箇 Page 隞亦??撘??
-- [x] Page JSON export ?啣? `item_hierarchy` 璅寧?敺惇鞈?嚗蒂??import 撽???`parent_item_id` 銝??
-- [x] 隞交??矽??Page ??
-- [x] ?? Page
+- [x] 建立基礎首頁佈局與 Project 入口
+- [x] 新增 Project
+- [x] 匯出 Project JSON snapshot
+- [x] 重新命名 Project
+- [x] 刪除 Project
+- [x] 確認切換後頁面正確顯示 Project 列表
+- [x] 新增 Page
+- [x] 重新命名 Page
+- [x] 刪除 Page
+- [x] 複製 Page
+- [x] 將原本 toolbar 上的 Page JSON export / import 功能改為下拉選單
+- [x] 支援匯入 Page JSON 並貼到現有 Page，包含詢問是否覆蓋現有 Page
+- [x] Page JSON export 包含 `item_hierarchy` 巢狀結構，確保 import 時可正確還原 `parent_item_id` 關係
+- [x] 確認切換後頁面正確顯示 Page 列表
+- [x] 切換 Page
 
-### 7. ?賣??賢?
+### 7. 白板互動基礎
 
-- [x] 撱箇??賣?怠?
-- [x] ?舀????
-- [x] ?舀?賣蝛箇???賂?銝??詨?摰??潭??貊???隞?
-- [x] ?舀 viewport 撟喟宏?葬??
-- [x] ?舀憭
-- [x] ?舀 resize
-- [x] ?舀 z-index 隤踵
-- [x] ?舀銴ˊ / 鞎潔?
-- [x] ?舀?喲?詨嚗?輻隞嗉??賣蝛箇?嚗??芯? / 銴ˊ / 鞎潔? / ?芷
-- [x] ?舀 Delete
-- [x] ?舀 Undo / Redo
-- [x] ?舀?芸??脣?
+- [x] 建立白板互動狀態機
+- [x] 支援物件選取
+- [x] 支援多選物件，以框選涵蓋所有物件，包含群組操作
+- [x] 支援 viewport 拖曳平移
+- [x] 支援物件移動
+- [x] 支援物件縮放
+- [x] 支援 z-index 調整
+- [x] 支援複製 / 貼上
+- [x] 支援多選框選，框選後可對群組執行選取 / 複製 / 移動 / 刪除
+- [x] 支援 Delete
+- [x] 支援 Undo / Redo
+- [x] 支援物件樣式設定
 
-### 8. ?拐辣璅∪?
+### 8. 白板物件建立
 
-- [x] 摰儔 item type ??category 撣豢
-- [x] 摰儔??蝡臬??item model
-- [x] 撱箇? toolbar ?拐辣撱箇??亙
-- [x] 撱箇??拐辣?箸摨???/ ????
-- [x] ?舀撱箇? `line`
-- [x] ?舀撱箇? `table`
-- [x] ?舀撱箇? `text_box`
-- [x] ?舀撱箇? `sticky_note`
-- [x] ?舀撱箇? `note_paper`
-- [x] ?舀撱箇? `frame`
-- [x] ?舀撱箇? `arrow`
+- [x] 定義 item type 與 category 分類規則
+- [x] 定義各類物件的共用基礎 item model
+- [x] 建立 toolbar 物件建立工具列
+- [x] 建立工具列拖拉建立物件 / 點擊建立流程
+- [x] 支援建立 `line`
+- [x] 支援建立 `table`
+- [x] 支援建立 `text_box`
+- [x] 支援建立 `sticky_note`
+- [x] 支援建立 `note_paper`
+- [x] 支援建立 `frame`
+- [x] 支援建立 `arrow`
 
 ### 9. `shape`
 
-- [x] ?曉之 `line` / `arrow` 蝡舫???暺?銝剜挾蝭暺?皛??賭葉蝭?嚗?雿移皞???瘙?
-
-- [x] ?撌脩?摰?anchor ??`line` / `arrow` 蝺澈????detach嚗?頧? freeform segment 撟喟宏
-
-- [x] `line` / freeform `arrow` ?銝剖??寧瘝輻?畾菔?蝞?銝?霈???亦敶Ｗ???曌?隞?
-- [x] segment ?舐?交??喟?頨怠像蝘鳴?撌脩?摰?anchor ??segment ?冽??喟?頨急??? detach ?宏??
-
-- [x] 撖虫? `line`
-- [x] ?舀 `line` 隞亥絲暺?/ 蝯??批?瑕漲???
-- [x] ?舀 `line` ?蝡舫?隤踵
-- [x] ?舀 `line` 璅??閮剖?
-- [x] 撖虫? `table`
-- [x] ?舀? / 甈隤踵嚗???Inspector嚗撌脫?箇?踹 inline ??嚗?
-- [x] ?舀?脣? table ?批捆
-- [x] ?舀 table 璅??閮剖?
-- [x] **?身閮?table v2**嚗?啗??芋??(`colWidths`/`rowHeights`/merge spans)
-- [x] ?舀暺?銝極?瑕? `table` ??敺?隞亥府暺?箏???憿舐內 `1 ? 1` ?汗嚗?曌???/ 銝宏??游撐??`n ? m`嚗?暺?銝?撱箇?銵冽
-- [x] ?舀?詨? table 敺??喳??潛?隤踵?祝 / 甈?嚗oom-agnostic fraction resize嚗?
-- [x] ?舀?詨? table 敺?渡? / 璈怎?銝?蒂??`+` ?啣? row / col
-- [x] ?舀皛??詨??蝺＊蝷箸憓?row / col ??+ ??瘚株絲?嚗?
-- [x] ?舀皛?獢憭銝阡＊蝷箝?雿萸???
-- [x] ?舀璈怠? / 蝮勗??撌脣?雿萇??脣???
-- [x] ?舀??`small_item`嚗ext_box?ticky_note?ote_paper嚗??脣摮?賊?嚗? frame ?摩嚗?
-- [x] ?舀 table resize ??甇?relayout ?脣??澆撌脣?? `small_item`
-- [x] ?舀?脣???embedded item 撅? / ???汗
-- [x] ?舀???詨捆閫???? `string[][]` ?澆?
-- [x] ?舀?蝺黎蝯?嚗over ???璇?銝韏琿?鈭?+ 銝剖亢憿舐內 `+`
-- [x] ?舀?蔥?脣??潮????潛??函??改?銝????銝?/ 撌血蝺挾??函??嚗?
-- [x] ?舀?蔥敺摮閬?啣祕擃?銝??儔?鋡怨??摮? identity
-- [x] ?舀?敺?畾萇蝡改??啁??銝剝?蝺挾隞亦??雿菜???遣嚗????甈?嚗?銝???啗? / ?啣???????蝢斤?嚗?
-- [x] ?舀?憭??游? table ??????蝡??潛?蝯?嚗??????pixel layout exact 銝?
-- [x] ?脣??潭??absolute positioning ??嚗?游?銵??蝺蝡?蝘餉?憿臬??琿?
-- [x] ?芷 row / col ??箇葬撠?table 憭?嚗??曉之?嗡??芸?敶梢?脣??潘??芯葉???拙?湔雿菟
-- [x] ?芷 row / col 敺?甇仿???cell ??child items嚗??嗉??冽?脣??潔?蝵桃宏??
-
-- [x] table ??憭惜?????湧??詨??宏?虜璅?暺?銵冽?折?湔??格嚗?雿??喳撱嗡撓?箏??潮??
-- [x] table ??格???潭?嚗??Inspector ?Ｘ???脣?湔憟?啣??賢摮嚗??啣?敶?脣蔗?詨嚗?
+- [x] 確認 `line` / `arrow` 線段支援多錨點折線、弧線、曲線，以及正確的中間點拖拉邏輯
+- [x] 確認連接器吸附錨點讓 `line` / `arrow` 脫離後保持 freeform segment 路徑
+- [x] `line` / freeform `arrow` 線段點位可自由調整，拖拉中間點可新增節點，並合併相鄰共線點
+- [x] segment 拖拉中間點靠近吸附錨點時自動連接；端點靠近後可重新 detach 並保持路徑
+- [x] 實作 `line`
+- [x] 支援 `line` 垂直 / 水平角度鎖定
+- [x] 支援 `line` 多段連線格式
+- [x] 支援 `line` 線段樣式
+- [x] 實作 `table`
+- [x] 支援儲存格 / 表頭格式（透過 Inspector，點擊儲存格可 inline 編輯）
+- [x] 支援儲存格內 table 內嵌物件
+- [x] 支援 table 線段樣式
+- [x] **重構 table v2**：支援彈性儲存格（`colWidths`/`rowHeights`/merge spans）
+- [x] 支援大型 `table` 處理：表格超過最小格子尺寸時允許 `1 × 1` 空格顯示，可切分顯示 / 固定框架涵蓋 `n × m`，並可繼續新增儲存格
+- [x] 支援拖拉 table 格欄位邊框進行欄寬 / 列高調整（zoom-agnostic fraction resize）
+- [x] 支援拖拉 table 格行列邊框新增 / 刪除，並以 `+` 按鈕新增 row / col
+- [x] 支援從預覽中點擊選取並拖拉 row / col 的 + 按鈕建立儲存格
+- [x] 支援從格內建立固定儲存格項目
+- [x] 支援拖拉 / 縮放並正確更新儲存格格式
+- [x] 支援 `small_item`（text_box、note_paper）作為儲存格內容（在 frame 外顯示）；`sticky_note` 維持獨立便利貼，不進入 table 或 frame
+- [x] 支援表格與單一儲存格設定格內 `small_item` 排列方向（上下分 / 左右分），預設上下分，表格層級與儲存格層級以較晚設定者生效
+- [x] 支援 table resize 後自動 relayout 儲存格並更新其中的 `small_item`
+- [x] 支援儲存格內 embedded item 縮放 / 內容更新
+- [x] 支援格子複製並更新複製後格子的 `string[][]` 剪貼板資料
+- [x] 支援格子滑過預覽（hover 時顯示按鈕欄位，固定顯示儲存格內 `+`）
+- [x] 支援格子資料序列建立，可替換或修改目前的儲存格清單 / 還原格子資料 / 公式
+- [x] 支援格子特殊摘要匯出，確認欄位名稱不重複並維持欄位 identity
+- [x] 支援格子資料結構變更後快速替換差異資料，確保持久性：支援固定 / 可替換欄位，重新排序後維持 diff
+- [x] 支援選取完整表格 row / column 後使用 `Delete` / `Backspace` 或右鍵刪除該行列，保留剩餘格子的像素大小並縮減 table 總尺寸；零散格子選取則只清除選取格內容
+- [x] 支援格欄位游走 table 拖拉功能，確認拖拉後 pixel layout 精確無誤
+- [x] 儲存格支援絕對定位，游走欄位移動時確認視覺位置正確
+- [x] 刪除 row / col 後同步更新 table，確認不重複使用舊欄位名稱
+- [x] 刪除 row / col 後 relayout，確認 cell 的 child items 一併清除
+- [x] table 格框線支援多種樣式，包含點線、虛線與混合格線，套用後確認外觀正確
+- [x] table 格框線顏色支援自訂，可在 Inspector 面板中直接選色並套用
+- [x] 支援 table optional「名子」欄位，Inspector 輸入後在表格左上方顯示小標籤，缺少或清空時維持舊 Page 相容且不顯示標籤
+- [x] 支援 table 名稱標籤字級調整，儲存在 table data 的 optional `labelFontSize` 欄位
+- [x] 放大 table 新增 row / col 按鈕點擊範圍，避免邊界外控制被裁切造成難以點擊
 
 ### 10. `small_item`
 
-- [x] 撖虫? `text_box`
-- [x] ?舀 `text_box` ?批捆蝺刻摩
-- [x] 撖虫? `sticky_note`
-- [x] ?舀 `sticky_note` ?箏???脩巨?摰?摮蟡?
-- [x] 撖虫? `note_paper`
-- [x] ?舀 Markdown ?脣?
-- [x] ?舀 `note_paper` ?箸?汗
+- [x] 實作 `text_box`
+- [x] 支援 `text_box` 內嵌編輯
+- [x] 實作 `sticky_note`
+- [x] 支援 `sticky_note` 顏色選取、文字樣式、最前層預設與右上角摺痕樣式
+- [x] 實作 `note_paper`
+- [x] 支援 Markdown 內容編輯
+- [x] 支援 `note_paper` 標題重新命名
 
 ### 11. `frame`
 
-- [x] 撖虫? `frame`
-- [x] ?舀 `frame` 蝘餃?
-- [x] ?舀 `frame` resize
-- [x] ?舀 `frame` 撅? / 蝮桀?
-- [x] ?舀??`small_item` ?曉 `frame`
-- [x] ?舀??`small_item` 敺?`frame` 蝘餃
-- [x] ?舀 frame ?抒隞嗥??Ｘ??
-- [x] ?舀蝮桀???鞈?閮?
-- [x] ?舀撅?銝剔? `frame` ??overlap ??瑼餅??脣 focus mode
-- [x] ?舀 oversized `small_item` ?詨??葬?曉 `frame` 60% fit budget
-- [x] ?舀 `small_item` ?脣 `frame` ????
-- [x] ?舀 `small_item` ?ａ? `frame` 敺???唳?蝣箇? frame 憭?蝵殷??踹????銝剝?
-- [x] ?舀 `frame` ??item ?舫???雿?撘瑕摰? frame ?批捆?
-- [x] ?舀敺?`frame` ? item ???交摰蝘餃?????frame ??
+- [x] 實作 `frame`
+- [x] 支援 `frame` 拖移
+- [x] 支援 `frame` 縮放
+- [x] 支援 `frame` 展開 / 縮回
+- [x] 支援將 `small_item` 放入 `frame`
+- [x] 支援從 `frame` 中拖出 `small_item`
+- [x] 支援 frame 縮回時展示預覽內容
+- [x] 支援縮回後框架標籤顯示
+- [x] 支援展開且與其他 `frame` 重疊時，顯示提示並觸發 focus mode
+- [x] 支援超大 `small_item` 自動縮放貼入 `frame` 的 60% fit budget
+- [x] 支援 `small_item` 進入 `frame` 的動畫
+- [x] 支援 `small_item` 完全離開 `frame` 後保留拖放位置，不強制彈出 frame 邊界
+- [x] 支援 `frame` 縮回時 item 預覽摘要顯示於 frame 標題
+- [x] 支援從 `frame` 中拖出 item 後正確更新 frame 尺寸
 
-### 12. 蝮桀???閬?
+### 12. 縮回顯示規則
 
-- [x] `text_box` 蝮桀??＊蝷箏??湔?摮?
-- [x] `sticky_note` 蝮桀??＊蝷粹??摮?
-- [x] `note_paper` 蝮桀??憿舐內蝚砌???Markdown H1
-- [x] ?交???H1嚗?蝢?fallback 憿舐內閬?
-- [x] 摰儔 frame 蝮桀????見撘???
+- [x] `text_box` 縮回時顯示完整文字
+- [x] `sticky_note` 不參與 frame 縮回摘要，維持獨立便利貼
+- [x] `note_paper` 縮回時僅顯示第一個 Markdown H1
+- [x] 若無 H1，則以 fallback 顯示摘要內容
+- [x] 定義 frame 縮回後各類物件的摘要顯示規則
 
 ### 13. `arrow`
 
-- [x] 撖虫? `arrow`
-- [x] ?舀 `arrow` 隞亥絲暺?/ 蝯?撱箇?
-- [x] ?舀 `arrow` ?撱箇??孵??摨?
-- [x] ?舀 `arrow` ?蝡舫?隤踵
-- [x] ?舀 `arrow` ?箸蝺?璅??
-- [x] ?舀 `arrow` / `line` 蝤折暺??draw.io 憸冽 connector anchor嚗?
-- [x] ?舀撌脤????`arrow` / `line` 蝡舫??函隞嗥宏???單?頝
+- [x] 實作 `arrow`
+- [x] 支援 `arrow` 垂直 / 水平方向建立
+- [x] 支援 `arrow` 箭頭方向設定
+- [x] 支援 `arrow` 多段連線格式
+- [x] 支援 `arrow` 線段樣式
+- [x] 支援 `arrow` / `line` 相容 draw.io 慣例的 connector anchor
+- [x] 支援已連接的 `arrow` / `line` 錨點跟隨物件移動更新位置
 
-### 14. Magnet / 蝬脫?賊?
+### 14. Magnet / 格線對齊
 
-- [x] 撖虫??箇? magnet 蝬脫?賊?
-- [x] 摰儔 magnet 摰孵?頝
-- [x] ? magnet ??????舐雯??
-- [x] ?舀?? `Alt` ?急?? magnet
-- [x] 撖虫? connector anchor 蝤批??蝷箏嚗nchor indicator嚗?
+- [x] 實作背景格線 magnet 對齊功能
+- [x] 定義 magnet 吸附精度
+- [x] 確認 magnet 預設啟用且吸附行為符合規格
+- [x] 支援按住 `Alt` 暫時停用 magnet
+- [x] 實作 connector anchor 吸附視覺提示（anchor indicator）
 
-### 15. ?喳蝺刻摩?Ｘ
+### 15. 右側 Inspector 面板
 
-- [x] ?寞??詨??拐辣憿舐內銝??批捆
-- [x] 憿舐內雿蔭鞈?
-- [x] 憿舐內撠箏站鞈?
-- [x] 憿舐內璅??甈?
-- [x] 憿舐內???摰寡身摰?
-- [x] ?舀?箏????7 ?貉??箏????脩巨
-- [x] ?舀?箸摮?璅??
-- [x] 憿舐內?桀??拐辣?
+- [x] 依選取物件類型切換 Inspector 顯示內容
+- [x] 顯示位置資訊
+- [x] 顯示尺寸資訊
+- [x] 顯示樣式設定
+- [x] 顯示文字與字型設定
+- [x] 支援顏色選取器含 7 色預設與自訂色彩輸入
+- [x] 支援線段樣式設定
+- [x] 顯示物件鎖定狀態
 
-### 16. 敹急??
+### 16. 鍵盤快捷鍵
 
-- [x] `Delete` ?芷
-- [x] `Ctrl/Cmd + C` 銴ˊ
-- [x] `Ctrl/Cmd + X` ?芯?
-- [x] `Ctrl/Cmd + V` 鞎潔?
+- [x] `Delete` 刪除
+- [x] `Ctrl/Cmd + C` 複製
+- [x] `Ctrl/Cmd + X` 剪下
+- [x] `Ctrl/Cmd + V` 貼上
 - [x] `Ctrl/Cmd + Z` Undo
 - [x] `Ctrl/Cmd + Shift + Z` Redo
-- [x] `Space + Drag` 撟喟宏?怠?
+- [x] `Space + Drag` 拖曳平移畫布
 
-### 17. ?祆????蝵脫?蝔?
+### 17. 後端基礎設施與預飛
 
-- [x] 摰儔 frontend / backend ?璈???蝔?
-- [x] 閬??垢??瑼迤撘?靘撘?
+- [x] 確認 frontend / backend 版本相容性測試
+- [x] 確認前端建置輸出正確載入
 - [x] Initialize `.planvas` project storage and `logs/` runtime output.
-- [x] ?辣?身摰????遢瘚?
-- [x] 鋆??箸 smoke test
+- [x] 確認應用程式在乾淨環境下可正常啟動
+- [x] 確認 smoke test 通過
 
-### 18. 撽皜祈岫
+### 18. 整合測試
 
-- [x] 撽 Project / Page CRUD
-- [x] 撽?拐辣撱箇? / 蝺刻摩 / ?芷
-- [x] 撽 frame 撅? / 蝮桀?
-- [x] 撽蝮桀???閬?
-- [x] 撽 frame overlap focus mode / auto-ingest / auto-fit / enter-exit animation
-- [x] 撽 item ?暹?敺??蝣箄??frame ?扳?憭?銝?????雿?
-- [x] 撽 frame ??item ?舫???銝??典?頞 frame
-- [x] 撽 item 敺?frame ?憭望????芸?敶? frame ??
-- [x] 撽 line / arrow 韏瑞?暺遣蝡??批暺矽??
-- [x] 撽 magnet 蝬脫?賊?
-- [x] 撽 Undo / Redo
-- [x] 撽?祆?????
-- [x] 撠 `spec.md` 撽璇辣??蝣箄?
+- [x] 測試 Project / Page CRUD
+- [x] 測試物件建立 / 編輯 / 刪除
+- [x] 測試 frame 展開 / 縮回
+- [x] 測試縮回顯示規則
+- [x] 測試 frame overlap focus mode / auto-ingest / auto-fit / enter-exit animation
+- [x] 測試 item 進入 / 離開 frame 邊界時的尺寸與位置行為
+- [x] 測試 frame 縮回時 item 摘要顯示正確
+- [x] 測試 item 離開 frame 後 frame 尺寸正確更新
+- [x] 測試 line / arrow 跟隨物件移動後錨點正確更新
+- [x] 測試 magnet 對齊功能
+- [x] 測試 Undo / Redo
+- [x] 測試後端儲存與讀取
+- [x] 依據 `spec.md` 驗收完整功能行為
 
-## 撱嗅??
+## 延後實作
 
-### 19. ?脤??批捆?
+### 19. 進階功能
 
 - [x] Markdown rich preview
-- [x] Undo / Redo 甇瑕?芸?
+- [x] Undo / Redo 細粒度合併
 
-### 20. ???鞈??渡?
+### 20. 遷移清理
 
-- [ ] 皜???瑽?legacy `connector_links` ??敺垢瘚?嚗???啁??芰蝞剝璅∪?瘛瑟?
+- [ ] 將舊版 legacy `connector_links` 格式遷移至新的 connector 架構，確保舊資料可正確載入
 
-### 21. ?臬?霈?澈
+### 21. 匯出管線
 
-- [ ] ?賢?梁 export pipeline嚗絞銝霈??Page / Project snapshot?iewport???航? item hierarchy
-- [x] 摰儔 PNG ?臬 UI ???????芸?頛詨?隞嗥????
-- [x] 撖虫? PNG ?臬銝西?銝?祈?閬粹???
-- [x] ?弦銝阡摰?PPTX ?Ｙ??寞?嚗Ⅱ隤汗?函垢??backend 蝡舐?鞎砌遙??
-- [x] 摰儔 PPTX slide layout????/ ?脣蔗撠???raster fallback 閬?
-- [x] 撖虫? PPTX ?臬銝阡?霅?蝔?item 蝯?
-- [ ] 摰儔 Project viewer 撠??澆???????
-- [ ] 撖虫??航? viewer shell嚗age list?撣葡?an / zoom嚗?
-- [ ] 蝣箔? viewer ?舫蝺???銝?鞈?Node.js backend?QLite ?蝡舀???
-- [ ] ?辣??鈭急?蝔??嚗霈????摰寞抒???
+- [ ] 建立共用 export pipeline：統一讀取 Page / Project snapshot、viewport 資訊與 item hierarchy
+- [x] 設計 PNG 匯出 UI 裁切邊界策略，僅輸出可見物件範圍
+- [x] 實作 PNG 匯出，以縮圖快速分享，裁切至物件邊界
+- [x] 改進 PPTX 匯出為可編輯原生物件，不再強制走 backend 圖片渲染流程
+- [x] 定義 PPTX slide layout 規則 / 文字截斷策略與 raster fallback 邊界
+- [x] 實作 PPTX 匯出支援原生可編輯 item 物件
+- [ ] 設計 Project viewer 自包含封裝方案
+- [ ] 實作基礎 viewer shell：page list、閱讀導覽、pan / zoom
+- [ ] 確認 viewer 執行不依賴 Node.js backend、SQLite 或其他伺服器
+- [ ] 驗證匯出取消、渲染保真度與 viewer 導覽的測試覆蓋
 
-## 撱箄降撖虫???
+### 22. Frontend `App.tsx` Module Split Plan
 
-1. 撠??箇?撱箇蔭
-2. Planvas file storage ??backend CRUD
-3. Frontend App Shell ??Project / Page UI
-4. ?賣??賢?
-5. ?拐辣璅∪????撖虫?
-6. Snap?onnector ????
-7. ?祆??函蔡瘚??葫閰?
+Goal: reduce `frontend/src/App.tsx` from a mixed orchestration/rendering file into a thin workspace coordinator. Keep behavior stable in each step and verify after every extraction.
+
+Split order:
+
+- [x] Extract workspace tab state and rendering into `frontend/src/workspaceTabState.ts` and `frontend/src/WorkspaceTabs.tsx`.
+  Scope: `WorkspaceTab`, visible-tab filtering, active tab detection, tab close/open/reorder, tab drag/drop, and tab bar JSX.
+  Keep in `App.tsx`: selected project/page/note ids and callbacks that change them.
+  Verify: page tabs open on page selection, note tabs open from Notes, active tab switching works, tab close fallback still selects the previous page tab, tab drag reorder still works, `npm.cmd run build --workspace frontend`.
+
+- [x] Extract left workspace sidebar rendering into `frontend/src/WorkspaceSidebar.tsx`.
+  Scope: project header, sidebar collapse button, Pages box, Notes box, page rename/delete buttons, note open/delete buttons, note/page drag targets.
+  Keep in `App.tsx`: data loading, mutations, selected ids, and mutation handlers.
+  Verify: Home button, project settings button, sidebar collapse/restore, page create/rename/delete, note open/delete, note drag-to-page placement, page reorder, `npm.cmd run build --workspace frontend`.
+
+- [x] Extract project settings dialog into `frontend/src/ProjectSettingsDialog.tsx`.
+  Scope: project name form, theme dropdown, project path/reveal control, default style controls, and delete-project entry point.
+  Keep in `App.tsx`: `selectedProjectDefaultStyle`, `handleSaveProjectName`, `handleChangeProjectTheme`, `handleChangeProjectDefaultStyle`, `handleRevealProject`, delete dialog state.
+  Verify: project rename, theme change, default style changes, open folder, delete dialog launch, `npm.cmd run build --workspace frontend`.
+
+- [x] Extract page import/export orchestration into `frontend/src/usePageImportExport.ts`.
+  Scope: PNG/PPTX/Markdown/HTML export click flow, export image modal data, Mermaid import modal state, cross-project import modal state, and file picker helpers if they remain local to `App.tsx`.
+  Keep in `App.tsx`: selected project/page ids, `pages`, `projectNotes`, `setPages`, `setSelectedPageId`, note refresh callback, and `runMutation`.
+  Verify: PNG export empty-page error, PNG export modal confirm/cancel, PPTX export, Markdown export, HTML export, Mermaid import, cross-project import, `npm.cmd run build --workspace frontend`.
+
+- [x] Extract project/page/note loading and cache coordination into `frontend/src/useWorkspaceData.ts`.
+  Scope: `loadWorkspace`, `loadProjectSidebarData`, project notes refresh, focus/visibility refresh, board cache refs, page refresh tokens, selected page ref, and workspace entry retry.
+  Keep in `App.tsx`: high-level view state and UI composition.
+  Verify: initial home load, open project, browser back/forward route sync, project refresh, project notes refresh on focus, page cache restore, page refresh token reload, `npm.cmd run build --workspace frontend`.
+
+- [x] Extract shared App utility helpers into focused files.
+  Scope: move `buildUntitledPageName`, `selectFallbackId`, sidebar reorder helpers, file picker types/helpers, and App-only icons out of `App.tsx` when they are not already extracted.
+  Verify: no `App.tsx`-local helper remains unless it directly coordinates top-level state, no unused local warnings in `App.tsx` under `tsc --noUnusedLocals --noUnusedParameters`, `npm.cmd run build --workspace frontend`.
+
+Rules for each split:
+
+- [ ] Do one extraction per commit-sized change; avoid behavior edits mixed with file moves.
+- [ ] Prefer prop interfaces that pass callbacks and data explicitly instead of introducing global context.
+- [ ] Do not move `Canvas` internals into this effort; Canvas cleanup remains a separate task.
+- [ ] Do not change storage APIs, Page XML, project metadata, or backend behavior during this split.
+- [ ] After each extraction, update this checklist and delete any abandoned subtasks instead of leaving stale TODO text.
+
+### 23. `useCanvasMouseHandlers.ts` Module Split Plan
+
+Goal: 將 2074 行的單一巨型 hook 依互動職責拆成多個聚焦 hook，保持行為不變，每次只提取一個職責。
+
+Split order:
+
+- [x] Extract wheel / scroll target detection helpers into `frontend/src/canvasHelpers/scrollTarget.ts`.
+  Scope: `isScrollableOverflow`, `isScrollableWheelTarget` — 已提取為純函式。
+  Keep in `useCanvasMouseHandlers.ts`: 所有 state 與事件 handler。
+  Verify: ✅ `npm run build --workspace frontend` 通過。
+
+- [x] Extract viewport pan logic into `frontend/src/useCanvasPan.ts`.
+  Scope: `startViewportPan`、`handlePanMove`、`handlePanEnd` — 已提取。
+  Keep in `useCanvasMouseHandlers.ts`: dispatch 到 pan hook 的入口呼叫。
+  Verify: ✅ `npm run build --workspace frontend` 通過。
+
+- [x] Extract marquee selection logic into `frontend/src/useCanvasMarquee.ts`.
+  Scope: `startMarqueeSelection`、`handleMarqueeMove`、`handleMarqueeEnd` — 已提取。
+  Keep in `useCanvasMouseHandlers.ts`: 分派到 marquee hook 的呼叫。
+  Verify: ✅ `npm run build --workspace frontend` 通過。
+
+- [x] Extract item resize logic into `frontend/src/useCanvasResize.ts`.
+  Scope: `startResize`、`handleResizeMove`、`handleResizeEnd`，包含 magnet resize 吸附計算與 frame/table relayout — 已提取。
+  Keep in `useCanvasMouseHandlers.ts`: resize 入口分派。
+  Verify: ✅ `npm run build --workspace frontend` 通過。
+
+- [x] Extract segment endpoint & waypoint drag logic into `frontend/src/useCanvasSegmentDrag.ts`.
+  Scope: endpoint drag、waypoint drag、midpoint 插入，以及 `SegmentDraftState` 繪製流程 — 已提取。
+  Keep in `useCanvasMouseHandlers.ts`: 入口分派。
+  Verify: ✅ `npm run build --workspace frontend` 通過。
+
+- [x] Extract table insert preview logic into `frontend/src/useCanvasTableInsert.ts`.
+  Scope: `startTableInsertDraft`、`handleTableInsertMouseMove`、`handleTableInsertMouseUp` — 已提取。
+  Keep in `useCanvasMouseHandlers.ts`: 入口分派。
+  Verify: ✅ `npm run build --workspace frontend` 通過。
+
+- [ ] Slim `useCanvasMouseHandlers.ts` down to a thin coordinator — **部分完成**。
+  已完成：所有上述職責已提取，coordinator 現在只剩 `mousedown` / `mousemove` / `mouseup` / `wheel` 入口分派。
+  尚待完成：item drag/move 的核心 state 仍在 coordinator 中，可在後續步驟提取到 `useCanvasItemDrag.ts`。
+  Verify: `tsc --noUnusedLocals --noUnusedParameters` 無警告（useCanvasMouseHandlers.ts 本身已清乾淨）、`npm run build --workspace frontend` ✅。
+
+Rules for each split:
+
+- [x] 每步只提取一個互動域；不在同一次修改中調整行為。
+- [x] 透過參數與回傳值傳遞 state，不引入 React context。
+- [x] 不動 `canvasHelpers/` 下現有 pure 函式；只移動 hook 內的有狀態邏輯。
+- [x] 每步完成後更新本 checklist，刪除已過期的 TODO 子項。
+
+---
+
+### 24. `Canvas.tsx` Module Split Plan
+
+Goal: 將 1848 行的主元件從「渲染 + 狀態 + 副作用全混」拆成薄層協調者加多個職責分離元件，每次提取一個域。
+
+Split order:
+
+- [x] Extract inline-edit session state into `frontend/src/useCanvasEditSession.ts`.
+  Scope: `EditSessionState` 初始化與更新、`handleStartEdit` / `handleCommitEdit` / `handleCancelEdit`，以及雙擊觸發 edit 的判斷。
+  Keep in `Canvas.tsx`: 傳入 `editSession` 與回調給下層元件。
+  Verify: text_box / sticky_note / note_paper 雙擊進入編輯、Escape 取消、點擊外部提交、`npm.cmd run build --workspace frontend`。
+
+- [x] Extract sidebar note drag-drop-to-canvas logic into `frontend/src/useCanvasNoteDrop.ts`.
+  Scope: `onDragOver` / `onDrop` 針對 sidebar note 拖入畫布的處理（`resolveSidebarNoteDragFile` 呼叫與後續 `createBoardItem`）。
+  Keep in `Canvas.tsx`: 傳入 drop 回調給 canvas container div。
+  Verify: 從側欄 Notes box 拖放 note_paper 到畫布後出現、位置正確吸附到 grid、`npm.cmd run build --workspace frontend`。
+
+- [x] Extract connector rendering into `frontend/src/CanvasConnectorLayer.tsx`.
+  (Note: Legacy connector rendering was already removed/migrated to BoardItemRenderer; anchor indicators moved to CanvasItemLayer.)
+  Scope: 所有 `ConnectorLink` 的 SVG 渲染邏輯（segment path 計算、箭頭頭部、label、hover 樣式）。
+  Keep in `Canvas.tsx`: 傳入 `connectors`、`selectedIds`、`viewport` 等 props 給新元件。
+  Verify: arrow / line 顯示正確、label 顯示、端點 anchor 指示器、hover 高亮、`npm.cmd run build --workspace frontend`。
+
+- [x] Extract per-item-type rendering into `frontend/src/CanvasItemLayer.tsx`.
+  Scope: `items.map(...)` 的 JSX 輸出，包含每個 item type 的 switch/dispatch 渲染，以及 frame collapse 預覽摘要。
+  Keep in `Canvas.tsx`: 傳入 `items`、`selectedIds`、`editSession`、`viewport` 等 props。
+  Verify: 所有 item 類型正常顯示、frame collapse/expand 正常、selected 高亮正常、`npm.cmd run build --workspace frontend`。
+
+- [x] Extract canvas context menu rendering into `frontend/src/CanvasContextMenuLayer.tsx`.
+  Scope: item context menu 與 canvas context menu 的 JSX、visibility 判斷、位置計算。
+  Keep in `Canvas.tsx`: 傳入 `contextMenuState` 與 action 回調。
+  Verify: 右鍵物件顯示 cut/copy/paste/delete 選單、右鍵空白顯示 paste 選單、選單動作行為正確、`npm.cmd run build --workspace frontend`。
+
+- [x] Verify `Canvas.tsx` is a thin coordinator after all extractions.
+  Scope: 確認 `Canvas.tsx` 只剩 hook 組合 + props 傳遞 + 最外層 div 結構，無業務邏輯散落。
+  Verify: `tsc --noUnusedLocals --noUnusedParameters` 無警告、所有 Canvas 相關測試通過、`npm.cmd run build --workspace frontend`。
+
+Rules for each split:
+
+- [ ] 每步只提取一個渲染或狀態域；不改變可見行為。
+- [ ] 新元件透過明確 props 接收資料；不引入新的全域 context。
+- [ ] 不影響 `useCanvasMouseHandlers` 的拆分進度；兩條線可並行。
+- [ ] 每步完成後更新本 checklist。
+
+---
+
+### 25. `frontend/src/tableData/core.ts` Module Split Plan
+
+Goal: 將 1749 行的 table 資料 god module 按功能域拆成多個聚焦模組，保持現有 `frontend/src/tableData/index.ts` re-export 介面不變。
+
+Split order:
+
+- [x] Extract type definitions into `frontend/src/tableData/types.ts`.
+  Scope: `TableCellData`、`TableData`、`SegmentGroup`、`CellPosition`、`TableCellDeleteOperation`、`TableChildLayoutDirection` 以及所有常數（`TABLE_MIN_DIMENSION`、`TABLE_MAX_DIMENSION`、`TABLE_CELL_MIN_*`、`DEFAULT_TABLE_LABEL_FONT_SIZE` 等）。
+  Keep in `core.ts`: 所有函式實作。
+  Verify: `tsc` 無錯誤、現有測試通過、`npm.cmd run build --workspace frontend`。
+
+- [x] Extract serialization into `frontend/src/tableData/serialization.ts`.
+  Scope: `serializeTableData`、`parseTableData`、`hasNewFormat`、`parseNewFormat`、`parseOldFormat`、`parseDividerPositions`、`parseDividerBreaks`，以及 sanitize helpers（`sanitizeTableName`、`sanitizeTableLabelFontSize`、`sanitizeTableChildLayoutDirection`）。
+  Verify: `parseTableData` 往返序列化正確、舊格式 migration 仍正常、`npm.cmd run build --workspace frontend`。
+
+- [x] Extract cell mutation operations into `frontend/src/tableData/cellOps.ts`.
+  Scope: `createTableData`、`makeCell`（改為 module-private）、`updateTableCell`、`clearTableCells`、`getTableCellDeleteOperation`、`mergeCells`、`splitCellHorizontal`、`splitCellVertical`、`countFilledTableCells`、`getTableCellSummary`、`findCellByChildItemId`、`getChildItemIdsInRows`、`getChildItemIdsInCols`、`getTableCellIdsInRows`、`getTableCellIdsInCols`。
+  Verify: merge/split 儲存格行為不變、child item 查詢正確、`npm.cmd run build --workspace frontend`。
+
+- [x] Extract row / column operations into `frontend/src/tableData/rowColOps.ts`.
+  Scope: `addRow`、`addCol`、`deleteRow`、`deleteCol`、`deleteRows`、`deleteCols`、`resizeColumn`、`resizeRow`、`resizeTableData`、`preserveOuterAddColLayout`、`preserveOuterAddRowLayout`、`preserveOuterPrependColLayout`、`preserveOuterPrependRowLayout`。
+  Verify: 新增/刪除 row/col 後 layout 正確、刪除後 child items 一併清除、`npm.cmd run build --workspace frontend`。
+
+- [x] Extract segment group & divider logic into `frontend/src/tableData/segmentGroups.ts`.
+  Scope: `computeColSegmentGroups`、`computeRowSegmentGroups`、`resizeColGroup`、`resizeRowGroup`、`scaleTableDividerPositions`，以及相關的 `normalizeFractions`（改為 module-private）。
+  Verify: col/row divider 拖曳吸附正確、segment group 合併邏輯不變、`npm.cmd run build --workspace frontend`。
+
+- [x] Slim `core.ts` to geometry / query utilities only.
+  Scope: 確認 `core.ts` 最終只保留 `getTableMinSize`、`getTableMinSizeFromDataJson`、`getRootCellAt`、`getCumulativeColPositions`、`getCumulativeRowPositions`、`getEffectiveColEdge`、`getEffectiveRowEdge`、`getCellBounds`、`getEffectiveTableCellChildLayoutDirection`、`getNextTableLayoutUpdatedAt`。
+  Verify: `tsc --noUnusedLocals --noUnusedParameters` 無警告、所有 tableData 測試通過、`npm.cmd run build --workspace frontend`。
+
+- [x] Update `frontend/src/tableData/index.ts` re-export surface.
+  (Note: The project uses `frontend/src/tableData.ts` as the main entry point and it's already updated to export from the submodules.)
+  Scope: 確認 index.ts 從所有新子模組重新 export，外部 import 路徑（`./tableData` 或 `./tableData/core`）不需要變動。
+  Verify: Canvas、useCanvasMouseHandlers 等所有 consumer import 無需修改即可通過 `tsc`。
+
+Rules for each split:
+
+- [ ] 每步只移動同一功能域的函式；不在搬移過程中修改實作。
+- [ ] `tableData/index.ts` re-export 在全部步驟完成前保持對外相容。
+- [ ] 不改動 backend 儲存格式或 Page XML；只重組前端模組邊界。
+- [ ] 每步完成後更新本 checklist。
+
+---
+
+## 建議實作順序
+
+1. 專案設定與初始化
+2. Planvas file storage 與後端 CRUD
+3. Frontend App Shell 與 Project / Page UI
+4. 白板互動基礎
+5. 白板物件建立與互動
+6. Snap / Connector 對齊
+7. 後端基礎設施與冒煙測試
+8. Frontend `App.tsx` module split
+9. `useCanvasMouseHandlers.ts` module split（section 23）— **大部分完成**，剩 `useCanvasItemDrag.ts` 提取
+10. `Canvas.tsx` module split（section 24）
+11. `tableData/core.ts` module split（section 25）
+12. Centralized Autosave and Focus Refresh Optimization
+
+---
+
+## Centralized Autosave and Focus Refresh Optimization
+
+- [x] Optimize window focus/visibility note refresh:
+  - [x] Modify `refreshCurrentProjectFromDisk` in `useWorkspaceData.ts` to call `refreshProjectNotes` instead of `loadProjectSidebarData`.
+  - [x] Verify that page cache is preserved and no canvas remount (flicker) occurs on tab focus.
+- [x] Implement central save mechanism in `Canvas.tsx`:
+  - [x] Add `autosaveEnabled` state initialized from `localStorage` (defaulting to `true`).
+  - [x] Define `saveCurrentBoardState` function calling `replacePageBoardState`.
+  - [x] Setup debounced timer (`itemSaveTimer` / `ITEM_SAVE_DELAY`) to trigger `saveCurrentBoardState` when changes are made and autosave is active.
+  - [x] Setup cleanup handler to flush pending saves on unmount.
+  - [x] Add `Ctrl+S` / `Cmd+S` keyboard shortcuts.
+- [x] Add autosave toggle button in `CanvasRibbon.tsx`:
+  - [x] Pass `autosaveEnabled` and `onToggleAutosave` from `Canvas` to `CanvasRibbon`.
+  - [x] Add button with floppy/cloud icon and dynamic title next to the Magnet toggle.
+- [x] Adapt hooks and helpers to use central save:
+  - [x] Modify `canvasSyncHelpers.ts` to update local React states in-memory but NOT issue parallel `PATCH`/`PUT` requests.
+  - [x] Adapt `useCanvasItemActions.ts` (e.g. `handleDeleteItems` and `handleItemUpdate`) to delegate persistence to the central Canvas scheduler.
+  - [x] Adapt `useCanvasMouseHandlers.ts` drag-end connector deletion to run as part of the next board state write.
+

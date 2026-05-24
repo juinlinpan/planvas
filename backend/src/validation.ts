@@ -5,6 +5,7 @@ import {
   type BoardItemBase,
   type ConnectorLink,
   type ConnectorLinkBase,
+  type ImportFromPayload,
   type OrderedIdsPayload,
   type PageCreatePayload,
   type PageUpdatePayload,
@@ -57,12 +58,26 @@ export function validateProjectUpdate(value: unknown): ProjectUpdatePayload {
       collectValidation(error, details);
     }
   }
+  if ('default_style_json' in body) {
+    try {
+      payload.default_style_json = optionalString(body.default_style_json, [
+        'body',
+        'default_style_json',
+      ]);
+    } catch (error) {
+      collectValidation(error, details);
+    }
+  }
   if (details.length > 0) throw validationError(details);
-  if (payload.name === undefined && payload.theme_color === undefined) {
+  if (
+    payload.name === undefined &&
+    payload.theme_color === undefined &&
+    payload.default_style_json === undefined
+  ) {
     throw validationError([
       {
         loc: ['body'],
-        msg: 'Project update requires a name or theme color.',
+        msg: 'Project update requires a name, theme color, or default style.',
         type: 'value_error',
       },
     ]);
@@ -102,10 +117,56 @@ export function validateNoteUpdate(value: unknown): { content: string } {
   const body = asRecord(value);
   if (typeof body.content !== 'string') {
     throw validationError([
-      { loc: ['body', 'content'], msg: 'content must be a string.', type: 'type_error' },
+      {
+        loc: ['body', 'content'],
+        msg: 'content must be a string.',
+        type: 'type_error',
+      },
     ]);
   }
   return { content: body.content };
+}
+
+export function validateNoteRename(value: unknown): { note_file: string } {
+  const body = asRecord(value);
+  const noteFile = requireString(body.note_file, ['body', 'note_file']).trim();
+  if (noteFile.length === 0) {
+    throw validationError([
+      {
+        loc: ['body', 'note_file'],
+        msg: 'note_file cannot be blank.',
+        type: 'value_error',
+      },
+    ]);
+  }
+  return { note_file: noteFile };
+}
+
+export function validateImportFromPayload(value: unknown): ImportFromPayload {
+  const body = asRecord(value);
+  if (
+    typeof body.source_project_id !== 'string' ||
+    !body.source_project_id.trim()
+  ) {
+    throw new HttpError(400, 'source_project_id must be a non-empty string.');
+  }
+  if (
+    !Array.isArray(body.page_ids) ||
+    !(body.page_ids as unknown[]).every((id) => typeof id === 'string')
+  ) {
+    throw new HttpError(400, 'page_ids must be an array of strings.');
+  }
+  if (
+    !Array.isArray(body.note_files) ||
+    !(body.note_files as unknown[]).every((f) => typeof f === 'string')
+  ) {
+    throw new HttpError(400, 'note_files must be an array of strings.');
+  }
+  return {
+    source_project_id: body.source_project_id as string,
+    page_ids: body.page_ids as string[],
+    note_files: body.note_files as string[],
+  };
 }
 
 export function validateViewport(value: unknown): PageViewportPayload {
@@ -162,16 +223,28 @@ export function validateOrderedIds(value: unknown): OrderedIdsPayload {
   return { ordered_ids: orderedIds };
 }
 
+function categoryForType(type: string): string {
+  if (type === 'frame') return 'large_item';
+  if (type === 'line' || type === 'table') return 'shape';
+  if (type === 'sticky_note') return 'sticky_item';
+  if (type === 'arrow') return 'connector';
+  return 'small_item';
+}
+
 export function validateBoardItemPayload(value: unknown): BoardItemBase {
   const body = asRecord(value);
+  const type = requireString(body.type, ['body', 'type']);
   return {
     page_id: requireString(body.page_id, ['body', 'page_id']),
     parent_item_id: optionalString(body.parent_item_id, [
       'body',
       'parent_item_id',
     ]),
-    category: requireString(body.category, ['body', 'category']),
-    type: requireString(body.type, ['body', 'type']),
+    category:
+      typeof body.category === 'string' && body.category
+        ? body.category
+        : categoryForType(type),
+    type,
     title: optionalString(body.title, ['body', 'title']),
     content: optionalString(body.content, ['body', 'content']),
     content_format: optionalString(body.content_format, [
@@ -190,7 +263,10 @@ export function validateBoardItemPayload(value: unknown): BoardItemBase {
   };
 }
 
-export function validateBoardStatePayload(value: unknown): {
+export function validateBoardStatePayload(
+  value: unknown,
+  pageId = '',
+): {
   board_items: BoardItem[];
   connector_links: ConnectorLink[];
 } {
@@ -215,11 +291,63 @@ export function validateBoardStatePayload(value: unknown): {
   }
   return {
     board_items: body.board_items.map((item, index) =>
-      validateBoardItem(item, ['body', 'board_items', index]),
+      validateBoardItemForBoardState(
+        item,
+        ['body', 'board_items', index],
+        pageId,
+      ),
     ),
     connector_links: body.connector_links.map((item, index) =>
       validateConnectorLink(item, ['body', 'connector_links', index]),
     ),
+  };
+}
+
+function validateBoardItemForBoardState(
+  value: unknown,
+  loc: Array<string | number>,
+  pageId: string,
+): BoardItem {
+  const body = asRecord(value);
+  const type = requireString(body.type, [...loc, 'type']);
+  const now = new Date().toISOString();
+  return {
+    id: requireString(body.id, [...loc, 'id']),
+    page_id:
+      typeof body.page_id === 'string' && body.page_id ? body.page_id : pageId,
+    parent_item_id: optionalString(body.parent_item_id, [
+      ...loc,
+      'parent_item_id',
+    ]),
+    category:
+      typeof body.category === 'string' && body.category
+        ? body.category
+        : categoryForType(type),
+    type,
+    title: optionalString(body.title, [...loc, 'title']),
+    content: optionalString(body.content, [...loc, 'content']),
+    content_format: optionalString(body.content_format, [
+      ...loc,
+      'content_format',
+    ]),
+    x: requireNumber(body.x, [...loc, 'x']),
+    y: requireNumber(body.y, [...loc, 'y']),
+    width: requireNumber(body.width, [...loc, 'width']),
+    height: requireNumber(body.height, [...loc, 'height']),
+    rotation: requireNumber(body.rotation, [...loc, 'rotation']),
+    z_index: requireInteger(body.z_index, [...loc, 'z_index']),
+    is_collapsed:
+      typeof body.is_collapsed === 'boolean' ? body.is_collapsed : false,
+    style_json: optionalString(body.style_json, [...loc, 'style_json']),
+    data_json: optionalString(body.data_json, [...loc, 'data_json']),
+    created_at:
+      typeof body.created_at === 'string' && body.created_at
+        ? body.created_at
+        : now,
+    updated_at:
+      typeof body.updated_at === 'string' && body.updated_at
+        ? body.updated_at
+        : now,
   };
 }
 

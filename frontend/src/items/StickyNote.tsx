@@ -1,21 +1,32 @@
 import { useEffect, useRef } from 'react';
-import { type BoardItem } from '../api';
+import { type BoardItem } from '../services/api';
 import {
   getBoardItemTypographyStyle,
+  type ProjectDefaultStyle,
   resolveBoardItemStyle,
-} from '../itemStyles';
+} from './itemStyles';
 
 type Props = {
   item: BoardItem;
   isEditing: boolean;
   onUpdate: (item: BoardItem) => void;
   onEditEnd: () => void;
+  projectDefaultStyle?: ProjectDefaultStyle;
 };
 
-export function StickyNote({ item, isEditing, onUpdate, onEditEnd }: Props) {
+export function StickyNote({
+  item,
+  isEditing,
+  onUpdate,
+  onEditEnd,
+  projectDefaultStyle,
+}: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const resolvedStyle = resolveBoardItemStyle(item);
-  const typographyStyle = getBoardItemTypographyStyle(item);
+  const resolvedStyle = resolveBoardItemStyle(item, projectDefaultStyle);
+  const typographyStyle = getBoardItemTypographyStyle(
+    item,
+    projectDefaultStyle,
+  );
   const cardStyle = {
     background: resolvedStyle.backgroundColor,
     ...typographyStyle,
@@ -33,21 +44,26 @@ export function StickyNote({ item, isEditing, onUpdate, onEditEnd }: Props) {
 
   if (isEditing) {
     return (
-      <textarea
-        ref={textareaRef}
-        className="sticky-note-editor"
-        style={cardStyle}
-        value={item.content ?? ''}
-        onChange={handleChange}
-        onBlur={onEditEnd}
-        onMouseDown={(e) => e.stopPropagation()}
-      />
+      <div className="sticky-note-shell" style={cardStyle}>
+        <textarea
+          ref={textareaRef}
+          className="sticky-note-editor"
+          value={item.content ?? ''}
+          onChange={handleChange}
+          onBlur={onEditEnd}
+          onMouseDown={(e) => e.stopPropagation()}
+        />
+      </div>
     );
   }
 
   return (
-    <div className="sticky-note-display" style={cardStyle}>
-      {item.content ? <span className="sticky-note-content">{item.content}</span> : null}
+    <div className="sticky-note-shell" style={cardStyle}>
+      <div className="sticky-note-display">
+        {item.content ? (
+          <span className="sticky-note-content">{item.content}</span>
+        ) : null}
+      </div>
     </div>
   );
 }

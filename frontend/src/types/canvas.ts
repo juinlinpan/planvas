@@ -1,0 +1,112 @@
+import type { BoardItem, BoardItemPayload, ConnectorLink } from '../services/api';
+import type { BoardSnapshot } from '../utils/boardHistory';
+import type { Point, SegmentConnection, SegmentEndpoint } from '../utils/export/segmentData';
+import type { TableInsertDirection } from '../tableData/tableInsertPreview';
+import type { ActiveTool } from './index';
+
+export type DragState = {
+  itemId: string;
+  selectedItemIds: string[];
+  startMouseX: number;
+  startMouseY: number;
+  hasMoved: boolean;
+  startBoundsX: number;
+  startBoundsY: number;
+  itemPositions: Array<{ id: string; x: number; y: number }>;
+  snapshot: BoardSnapshot;
+  detachedConnectorIds: string[];
+  hasDetachedSegments: boolean;
+};
+
+export type ResizeEdge = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+
+export type ResizeState = {
+  itemId: string;
+  edge: ResizeEdge;
+  startMouseX: number;
+  startMouseY: number;
+  startX: number;
+  startY: number;
+  startWidth: number;
+  startHeight: number;
+  snapshot: BoardSnapshot;
+};
+
+export type PanState = {
+  startMouseX: number;
+  startMouseY: number;
+  startVpX: number;
+  startVpY: number;
+};
+
+export type SegmentDraftTool = Extract<ActiveTool, 'line' | 'arrow'>;
+
+export type SegmentDraftState = {
+  type: SegmentDraftTool;
+  start: Point;
+  end: Point;
+  startConnection: SegmentConnection | null;
+  endConnection: SegmentConnection | null;
+  snapshot: BoardSnapshot;
+};
+
+export type SegmentEndpointDragState = {
+  itemId: string;
+  endpoint: SegmentEndpoint;
+  connection: SegmentConnection | null;
+  snapshot: BoardSnapshot;
+};
+
+export type WaypointDragState = {
+  itemId: string;
+  waypointIndex: number;
+  snapshot: BoardSnapshot;
+};
+
+export type TableInsertDraftState = {
+  startClientX: number;
+  startClientY: number;
+  startWorldX: number;
+  startWorldY: number;
+};
+
+export type TableInsertPreviewState = {
+  cursorX: number;
+  cursorY: number;
+  cols: number;
+  rows: number;
+  isActive: boolean;
+  direction?: TableInsertDirection;
+  worldX?: number;
+  worldY?: number;
+  width?: number;
+  height?: number;
+};
+
+export type MarqueeSelectionState = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
+export type ClipboardEntry = {
+  sourceId: string;
+  payload: BoardItemPayload;
+};
+
+export type ClipboardSnapshot = {
+  items: ClipboardEntry[];
+};
+
+export type EditSessionState = {
+  itemId: string;
+};
+
+export type ItemsUpdater =
+  | BoardItem[]
+  | ((current: BoardItem[]) => BoardItem[]);
+
+export type ConnectorsUpdater =
+  | ConnectorLink[]
+  | ((current: ConnectorLink[]) => ConnectorLink[]);

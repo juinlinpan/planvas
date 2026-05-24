@@ -1,22 +1,14 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import { type BoardItem } from '../api';
-import { CANVAS_GRID_SIZE } from '../canvasConstants';
-import { resolveBoardItemStyle } from '../itemStyles';
-import { snapValueToGrid } from '../magnet';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type BoardItem } from '../services/api';
+import { CANVAS_GRID_SIZE } from '../constants/canvas';
+import { type ProjectDefaultStyle, resolveBoardItemStyle } from './itemStyles';
+import { snapValueToGrid } from '../utils/magnet';
 import {
   addCol,
   addRow,
   type CellPosition,
   computeColSegmentGroups,
   computeRowSegmentGroups,
-  deleteCol,
-  deleteRow,
   getCellBounds,
   getEffectiveColEdge,
   getEffectiveRowEdge,
@@ -24,10 +16,15 @@ import {
   parseTableData,
   preserveOuterAddColLayout,
   preserveOuterAddRowLayout,
+  preserveOuterPrependColLayout,
+  preserveOuterPrependRowLayout,
   resizeColGroup,
   resizeRowGroup,
+  DEFAULT_TABLE_LABEL_FONT_SIZE,
+  sanitizeTableName,
   TABLE_CELL_MIN_HEIGHT,
   TABLE_CELL_MIN_WIDTH,
+  TABLE_MAX_DIMENSION,
   type SegmentGroup,
   serializeTableData,
   splitCellHorizontal,
@@ -35,18 +32,150 @@ import {
   type TableCellData,
   type TableData,
   updateTableCell,
-  getRootCellAt,
-} from '../tableData';
-import { reconcileTableInteractionState } from '../tableInteractionState';
+} from '../tableData/tableData';
+import { reconcileTableInteractionState } from '../tableData/tableInteractionState';
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
 type GroupDividerDrag = {
   group: SegmentGroup;
-  startPos: number;       // mouse position at drag start (clientX or clientY)
-  startPosition: number;  // group's divider position fraction at drag start
-  containerSize: number;  // container width or height in pixels
+  startPos: number; // mouse position at drag start (clientX or clientY)
+  startPosition: number; // group's divider position fraction at drag start
+  containerSize: number; // container width or height in pixels
 };
+
+type TableGridLine = {
+  key: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  isOuter: boolean;
+};
+
+type AxisInterval = {
+  start: number;
+  end: number;
+};
+
+const GRID_LINE_PRECISION = 100000;
+const GRID_LINE_EPSILON = 0.00001;
+
+function toJustifyContent(
+  value: TableCellData['textHorizontalAlign'],
+): React.CSSProperties['justifyContent'] {
+  if (value === 'left') return 'flex-start';
+  if (value === 'right') return 'flex-end';
+  return 'center';
+}
+
+function toAlignItems(
+  value: TableCellData['textVerticalAlign'],
+): React.CSSProperties['alignItems'] {
+  if (value === 'top') return 'flex-start';
+  if (value === 'bottom') return 'flex-end';
+  return 'center';
+}
+
+function normalizeGridCoord(value: number): number {
+  return Math.round(value * GRID_LINE_PRECISION) / GRID_LINE_PRECISION;
+}
+
+function addAxisInterval(
+  target: Map<number, AxisInterval[]>,
+  axis: number,
+  start: number,
+  end: number,
+) {
+  const normalizedAxis = normalizeGridCoord(axis);
+  const normalizedStart = normalizeGridCoord(Math.min(start, end));
+  const normalizedEnd = normalizeGridCoord(Math.max(start, end));
+  if (normalizedEnd - normalizedStart <= GRID_LINE_EPSILON) {
+    return;
+  }
+  const intervals = target.get(normalizedAxis) ?? [];
+  intervals.push({ start: normalizedStart, end: normalizedEnd });
+  target.set(normalizedAxis, intervals);
+}
+
+function mergeAxisIntervals(intervals: AxisInterval[]): AxisInterval[] {
+  const sorted = [...intervals].sort(
+    (a, b) => a.start - b.start || a.end - b.end,
+  );
+  const merged: AxisInterval[] = [];
+
+  for (const interval of sorted) {
+    const previous = merged[merged.length - 1];
+    if (!previous || interval.start > previous.end + GRID_LINE_EPSILON) {
+      merged.push({ ...interval });
+      continue;
+    }
+    previous.end = Math.max(previous.end, interval.end);
+  }
+
+  return merged;
+}
+
+export function buildTableGridLines(data: TableData): TableGridLine[] {
+  const horizontal = new Map<number, AxisInterval[]>();
+  const vertical = new Map<number, AxisInterval[]>();
+
+  for (let row = 0; row < data.rows; row += 1) {
+    for (let col = 0; col < data.cols; col += 1) {
+      const cell = data.cells[row]?.[col];
+      if (cell === null || cell === undefined) {
+        continue;
+      }
+
+      const bounds = getCellBounds(data, row, col, cell.colSpan, cell.rowSpan);
+      const left = bounds.left * 100;
+      const right = (bounds.left + bounds.width) * 100;
+      const top = bounds.top * 100;
+      const bottom = (bounds.top + bounds.height) * 100;
+
+      addAxisInterval(horizontal, top, left, right);
+      addAxisInterval(horizontal, bottom, left, right);
+      addAxisInterval(vertical, left, top, bottom);
+      addAxisInterval(vertical, right, top, bottom);
+    }
+  }
+
+  const lines: TableGridLine[] = [];
+  for (const [y, intervals] of [...horizontal.entries()].sort(
+    (a, b) => a[0] - b[0],
+  )) {
+    for (const interval of mergeAxisIntervals(intervals)) {
+      lines.push({
+        key: `h-${y}-${interval.start}-${interval.end}`,
+        x1: interval.start,
+        y1: y,
+        x2: interval.end,
+        y2: y,
+        isOuter:
+          Math.abs(y) <= GRID_LINE_EPSILON ||
+          Math.abs(y - 100) <= GRID_LINE_EPSILON,
+      });
+    }
+  }
+  for (const [x, intervals] of [...vertical.entries()].sort(
+    (a, b) => a[0] - b[0],
+  )) {
+    for (const interval of mergeAxisIntervals(intervals)) {
+      lines.push({
+        key: `v-${x}-${interval.start}-${interval.end}`,
+        x1: x,
+        y1: interval.start,
+        x2: x,
+        y2: interval.end,
+        isOuter:
+          Math.abs(x) <= GRID_LINE_EPSILON ||
+          Math.abs(x - 100) <= GRID_LINE_EPSILON,
+      });
+    }
+  }
+
+  return lines;
+}
 
 export function getMagnetSnappedTableDividerPosition(
   item: Pick<BoardItem, 'x' | 'y' | 'width' | 'height'>,
@@ -77,8 +206,10 @@ type Props = {
   onEditEnd: () => void;
   onCellInteractionStart?: () => void;
   onSelectedCellsChange?: (cellIds: string[]) => void;
+  onDeleteSelectedCells?: (cellIds: string[]) => void;
   dropTargetCellId?: string | null;
   magnetEnabled?: boolean;
+  projectDefaultStyle?: ProjectDefaultStyle;
 };
 
 // ── Component ─────────────────────────────────────────────────────────────
@@ -92,13 +223,18 @@ export function Table({
   onEditEnd,
   onCellInteractionStart,
   onSelectedCellsChange,
+  onDeleteSelectedCells,
   dropTargetCellId,
   magnetEnabled = false,
+  projectDefaultStyle,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isStatic = renderMode === 'static';
-  const tableData = useMemo(() => parseTableData(item.data_json), [item.data_json]);
-  const resolvedStyle = resolveBoardItemStyle(item);
+  const tableData = useMemo(
+    () => parseTableData(item.data_json),
+    [item.data_json],
+  );
+  const resolvedStyle = resolveBoardItemStyle(item, projectDefaultStyle);
   const showsStructureControls = (isEditing || isSelected) && !isStatic;
 
   // Selected cell IDs (for merge operation)
@@ -111,6 +247,8 @@ export function Table({
   const groupDragRef = useRef<GroupDividerDrag | null>(null);
   // Track whether we have an active drag to suppress click
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
+  const [isEditingTableName, setIsEditingTableName] = useState(false);
+  const [tableNameDraft, setTableNameDraft] = useState('');
   // Hovered segment group key
   const [hoveredGroupKey, setHoveredGroupKey] = useState<string | null>(null);
 
@@ -159,6 +297,14 @@ export function Table({
     onUpdate({ ...item, data_json: serializeTableData(nextData) });
   }
 
+  function handleTableNameCommit(rawValue: string) {
+    handleUpdate({
+      ...tableData,
+      name: sanitizeTableName(rawValue),
+    });
+    setIsEditingTableName(false);
+  }
+
   // ── Cell selection ──────────────────────────────────────────────────────
 
   function getRangeSelection(
@@ -185,7 +331,11 @@ export function Table({
     return [...new Set(ids)];
   }
 
-  function findRoot(data: TableData, row: number, col: number): TableCellData | null {
+  function findRoot(
+    data: TableData,
+    row: number,
+    col: number,
+  ): TableCellData | null {
     for (let r = 0; r <= row; r++) {
       for (let c = 0; c <= col; c++) {
         const candidate = data.cells[r]?.[c];
@@ -198,7 +348,10 @@ export function Table({
     return null;
   }
 
-  function getCellPosition(data: TableData, cellId: string): CellPosition | null {
+  function getCellPosition(
+    data: TableData,
+    cellId: string,
+  ): CellPosition | null {
     for (let r = 0; r < data.rows; r++) {
       for (let c = 0; c < data.cols; c++) {
         if (data.cells[r]?.[c]?.id === cellId) return [r, c];
@@ -211,7 +364,10 @@ export function Table({
 
   const selectionBounds = useMemo(() => {
     if (selectedCells.length < 2) return null;
-    let minRow = Infinity, maxRow = -Infinity, minCol = Infinity, maxCol = -Infinity;
+    let minRow = Infinity,
+      maxRow = -Infinity,
+      minCol = Infinity,
+      maxCol = -Infinity;
     for (const cellId of selectedCells) {
       for (let r = 0; r < tableData.rows; r++) {
         for (let c = 0; c < tableData.cols; c++) {
@@ -225,50 +381,19 @@ export function Table({
       }
     }
     if (!isFinite(minRow)) return null;
-    const bounds = getCellBounds(tableData, minRow, minCol, maxCol - minCol + 1, maxRow - minRow + 1);
+    const bounds = getCellBounds(
+      tableData,
+      minRow,
+      minCol,
+      maxCol - minCol + 1,
+      maxRow - minRow + 1,
+    );
     return {
       left: bounds.left * 100,
       top: bounds.top * 100,
       right: (bounds.left + bounds.width) * 100,
       bottom: (bounds.top + bounds.height) * 100,
     };
-  }, [selectedCells, tableData]);
-
-  // ── Whole-row / whole-col selection detection ────────────────────────────
-
-  const selectedWholeRow = useMemo<number | null>(() => {
-    if (selectedCells.length === 0) return null;
-    for (let r = 0; r < tableData.rows; r++) {
-      const rowIds = (tableData.cells[r] ?? [])
-        .filter((cell): cell is TableCellData => cell !== null)
-        .map((cell) => cell.id);
-      if (
-        rowIds.length > 0 &&
-        rowIds.length === selectedCells.length &&
-        rowIds.every((id) => selectedCells.includes(id))
-      ) {
-        return r;
-      }
-    }
-    return null;
-  }, [selectedCells, tableData]);
-
-  const selectedWholeCol = useMemo<number | null>(() => {
-    if (selectedCells.length === 0) return null;
-    for (let c = 0; c < tableData.cols; c++) {
-      const colIds = tableData.cells
-        .map((row) => row[c])
-        .filter((cell): cell is TableCellData => cell !== null)
-        .map((cell) => cell.id);
-      if (
-        colIds.length > 0 &&
-        colIds.length === selectedCells.length &&
-        colIds.every((id) => selectedCells.includes(id))
-      ) {
-        return c;
-      }
-    }
-    return null;
   }, [selectedCells, tableData]);
 
   // ── Merge ───────────────────────────────────────────────────────────────
@@ -280,56 +405,6 @@ export function Table({
     const nextData = mergeCells(tableData, positions);
     handleUpdate(nextData);
     setSelectedCells([]);
-  }
-
-  // ── Delete row / col ─────────────────────────────────────────────────────
-
-  function handleDeleteRow(rowIndex: number) {
-    const removedFraction = tableData.rowHeights[rowIndex] ?? 0;
-    const nextData = deleteRow(tableData, rowIndex);
-    const nextHeight =
-      nextData.rows === tableData.rows
-        ? item.height
-        : Math.max(1, item.height * (1 - removedFraction));
-    onUpdate({
-      ...item,
-      height: nextHeight,
-      data_json: serializeTableData(nextData),
-    });
-    setSelectedCells([]);
-  }
-
-  function handleDeleteCol(colIndex: number) {
-    const removedFraction = tableData.colWidths[colIndex] ?? 0;
-    const nextData = deleteCol(tableData, colIndex);
-    const nextWidth =
-      nextData.cols === tableData.cols
-        ? item.width
-        : Math.max(1, item.width * (1 - removedFraction));
-    onUpdate({
-      ...item,
-      width: nextWidth,
-      data_json: serializeTableData(nextData),
-    });
-    setSelectedCells([]);
-  }
-
-  // ── Keyboard handler ──────────────────────────────────────────────────────
-
-  function handleContainerKeyDown(e: React.KeyboardEvent) {
-    if (e.key !== 'Delete' && e.key !== 'Backspace') return;
-    if (editingCellId !== null) return; // let textarea handle it
-    if (selectedWholeRow !== null) {
-      e.preventDefault();
-      e.stopPropagation();
-      handleDeleteRow(selectedWholeRow);
-      return;
-    }
-    if (selectedWholeCol !== null) {
-      e.preventDefault();
-      e.stopPropagation();
-      handleDeleteCol(selectedWholeCol);
-    }
   }
 
   // ── Split ───────────────────────────────────────────────────────────────
@@ -346,6 +421,19 @@ export function Table({
 
   function handleCellContentChange(cellId: string, value: string) {
     handleUpdate(updateTableCell(tableData, cellId, { content: value }));
+  }
+
+  function handleContainerKeyDown(e: React.KeyboardEvent) {
+    if (e.key !== 'Delete' && e.key !== 'Backspace') {
+      return;
+    }
+    if (editingCellId !== null || selectedCells.length === 0) {
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    onDeleteSelectedCells?.(selectedCells);
   }
 
   function handleCellSelectionStart(
@@ -437,12 +525,74 @@ export function Table({
 
   // ── Add row / col ────────────────────────────────────────────────────────
 
-  function handleAddRow(afterIndex: number) {
-    handleUpdate(addRow(tableData, afterIndex));
+  function handleAddOuterRow(edge: 'top' | 'bottom') {
+    if (tableData.rows >= TABLE_MAX_DIMENSION) {
+      return;
+    }
+
+    const nextHeight = Math.round(
+      (item.height * (tableData.rows + 1)) / tableData.rows,
+    );
+    const insertedData =
+      edge === 'top'
+        ? addRow(tableData, -1)
+        : addRow(tableData, tableData.rows - 1);
+    const nextData =
+      edge === 'top'
+        ? preserveOuterPrependRowLayout(
+            tableData,
+            insertedData,
+            item.height,
+            nextHeight,
+          )
+        : preserveOuterAddRowLayout(
+            tableData,
+            insertedData,
+            item.height,
+            nextHeight,
+          );
+
+    onUpdate({
+      ...item,
+      y: edge === 'top' ? item.y - (nextHeight - item.height) : item.y,
+      data_json: serializeTableData(nextData),
+      height: nextHeight,
+    });
   }
 
-  function handleAddCol(afterIndex: number) {
-    handleUpdate(addCol(tableData, afterIndex));
+  function handleAddOuterCol(edge: 'left' | 'right') {
+    if (tableData.cols >= TABLE_MAX_DIMENSION) {
+      return;
+    }
+
+    const nextWidth = Math.round(
+      (item.width * (tableData.cols + 1)) / tableData.cols,
+    );
+    const insertedData =
+      edge === 'left'
+        ? addCol(tableData, -1)
+        : addCol(tableData, tableData.cols - 1);
+    const nextData =
+      edge === 'left'
+        ? preserveOuterPrependColLayout(
+            tableData,
+            insertedData,
+            item.width,
+            nextWidth,
+          )
+        : preserveOuterAddColLayout(
+            tableData,
+            insertedData,
+            item.width,
+            nextWidth,
+          );
+
+    onUpdate({
+      ...item,
+      x: edge === 'left' ? item.x - (nextWidth - item.width) : item.x,
+      data_json: serializeTableData(nextData),
+      width: nextWidth,
+    });
   }
 
   // ── onEditEnd propagation ────────────────────────────────────────────────
@@ -455,13 +605,26 @@ export function Table({
 
   // ── Segment groups (memoised) ──────────────────────────────────────────
 
-  const colGroups = useMemo(() => computeColSegmentGroups(tableData), [tableData]);
-  const rowGroups = useMemo(() => computeRowSegmentGroups(tableData), [tableData]);
+  const colGroups = useMemo(
+    () => computeColSegmentGroups(tableData),
+    [tableData],
+  );
+  const rowGroups = useMemo(
+    () => computeRowSegmentGroups(tableData),
+    [tableData],
+  );
+  const gridLines = useMemo(() => buildTableGridLines(tableData), [tableData]);
 
   const containerStyle: React.CSSProperties = {
     background: resolvedStyle.backgroundColor,
     color: resolvedStyle.textColor,
+    fontSize: `${resolvedStyle.fontSize}px`,
+    fontWeight: resolvedStyle.fontWeight,
+    fontStyle: resolvedStyle.fontStyle,
   };
+  const tableName = tableData.name?.trim();
+  const tableLabelFontSize =
+    tableData.labelFontSize ?? DEFAULT_TABLE_LABEL_FONT_SIZE;
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -474,18 +637,65 @@ export function Table({
       onBlur={isEditing ? handleBlurContainer : undefined}
       onKeyDown={isEditing ? handleContainerKeyDown : undefined}
     >
+      {tableName || isEditingTableName ? (
+        <div
+          className="table-v2-name-label"
+          style={{ fontSize: `${tableLabelFontSize}px` }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => {
+            if (isStatic) {
+              return;
+            }
+            e.stopPropagation();
+            onCellInteractionStart?.();
+            setTableNameDraft(tableName ?? '');
+            setIsEditingTableName(true);
+          }}
+        >
+          {isEditingTableName ? (
+            <input
+              className="table-v2-name-label-input"
+              value={tableNameDraft}
+              autoFocus
+              onMouseDown={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
+              onChange={(e) => setTableNameDraft(e.target.value)}
+              onBlur={(e) => handleTableNameCommit(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.currentTarget.blur();
+                } else if (e.key === 'Escape') {
+                  setIsEditingTableName(false);
+                  setTableNameDraft(tableName ?? '');
+                }
+              }}
+            />
+          ) : (
+            tableName
+          )}
+        </div>
+      ) : null}
       {/* Cells (absolute positioning for per-row column independence) */}
       <div
         className="table-v2-grid"
         onMouseMove={(e) => {
-          if (!dragSelectStartRef.current || !(e.buttons & 1) || isDraggingDivider) return;
+          if (
+            !dragSelectStartRef.current ||
+            !(e.buttons & 1) ||
+            isDraggingDivider
+          )
+            return;
           const target = e.target as HTMLElement;
           const cellEl = target.closest('[data-cell-id]') as HTMLElement | null;
           if (!cellEl) return;
           const cellId = cellEl.dataset['cellId'];
           const pos = cellId ? getCellPosition(tableData, cellId) : null;
           if (!pos || !dragSelectStartRef.current) return;
-          const ids = getRangeSelection(tableData, dragSelectStartRef.current, pos);
+          const ids = getRangeSelection(
+            tableData,
+            dragSelectStartRef.current,
+            pos,
+          );
           setSelectedCells(ids);
         }}
         onMouseUp={() => {
@@ -499,7 +709,15 @@ export function Table({
             const isDropTarget = dropTargetCellId === cell.id;
             const isCellEditing = editingCellId === cell.id;
             const isOccupied = cell.childItemIds.length > 0;
-            const bounds = getCellBounds(tableData, ri, ci, cell.colSpan, cell.rowSpan);
+            const bounds = getCellBounds(
+              tableData,
+              ri,
+              ci,
+              cell.colSpan,
+              cell.rowSpan,
+            );
+            const textHorizontalAlign = cell.textHorizontalAlign ?? 'center';
+            const textVerticalAlign = cell.textVerticalAlign ?? 'middle';
 
             return (
               <div
@@ -517,7 +735,8 @@ export function Table({
                   top: `${bounds.top * 100}%`,
                   width: `${bounds.width * 100}%`,
                   height: `${bounds.height * 100}%`,
-                  backgroundColor: cell.backgroundColor ?? resolvedStyle.backgroundColor,
+                  backgroundColor:
+                    cell.backgroundColor ?? resolvedStyle.backgroundColor,
                 }}
                 onMouseDown={(e) => {
                   e.stopPropagation();
@@ -539,9 +758,12 @@ export function Table({
                   <textarea
                     className="table-v2-cell-editor"
                     value={cell.content}
+                    style={{ textAlign: textHorizontalAlign }}
                     autoFocus
                     onMouseDown={(e) => e.stopPropagation()}
-                    onChange={(e) => handleCellContentChange(cell.id, e.target.value)}
+                    onChange={(e) =>
+                      handleCellContentChange(cell.id, e.target.value)
+                    }
                     onBlur={() => setEditingCellId(null)}
                     onKeyDown={(e) => {
                       if (e.key === 'Escape') setEditingCellId(null);
@@ -549,7 +771,16 @@ export function Table({
                   />
                 ) : (
                   <div className="table-v2-cell-text">
-                    {!isOccupied && cell.content}
+                    <span
+                      className="table-v2-cell-text-content"
+                      style={{
+                        justifyContent: toJustifyContent(textHorizontalAlign),
+                        alignItems: toAlignItems(textVerticalAlign),
+                        textAlign: textHorizontalAlign,
+                      }}
+                    >
+                      {!isOccupied && cell.content}
+                    </span>
                   </div>
                 )}
 
@@ -593,6 +824,26 @@ export function Table({
         )}
       </div>
 
+      <svg
+        className="table-v2-grid-lines"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+        focusable="false"
+      >
+        {gridLines
+          .filter((line) => !line.isOuter)
+          .map((line) => (
+            <line
+              key={line.key}
+              x1={line.x1}
+              y1={line.y1}
+              x2={line.x2}
+              y2={line.y2}
+            />
+          ))}
+      </svg>
+
       {/* Column divider groups */}
       {showsStructureControls &&
         colGroups.map((group) => {
@@ -601,18 +852,28 @@ export function Table({
           // Compute vertical extent using effective row positions (follows moved row dividers)
           const firstRow = group.segments[0]!;
           const lastRow = group.segments[group.segments.length - 1]!;
-          const topPct = getEffectiveRowEdge(tableData, firstRow, group.boundaryIndex) * 100;
-          const bottomPct = getEffectiveRowEdge(tableData, lastRow + 1, group.boundaryIndex) * 100;
+          const topPct =
+            getEffectiveRowEdge(tableData, firstRow, group.boundaryIndex) * 100;
+          const bottomPct =
+            getEffectiveRowEdge(tableData, lastRow + 1, group.boundaryIndex) *
+            100;
           const heightPct = bottomPct - topPct;
 
           return (
             <div
               key={group.key}
               className={`table-v2-col-divider ${isGroupHovered ? 'is-group-hovered' : ''}`}
-              style={{ left: `${pct}%`, top: `${topPct}%`, height: `${heightPct}%`, bottom: 'auto' }}
+              style={{
+                left: `${pct}%`,
+                top: `${topPct}%`,
+                height: `${heightPct}%`,
+                bottom: 'auto',
+              }}
               onMouseDown={(e) => handleGroupDividerMouseDown(e, group)}
               onMouseEnter={() => setHoveredGroupKey(group.key)}
-              onMouseLeave={() => setHoveredGroupKey((prev) => prev === group.key ? null : prev)}
+              onMouseLeave={() =>
+                setHoveredGroupKey((prev) => (prev === group.key ? null : prev))
+              }
             />
           );
         })}
@@ -624,23 +885,69 @@ export function Table({
           const isGroupHovered = hoveredGroupKey === group.key;
           const firstCol = group.segments[0]!;
           const lastCol = group.segments[group.segments.length - 1]!;
-          const leftPct = getEffectiveColEdge(tableData, firstCol, group.boundaryIndex) * 100;
-          const rightPct = getEffectiveColEdge(tableData, lastCol + 1, group.boundaryIndex) * 100;
+          const leftPct =
+            getEffectiveColEdge(tableData, firstCol, group.boundaryIndex) * 100;
+          const rightPct =
+            getEffectiveColEdge(tableData, lastCol + 1, group.boundaryIndex) *
+            100;
           const widthPct = rightPct - leftPct;
 
           return (
             <div
               key={group.key}
               className={`table-v2-row-divider ${isGroupHovered ? 'is-group-hovered' : ''}`}
-              style={{ top: `${pct}%`, left: `${leftPct}%`, width: `${widthPct}%`, right: 'auto' }}
+              style={{
+                top: `${pct}%`,
+                left: `${leftPct}%`,
+                width: `${widthPct}%`,
+                right: 'auto',
+              }}
               onMouseDown={(e) => handleGroupDividerMouseDown(e, group)}
               onMouseEnter={() => setHoveredGroupKey(group.key)}
-              onMouseLeave={() => setHoveredGroupKey((prev) => prev === group.key ? null : prev)}
+              onMouseLeave={() =>
+                setHoveredGroupKey((prev) => (prev === group.key ? null : prev))
+              }
             />
           );
         })}
 
-      {/* Add row at end — expands table height so existing rows keep pixel size */}
+      {/* Add rows / columns at the table edges while existing cells keep pixel size */}
+      {showsStructureControls && (
+        <div className="table-v2-add-row-start">
+          <button
+            type="button"
+            className="table-v2-add-edge-btn"
+            aria-label="Add row above"
+            title="Add row above"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddOuterRow('top');
+            }}
+          >
+            + 列
+          </button>
+        </div>
+      )}
+
+      {showsStructureControls && (
+        <div className="table-v2-add-col-start">
+          <button
+            type="button"
+            className="table-v2-add-edge-btn table-v2-add-edge-btn--col"
+            aria-label="Add column left"
+            title="Add column left"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddOuterCol('left');
+            }}
+          >
+            + 欄
+          </button>
+        </div>
+      )}
+
       {showsStructureControls && (
         <div className="table-v2-add-row-end">
           <button
@@ -649,20 +956,7 @@ export function Table({
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
-              const nextHeight = Math.round(
-                item.height * (tableData.rows + 1) / tableData.rows,
-              );
-              const nextData = preserveOuterAddRowLayout(
-                tableData,
-                addRow(tableData, tableData.rows - 1),
-                item.height,
-                nextHeight,
-              );
-              onUpdate({
-                ...item,
-                data_json: serializeTableData(nextData),
-                height: nextHeight,
-              });
+              handleAddOuterRow('bottom');
             }}
           >
             + 列
@@ -679,20 +973,7 @@ export function Table({
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
-              const nextWidth = Math.round(
-                item.width * (tableData.cols + 1) / tableData.cols,
-              );
-              const nextData = preserveOuterAddColLayout(
-                tableData,
-                addCol(tableData, tableData.cols - 1),
-                item.width,
-                nextWidth,
-              );
-              onUpdate({
-                ...item,
-                data_json: serializeTableData(nextData),
-                width: nextWidth,
-              });
+              handleAddOuterCol('right');
             }}
           >
             + 欄
@@ -724,7 +1005,6 @@ export function Table({
           </button>
         </div>
       )}
-
     </div>
   );
 }

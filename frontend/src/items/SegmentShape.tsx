@@ -1,24 +1,46 @@
-import { type BoardItem } from '../api';
-import { resolveBoardItemStyle } from '../itemStyles';
-import { getSegmentLocalPoints, getSegmentWaypoints, type Point, type SegmentEndpoint } from '../segmentData';
-import { ITEM_TYPE } from '../types';
+import { type BoardItem } from '../services/api';
+import {
+  parseBoardItemStyle,
+  type ProjectDefaultStyle,
+  resolveBoardItemStyle,
+} from './itemStyles';
+import {
+  getSegmentLocalPoints,
+  getSegmentWaypoints,
+  type Point,
+  type SegmentEndpoint,
+} from '../utils/export/segmentData';
+import { ITEM_TYPE } from '../types/index';
 
 type Props = {
   item: BoardItem;
   isSelected: boolean;
+  isEditing?: boolean;
   canTranslate: boolean;
   onMouseDown: (e: React.MouseEvent<SVGPathElement>) => void;
   onEndpointMouseDown: (
     e: React.MouseEvent<HTMLButtonElement>,
     endpoint: SegmentEndpoint,
   ) => void;
-  onWaypointMouseDown: (e: React.MouseEvent<HTMLButtonElement>, waypointIndex: number) => void;
-  onMidpointMouseDown: (e: React.MouseEvent<HTMLButtonElement>, segmentIndex: number) => void;
+  onWaypointMouseDown: (
+    e: React.MouseEvent<HTMLButtonElement>,
+    waypointIndex: number,
+  ) => void;
+  onMidpointMouseDown: (
+    e: React.MouseEvent<HTMLButtonElement>,
+    segmentIndex: number,
+  ) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
+  onDoubleClick?: () => void;
+  onUpdate?: (item: BoardItem) => void;
+  onEditEnd?: () => void;
   deletingWaypointIndex?: number;
+  projectDefaultStyle?: ProjectDefaultStyle;
 };
 
-function getStrokeDasharray(style: 'solid' | 'dashed' | 'dotted'): string | undefined {
+function getStrokeDasharray(
+  style: 'solid' | 'dashed' | 'dotted',
+): string | undefined {
   switch (style) {
     case 'dashed':
       return '14 10';
@@ -35,7 +57,13 @@ function getPathData(points: Point[], cornerType: 'sharp' | 'rounded'): string {
   }
 
   if (cornerType === 'sharp') {
-    return `M ${points[0].x},${points[0].y} ` + points.slice(1).map((p) => `L ${p.x},${p.y}`).join(' ');
+    return (
+      `M ${points[0].x},${points[0].y} ` +
+      points
+        .slice(1)
+        .map((p) => `L ${p.x},${p.y}`)
+        .join(' ')
+    );
   }
 
   // Rounded corners
@@ -75,20 +103,133 @@ function getPathData(points: Point[], cornerType: 'sharp' | 'rounded'): string {
   return d;
 }
 
+function getDistance(a: Point, b: Point): number {
+  return Math.hypot(b.x - a.x, b.y - a.y);
+}
+
+type SegmentTextPlacement = {
+  point: Point;
+  angle: number;
+};
+
+function normalizeReadableAngle(angle: number): number {
+  if (angle > 90) {
+    return angle - 180;
+  }
+
+  if (angle < -90) {
+    return angle + 180;
+  }
+
+  return angle;
+}
+
+function getPlacementAtDistance(
+  points: Point[],
+  targetDistance: number,
+): SegmentTextPlacement {
+  let remainingDistance = targetDistance;
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const start = points[index];
+    const end = points[index + 1];
+    if (!start || !end) {
+      continue;
+    }
+
+    const segmentLength = getDistance(start, end);
+    if (segmentLength <= 0) {
+      continue;
+    }
+
+    if (remainingDistance <= segmentLength) {
+      const ratio = remainingDistance / segmentLength;
+      return {
+        point: {
+          x: start.x + (end.x - start.x) * ratio,
+          y: start.y + (end.y - start.y) * ratio,
+        },
+        angle: normalizeReadableAngle(
+          (Math.atan2(end.y - start.y, end.x - start.x) * 180) / Math.PI,
+        ),
+      };
+    }
+
+    remainingDistance -= segmentLength;
+  }
+
+  const fallbackEnd = points[points.length - 1] ?? { x: 0, y: 0 };
+  const fallbackStart = points[points.length - 2] ?? fallbackEnd;
+  return {
+    point: fallbackEnd,
+    angle: normalizeReadableAngle(
+      (Math.atan2(
+        fallbackEnd.y - fallbackStart.y,
+        fallbackEnd.x - fallbackStart.x,
+      ) *
+        180) /
+        Math.PI,
+    ),
+  };
+}
+
+function getSegmentTextPlacement(
+  points: Point[],
+  position: 'start' | 'center' | 'end',
+): SegmentTextPlacement {
+  const totalLength = points.reduce((sum, point, index) => {
+    const next = points[index + 1];
+    return next ? sum + getDistance(point, next) : sum;
+  }, 0);
+
+  if (totalLength <= 0) {
+    return { point: points[0] ?? { x: 0, y: 0 }, angle: 0 };
+  }
+
+  const targetDistance =
+    position === 'start'
+      ? totalLength * 0.18
+      : position === 'end'
+        ? totalLength * 0.82
+        : totalLength * 0.5;
+
+  return getPlacementAtDistance(points, targetDistance);
+}
+
+function getTextTransform(
+  verticalPosition: 'top' | 'middle' | 'bottom',
+  angle: number,
+): string {
+  const offset =
+    verticalPosition === 'top'
+      ? ' translateY(calc(-50% - 8px))'
+      : verticalPosition === 'bottom'
+        ? ' translateY(calc(50% + 8px))'
+        : '';
+
+  return `translate(-50%, -50%) rotate(${angle}deg)${offset}`;
+}
+
 export function SegmentShape({
   item,
   isSelected,
+  isEditing = false,
   canTranslate,
   onMouseDown,
   onEndpointMouseDown,
   onWaypointMouseDown,
   onMidpointMouseDown,
   onContextMenu,
+  onDoubleClick,
+  onUpdate,
+  onEditEnd,
   deletingWaypointIndex,
+  projectDefaultStyle,
 }: Props) {
   const points = getSegmentLocalPoints(item);
   const localWaypoints = getSegmentWaypoints(item);
-  const resolvedStyle = resolveBoardItemStyle(item);
+  const resolvedStyle = resolveBoardItemStyle(item, projectDefaultStyle);
+  const parsedStyle = parseBoardItemStyle(item.style_json);
   const markerId = `segment-arrow-head-${item.id}`;
   // Calculate arrow head dimensions based on size preference
   const arrowSize = resolvedStyle.arrowHeadSize;
@@ -104,11 +245,32 @@ export function SegmentShape({
   const pathData = getPathData(allLocalPoints, resolvedStyle.lineCornerType);
   const strokeDasharray = getStrokeDasharray(resolvedStyle.strokeStyle);
   const hitStrokeWidth = Math.max(resolvedStyle.strokeWidth + 12, 14);
+  const textPlacement = getSegmentTextPlacement(
+    allLocalPoints,
+    resolvedStyle.segmentTextHorizontalPosition,
+  );
+  const textAngle =
+    resolvedStyle.segmentTextOrientation === 'slope' ? textPlacement.angle : 0;
+  const hasText = (item.content ?? '').trim().length > 0;
+  const shouldShowText =
+    (item.type === ITEM_TYPE.line || item.type === ITEM_TYPE.arrow) &&
+    (hasText || isEditing);
+  const verticalClass =
+    resolvedStyle.segmentTextVerticalPosition === 'top'
+      ? 'is-above'
+      : resolvedStyle.segmentTextVerticalPosition === 'bottom'
+        ? 'is-below'
+        : 'is-middle';
+
+  function handleTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    onUpdate?.({ ...item, content: e.target.value });
+  }
 
   return (
-    <div className="segment-shape" aria-hidden="true">
+    <div className="segment-shape">
       <svg
         className="segment-shape-svg"
+        aria-hidden="true"
         width={item.width}
         height={item.height}
         viewBox={`0 0 ${item.width} ${item.height}`}
@@ -142,7 +304,9 @@ export function SegmentShape({
             strokeWidth: resolvedStyle.strokeWidth,
             strokeDasharray,
           }}
-          markerEnd={item.type === ITEM_TYPE.arrow ? `url(#${markerId})` : undefined}
+          markerEnd={
+            item.type === ITEM_TYPE.arrow ? `url(#${markerId})` : undefined
+          }
         />
         <path
           d={pathData}
@@ -150,9 +314,57 @@ export function SegmentShape({
           className={`segment-hit-line${canTranslate ? ' is-translatable' : ''}`}
           style={{ strokeWidth: hitStrokeWidth }}
           onMouseDown={onMouseDown}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            onDoubleClick?.();
+          }}
           onContextMenu={onContextMenu}
         />
       </svg>
+
+      {shouldShowText ? (
+        <div
+          className={`segment-text-label ${verticalClass} ${
+            isEditing ? 'is-editing' : ''
+          }`}
+          style={{
+            left: textPlacement.point.x,
+            top: textPlacement.point.y,
+            transform: getTextTransform(
+              resolvedStyle.segmentTextVerticalPosition,
+              textAngle,
+            ),
+            backgroundColor:
+              parsedStyle.backgroundColor ??
+              (item.type === ITEM_TYPE.line
+                ? 'transparent'
+                : resolvedStyle.backgroundColor),
+            color: resolvedStyle.textColor,
+            fontSize: resolvedStyle.fontSize,
+            fontWeight: resolvedStyle.fontWeight,
+            fontStyle: resolvedStyle.fontStyle,
+          }}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            onDoubleClick?.();
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onContextMenu={onContextMenu}
+        >
+          {isEditing ? (
+            <textarea
+              className="segment-text-editor"
+              value={item.content ?? ''}
+              autoFocus
+              onChange={handleTextChange}
+              onBlur={onEditEnd}
+              onMouseDown={(e) => e.stopPropagation()}
+            />
+          ) : (
+            item.content
+          )}
+        </div>
+      ) : null}
 
       {isSelected ? (
         <>

@@ -4,7 +4,9 @@
 
 .home-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -96,12 +98,24 @@
   animation: home-dot-pulse 1.2s ease-in-out infinite;
 }
 
-.home-loading-dot:nth-child(2) { animation-delay: 0.2s; }
-.home-loading-dot:nth-child(3) { animation-delay: 0.4s; }
+.home-loading-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.home-loading-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
 
 @keyframes home-dot-pulse {
-  0%, 80%, 100% { opacity: 0.2; transform: scale(0.85); }
-  40%           { opacity: 1;   transform: scale(1); }
+  0%,
+  80%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.85);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* Empty hint */
@@ -150,7 +164,9 @@
 
 .home-project-card.is-selected {
   border-color: rgba(37, 99, 235, 0.32);
-  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.1), 0 0 0 3px rgba(37, 99, 235, 0.06);
+  box-shadow:
+    0 4px 16px rgba(37, 99, 235, 0.1),
+    0 0 0 3px rgba(37, 99, 235, 0.06);
   background: #fff;
 }
 
@@ -210,7 +226,10 @@
   flex-shrink: 0;
   opacity: 0;
   transform: translateX(-4px);
-  transition: opacity 120ms ease, transform 120ms ease, color 120ms ease;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    color 120ms ease;
 }
 
 .home-project-card:hover .home-project-card-arrow,
@@ -270,7 +289,10 @@
   font-weight: 600;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.22);
-  transition: background 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+  transition:
+    background 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease;
 }
 
 .home-create-button:hover:not(:disabled) {
@@ -297,7 +319,10 @@
   font-size: 0.84rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
 }
 
 .home-import-button:hover:not(:disabled) {
@@ -313,7 +338,9 @@
 
 .home-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   height: 100vh;
+  height: 100dvh;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(340px, 440px);
   gap: 22px;
@@ -322,13 +349,19 @@
   padding: 24px;
   overflow-y: auto;
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.74) 42%, rgba(245, 248, 247, 0.54) 100%),
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.92) 0%,
+      rgba(255, 255, 255, 0.74) 42%,
+      rgba(245, 248, 247, 0.54) 100%
+    ),
     #f7faf8;
 }
 
 .home-hero-panel,
 .home-project-panel {
   min-width: 0;
+  min-height: 0;
   border: 1px solid rgba(35, 49, 55, 0.1);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.88);
@@ -339,7 +372,7 @@
 .home-hero-panel {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(360px, 0.88fr) minmax(420px, 1.12fr);
+  grid-template-columns: minmax(320px, 0.88fr) minmax(360px, 1.12fr);
   align-items: stretch;
 }
 
@@ -347,13 +380,17 @@
   position: relative;
   z-index: 2;
   min-width: 0;
-  padding: 44px;
+  padding: clamp(24px, 4.2vh, 44px);
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 30px;
-  background:
-    linear-gradient(90deg, #ffffff 0%, rgba(255, 255, 255, 0.95) 72%, rgba(255, 255, 255, 0) 100%);
+  gap: clamp(16px, 3vh, 30px);
+  background: linear-gradient(
+    90deg,
+    #ffffff 0%,
+    rgba(255, 255, 255, 0.95) 72%,
+    rgba(255, 255, 255, 0) 100%
+  );
 }
 
 .home-brand {
@@ -412,7 +449,7 @@
   max-width: 11.5em;
   margin: 0;
   color: #18262b !important;
-  font-size: 3.15rem !important;
+  font-size: clamp(2rem, 5.4vh, 3.15rem) !important;
   font-weight: 850 !important;
   letter-spacing: 0 !important;
   line-height: 1.06;
@@ -421,13 +458,13 @@
 .home-subtitle {
   max-width: 560px;
   color: #5c686d;
-  font-size: 1rem;
-  line-height: 1.75;
+  font-size: clamp(0.9rem, 1.8vh, 1rem);
+  line-height: 1.65;
 }
 
 .home-visual {
   position: relative;
-  min-height: 520px;
+  min-height: 0;
   isolation: isolate;
 }
 
@@ -436,7 +473,12 @@
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.82) 0%, rgba(255, 255, 255, 0.16) 28%, rgba(255, 255, 255, 0) 62%),
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.82) 0%,
+      rgba(255, 255, 255, 0.16) 28%,
+      rgba(255, 255, 255, 0) 62%
+    ),
     linear-gradient(0deg, rgba(23, 38, 43, 0.08), rgba(23, 38, 43, 0));
   pointer-events: none;
   z-index: 1;
@@ -452,10 +494,10 @@
 }
 
 .home-project-panel {
-  padding: 28px;
+  padding: clamp(18px, 3vh, 28px);
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: clamp(10px, 2vh, 18px);
 }
 
 .home-project-panel .error-banner {
@@ -546,7 +588,9 @@
 
 .home-project-card.is-selected {
   border-color: rgba(25, 115, 119, 0.42);
-  box-shadow: 0 8px 18px rgba(25, 115, 119, 0.12), 0 0 0 3px rgba(25, 115, 119, 0.08);
+  box-shadow:
+    0 8px 18px rgba(25, 115, 119, 0.12),
+    0 0 0 3px rgba(25, 115, 119, 0.08);
 }
 
 .home-project-card:hover .home-project-card-arrow,
@@ -662,6 +706,10 @@
 }
 
 .home-refresh-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   padding: 8px 12px;
   border: 1px solid rgba(22, 50, 56, 0.16);
   border-radius: 8px;

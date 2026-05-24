@@ -2,10 +2,9 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
-  type ChangeEvent,
   type DragEvent as ReactDragEvent,
+  type FormEvent,
 } from 'react';
 import {
   createBoardItem,
@@ -13,488 +12,135 @@ import {
   createProject,
   deletePage,
   deleteProject,
+  deleteProjectNote,
   getPageBoardData,
-  getHealth,
-  listPages,
-  listProjectNotes,
   listProjects,
   openProjectPath,
-  openProjectWithDialog,
   revealProject,
-  replacePageBoardState,
   reorderPages,
   updatePage,
   updateProject,
   type Page,
-  type PageBoardData,
-  type Project,
   type ProjectNote,
   type ProjectThemeColor,
-} from './api';
-import { Canvas } from './Canvas';
-import { HomeView } from './HomeView';
-import { MarkdownEditor } from './MarkdownEditor';
-import { syncPageViewport } from './pageViewport';
+} from './services/api';
+import { Canvas } from './components/canvas/Canvas';
+import { FolderPickerModal } from './components/dialogs/FolderPickerModal';
+import { HomeView } from './components/HomeView';
+import { MarkdownEditor } from './components/MarkdownEditor';
+import { WorkspaceTabs } from './components/WorkspaceTabs';
+import { ExportImageModal } from './components/dialogs/ExportImageModal';
+import { MermaidImportModal } from './components/dialogs/MermaidImportModal';
+import { CrossProjectImportModal } from './components/dialogs/CrossProjectImportModal';
+import { usePageImportExport } from './hooks/usePageImportExport';
+import { readAppRoute } from './appRoute';
+import { useWorkspaceData, UNLOADED_PAGE_BOARD_CACHE } from './hooks/useWorkspaceData';
+import { type DropPosition, getDropPosition, buildDraggedOrder, reorderItemsByIds } from './utils/dragDrop';
+import { useWorkspaceTabs } from './utils/workspaceTabState';
+import { getErrorMessage, readStoredBoolean } from './utils/index';
+import { buildUntitledPageName } from './utils/workspaceNavigation';
 import {
-  buildPageExportPayload,
-  buildPageExportSnapshot,
-  mergeImportedPageBoardState,
-  parsePageImportText,
-} from './pageTransfer';
-import { exportPageAsPng } from './pagePngExport';
-import { exportPageAsPptx } from './pagePptxExport';
-import { buildAppRouteUrl, readAppRoute, type AppRoute } from './appRoute';
-import { resolveProjectEntryPageId } from './workspaceNavigation';
-import { getInlineDropPosition, type DropPosition } from './dragDrop';
+  parseProjectDefaultStyle,
+  serializeProjectDefaultStyle,
+  type ProjectDefaultStyle,
+} from './items/itemStyles';
+import {
+  WorkspaceSidebar,
+  type SidebarDragState,
+  type SidebarDropState,
+  type SidebarListKind,
+} from './components/WorkspaceSidebar';
+import { ProjectSettingsDialog } from './components/dialogs/ProjectSettingsDialog';
 
 type AppView = 'home' | 'workspace';
-type LoadState = 'loading' | 'ready' | 'error';
-type SidebarListKind = 'pages' | 'notes';
-type TabBarPosition = 'top' | 'bottom';
-type SidebarDragState =
-  | {
-      kind: SidebarListKind;
-      itemId: string;
-    }
-  | {
-      kind: 'tabs';
-      itemId: string; // "kind:id"
-    };
-type SidebarDropState = SidebarDragState & {
-  position: DropPosition;
-};
 
-type SidebarSectionId = 'pages' | 'notes';
-type WorkspaceTab = { kind: 'page'; id: string } | { kind: 'note'; id: string };
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'whiteboard.workspaceSidebarCollapsed';
 
-const SIDEBAR_COLLAPSED_STORAGE_KEY =
-  'whiteboard.workspaceSidebarCollapsed';
 
-const TAB_BAR_POSITION_STORAGE_KEY = 'whiteboard.tabBarPosition';
 
-const PROJECT_THEME_OPTIONS: Array<{
-  value: ProjectThemeColor;
-  label: string;
-}> = [
-  { value: 'default', label: 'Default' },
-  { value: 'sage', label: 'Sage' },
-  { value: 'sunset', label: 'Sunset' },
-  { value: 'ocean', label: 'Ocean' },
-];
 
-function IconSettings() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
 
-function IconPencil() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
-      <path d="m15 5 4 4" />
-    </svg>
-  );
-}
 
-function IconTrash() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M3 6h18" />
-      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-      <line x1="10" x2="10" y1="11" y2="17" />
-      <line x1="14" x2="14" y1="11" y2="17" />
-    </svg>
-  );
-}
-
-function IconChevronDown() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  );
-}
-
-function IconFolder() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
-
-type SaveFilePickerWindow = Window & {
-  showSaveFilePicker?: (options?: {
-    suggestedName?: string;
-    types?: Array<{
-      description?: string;
-      accept: Record<string, string[]>;
-    }>;
-  }) => Promise<{
-    createWritable: () => Promise<{
-      write: (data: Blob | string) => Promise<void>;
-      close: () => Promise<void>;
-    }>;
-  }>;
-};
-
-function sanitizeExportName(name: string): string {
-  const normalized = name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-_]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
-  return normalized.length > 0 ? normalized : 'page';
-}
-
-async function saveFileWithPicker({
-  data,
-  suggestedName,
-  description,
-  accept,
-}: {
-  data: Blob | string;
-  suggestedName: string;
-  description: string;
-  accept: Record<string, string[]>;
-}): Promise<void> {
-  const pickerWindow = window as SaveFilePickerWindow;
-  if (pickerWindow.showSaveFilePicker === undefined) {
-    throw new Error('目前瀏覽器不支援「選擇儲存位置」匯出，請改用支援 File System Access API 的瀏覽器。');
-  }
-
-  let fileHandle: Awaited<
-    ReturnType<NonNullable<SaveFilePickerWindow['showSaveFilePicker']>>
-  >;
-  try {
-    fileHandle = await pickerWindow.showSaveFilePicker({
-      suggestedName,
-      types: [
-        {
-          description,
-          accept,
-        },
-      ],
-    });
-  } catch (error) {
-    if (isUserCancelledFilePickerError(error)) {
-      return;
-    }
-
-    throw error;
-  }
-
-  const writable = await fileHandle.createWritable();
-  await writable.write(data);
-  await writable.close();
-}
-
-function buildProjectExportSnapshot(
-  project: Project,
-  boardDataByPage: PageBoardData[],
-): string {
-  const payload = {
-    version: 1,
-    kind: 'whiteboard-project',
-    project: {
-      name: project.name,
-      theme_color: project.theme_color,
-      pages: boardDataByPage.map((boardData) => buildPageExportPayload(boardData)),
-    },
-  };
-
-  return JSON.stringify(payload, null, 2);
-}
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.length > 0) {
-    return error.message;
-  }
-
-  return 'Unknown error';
-}
-
-function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === 'AbortError';
-}
-
-function isUserCancelledFilePickerError(error: unknown): boolean {
-  if (error instanceof DOMException && error.name === 'AbortError') {
-    return true;
-  }
-
-  if (error instanceof Error) {
-    const normalizedMessage = error.message.toLowerCase();
-    return (
-      normalizedMessage.includes('user aborted') ||
-      normalizedMessage.includes('aborted a request')
-    );
-  }
-
-  return false;
-}
-
-function askForName(label: string, initialValue: string): string | null {
-  const value = window.prompt(label, initialValue);
-  if (value === null) {
-    return null;
-  }
-
-  const normalized = value.trim();
-  return normalized.length > 0 ? normalized : null;
-}
-
-function buildUntitledPageName(pages: Page[]): string {
-  const takenNumbers = new Set<number>();
-
-  for (const page of pages) {
-    const matched = page.name.trim().match(/^untitled_(\d+)$/i);
-    if (matched === null) {
-      continue;
-    }
-
-    const parsed = Number.parseInt(matched[1], 10);
-    if (Number.isInteger(parsed) && parsed > 0) {
-      takenNumbers.add(parsed);
-    }
-  }
-
-  let candidate = 1;
-  while (takenNumbers.has(candidate)) {
-    candidate += 1;
-  }
-
-  return `untitled_${candidate}`;
-}
-
-function selectFallbackId<T extends { id: string }>(
-  items: T[],
-  preferredId: string | null,
-): string | null {
-  if (preferredId !== null && items.some((item) => item.id === preferredId)) {
-    return preferredId;
-  }
-
-  return items[0]?.id ?? null;
-}
-
-function buildDraggedOrder<T extends { id: string }>(
-  items: T[],
-  draggedId: string,
-  targetId: string,
-  position: DropPosition,
-): string[] | null {
-  const orderedIds = items.map((item) => item.id);
-  const draggedIndex = orderedIds.indexOf(draggedId);
-  const targetIndex = orderedIds.indexOf(targetId);
-  if (draggedIndex === -1 || targetIndex === -1) {
-    return null;
-  }
-
-  const [movedId] = orderedIds.splice(draggedIndex, 1);
-  if (movedId === undefined) {
-    return null;
-  }
-
-  const insertionIndex = orderedIds.indexOf(targetId);
-  if (insertionIndex === -1) {
-    return null;
-  }
-
-  orderedIds.splice(
-    position === 'after' ? insertionIndex + 1 : insertionIndex,
-    0,
-    movedId,
-  );
-
-  return orderedIds.every((id, index) => id === items[index]?.id)
-    ? null
-    : orderedIds;
-}
-
-function reorderItemsByIds<T extends { id: string }>(
-  items: T[],
-  orderedIds: string[],
-): T[] {
-  const positions = new Map(orderedIds.map((id, index) => [id, index]));
-  return [...items].sort((left, right) => {
-    const leftPosition = positions.get(left.id) ?? Number.MAX_SAFE_INTEGER;
-    const rightPosition = positions.get(right.id) ?? Number.MAX_SAFE_INTEGER;
-    return leftPosition - rightPosition;
-  });
-}
-
-function getDropPosition(event: ReactDragEvent<HTMLElement>): DropPosition {
-  const bounds = event.currentTarget.getBoundingClientRect();
-  return event.clientY - bounds.top < bounds.height / 2 ? 'before' : 'after';
-}
-
-function getTabDropPosition(event: ReactDragEvent<HTMLElement>): DropPosition {
-  return getInlineDropPosition(
-    event.clientX,
-    event.currentTarget.getBoundingClientRect(),
-  );
-}
-
-function readStoredBoolean(key: string, fallbackValue: boolean): boolean {
-  if (typeof window === 'undefined') {
-    return fallbackValue;
-  }
-
-  const storedValue = window.localStorage.getItem(key);
-  if (storedValue === 'true') {
-    return true;
-  }
-
-  if (storedValue === 'false') {
-    return false;
-  }
-
-  return fallbackValue;
-}
-
-function syncBrowserRoute(route: AppRoute, mode: 'push' | 'replace'): void {
-  const nextUrl = buildAppRouteUrl(route);
-  const currentUrl = `${window.location.pathname}${window.location.search}`;
-  if (currentUrl === nextUrl) {
-    return;
-  }
-
-  if (mode === 'push') {
-    window.history.pushState(null, '', nextUrl);
-    return;
-  }
-
-  window.history.replaceState(null, '', nextUrl);
-}
 
 export function App() {
   const initialRoute = readAppRoute(window.location.search);
   const [appView, setAppView] = useState<AppView>(initialRoute.view);
-  const [loadState, setLoadState] = useState<LoadState>('loading');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [pages, setPages] = useState<Page[]>([]);
-  const [projectNotes, setProjectNotes] = useState<ProjectNote[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
-    initialRoute.view === 'workspace' ? initialRoute.projectId : null,
-  );
-  const [selectedPageId, setSelectedPageId] = useState<string | null>(
-    initialRoute.view === 'workspace' ? initialRoute.pageId : null,
-  );
-  const [projectNameDraft, setProjectNameDraft] = useState('');
+
+  const {
+    loadState,
+    errorMessage,
+    setErrorMessage,
+    projects,
+    setProjects,
+    pages,
+    setPages,
+    projectNotes,
+    setProjectNotes,
+    selectedProjectId,
+    setSelectedProjectId,
+    selectedPageId,
+    setSelectedPageId,
+    pageRefreshTokenById,
+    setPageRefreshTokenById,
+    isLoadingPages,
+    isLoadingNotes,
+    selectedProject,
+    selectedPage,
+    pageBoardCacheRef,
+    selectedPageIdRef,
+    loadProjectSidebarData,
+    refreshProjectNotes,
+    handlePageViewportChange,
+    goHome,
+    openProject,
+    updateCachedPageBoardData,
+    clearCachedPageBoardData,
+    loadWorkspace,
+  } = useWorkspaceData({
+    appView,
+    setAppView,
+  });
+
   const [projectSettingsDialogOpen, setProjectSettingsDialogOpen] =
     useState(false);
-  const [pageRenameTargetId, setPageRenameTargetId] = useState<string | null>(
-    null,
-  );
-  const [pageRenameDraft, setPageRenameDraft] = useState('');
+  const [createProjectDialogOpen, setCreateProjectDialogOpen] = useState(false);
+  const [folderPickerOpen, setFolderPickerOpen] = useState(false);
+  const [createProjectNameDraft, setCreateProjectNameDraft] = useState('');
+
   const [isMutating, setIsMutating] = useState(false);
-  const [isLoadingPages, setIsLoadingPages] = useState(false);
-  const [isLoadingNotes, setIsLoadingNotes] = useState(false);
-  const [pageRefreshTokenById, setPageRefreshTokenById] = useState<
-    Record<string, number>
-  >({});
   const [dragState, setDragState] = useState<SidebarDragState | null>(null);
   const [dropState, setDropState] = useState<SidebarDropState | null>(null);
   const [projectDeleteDialogOpen, setProjectDeleteDialogOpen] = useState(false);
-  const [projectDeleteConfirmation, setProjectDeleteConfirmation] = useState('');
+
+  const [projectDeleteConfirmation, setProjectDeleteConfirmation] =
+    useState('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() =>
     readStoredBoolean(SIDEBAR_COLLAPSED_STORAGE_KEY, false),
   );
-  const [tabBarPosition, setTabBarPosition] = useState<TabBarPosition>(() => {
-    const stored = typeof window !== 'undefined'
-      ? window.localStorage.getItem(TAB_BAR_POSITION_STORAGE_KEY)
-      : null;
-    return stored === 'top' ? 'top' : 'bottom';
+  const {
+    activeNoteFile,
+    activatePageTab,
+    closeNoteTab,
+    closePageTab,
+    handleNoteRenamedInTabs,
+    openNoteTab,
+    openTabs,
+    setActiveNoteFile,
+    setOpenTabs,
+  } = useWorkspaceTabs({
+    selectedPageId,
+    setSelectedPageId,
   });
-  const [openTabs, setOpenTabs] = useState<WorkspaceTab[]>([]);
-  const [activeNoteFile, setActiveNoteFile] = useState<string | null>(null);
 
-  // Keep openTabs in sync whenever the selected page changes
   useEffect(() => {
-    if (selectedPageId !== null) {
-      setOpenTabs((prev) => {
-        if (prev.some((tab) => tab.kind === 'page' && tab.id === selectedPageId)) {
-          return prev;
-        }
-        return [...prev, { kind: 'page', id: selectedPageId }];
-      });
-    }
-  }, [selectedPageId]);
-  const [expandedSidebarSections, setExpandedSidebarSections] = useState<
-    Record<SidebarSectionId, boolean>
-  >({
-    pages: true,
-    notes: true,
-  });
-  const pageImportInputRef = useRef<HTMLInputElement | null>(null);
+    setActiveNoteFile(null);
+  }, [selectedProjectId, setActiveNoteFile]);
 
-  const selectedProject = useMemo(
-    () => projects.find((project) => project.id === selectedProjectId) ?? null,
-    [projects, selectedProjectId],
+  const selectedProjectDefaultStyle = useMemo(
+    () => parseProjectDefaultStyle(selectedProject?.default_style_json ?? null),
+    [selectedProject?.default_style_json],
   );
-  const selectedPage = useMemo(
-    () => pages.find((page) => page.id === selectedPageId) ?? null,
-    [pages, selectedPageId],
-  );
-  const normalizedProjectNameDraft = projectNameDraft.trim();
+
   const projectDeletePhrase =
     selectedProject === null ? '' : `delete ${selectedProject.name}`;
   const canConfirmProjectDelete =
@@ -502,172 +148,11 @@ export function App() {
     projectDeleteConfirmation === projectDeletePhrase &&
     !isMutating;
 
-  const handlePageViewportChange = useCallback(
-    (pageId: string, viewport: { x: number; y: number; zoom: number }) => {
-      setPages((current) => syncPageViewport(current, pageId, viewport));
-    },
-    [],
-  );
-
-  function goHome(mode: 'push' | 'replace' = 'push'): void {
-    syncBrowserRoute({ view: 'home' }, mode);
-    setAppView('home');
-  }
-
-  function openProject(
-    projectId: string,
-    preferredPageId: string | null,
-    mode: 'push' | 'replace' = 'push',
-  ): void {
-    const nextPageId = resolveProjectEntryPageId({
-      preferredPageId,
-      targetProjectId: projectId,
-      selectedProjectId,
-      selectedPageId,
-      pages,
-    });
-
-    syncBrowserRoute(
-      {
-        view: 'workspace',
-        projectId,
-        pageId: nextPageId,
-      },
-      mode,
-    );
-    setSelectedPageId(nextPageId);
-    setSelectedProjectId(projectId);
-    setAppView('workspace');
-  }
-
-  const loadWorkspace = useCallback(
-    async (signal?: AbortSignal): Promise<void> => {
-    setLoadState('loading');
-    setErrorMessage(null);
-
-    try {
-      const [, nextProjects] = await Promise.all([
-        getHealth(signal),
-        listProjects(signal),
-      ]);
-
-      setProjects(nextProjects);
-      setSelectedProjectId((current) =>
-        appView === 'workspace'
-          ? current
-          : selectFallbackId(nextProjects, current),
-      );
-      setLoadState('ready');
-    } catch (error) {
-      if (isAbortError(error)) {
-        return;
-      }
-
-      setErrorMessage(getErrorMessage(error));
-      setProjects([]);
-      setPages([]);
-      setSelectedProjectId(null);
-      setSelectedPageId(null);
-      setLoadState('error');
-      syncBrowserRoute({ view: 'home' }, 'replace');
-      setAppView('home');
-    }
-    },
-    [appView],
-  );
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void loadWorkspace(controller.signal);
-    return () => controller.abort();
-  }, [loadWorkspace]);
-
-  useEffect(() => {
-    function handlePopState(): void {
-      const route = readAppRoute(window.location.search);
-      if (route.view === 'home') {
-        setAppView('home');
-        return;
-      }
-
-      setSelectedProjectId(route.projectId);
-      setSelectedPageId(route.pageId);
-      setAppView('workspace');
-    }
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  useEffect(() => {
-    if (appView === 'workspace' && selectedProjectId !== null) {
-      syncBrowserRoute(
-        {
-          view: 'workspace',
-          projectId: selectedProjectId,
-          pageId: selectedPageId,
-        },
-        'replace',
-      );
-      return;
-    }
-
-    if (appView === 'home') {
-      syncBrowserRoute({ view: 'home' }, 'replace');
-    }
-  }, [appView, selectedProjectId, selectedPageId]);
-
-  useEffect(() => {
-    if (
-      loadState !== 'ready' ||
-      appView !== 'workspace' ||
-      selectedProjectId === null
-    ) {
-      return;
-    }
-
-    if (projects.some((project) => project.id === selectedProjectId)) {
-      return;
-    }
-
-    if (projects.length === 0) {
-      setErrorMessage(null);
-      setSelectedProjectId(null);
-      setSelectedPageId(null);
-      syncBrowserRoute({ view: 'home' }, 'replace');
-      setAppView('home');
-      return;
-    }
-
-    setErrorMessage('The requested project no longer exists.');
-    syncBrowserRoute({ view: 'home' }, 'replace');
-    setAppView('home');
-  }, [appView, loadState, projects, selectedProjectId]);
-
-  useEffect(() => {
-    setProjectNameDraft(selectedProject?.name ?? '');
-  }, [selectedProject?.name]);
-
   useEffect(() => {
     setProjectSettingsDialogOpen(false);
     setProjectDeleteDialogOpen(false);
     setProjectDeleteConfirmation('');
   }, [selectedProjectId]);
-
-  useEffect(() => {
-    setPageRenameTargetId(null);
-    setPageRenameDraft('');
-  }, [selectedProjectId]);
-
-  useEffect(() => {
-    if (
-      pageRenameTargetId !== null &&
-      !pages.some((page) => page.id === pageRenameTargetId)
-    ) {
-      setPageRenameTargetId(null);
-      setPageRenameDraft('');
-    }
-  }, [pageRenameTargetId, pages]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -679,50 +164,6 @@ export function App() {
       String(isSidebarCollapsed),
     );
   }, [isSidebarCollapsed]);
-
-  useEffect(() => {
-    if (selectedProjectId === null) {
-      setPages([]);
-      setProjectNotes([]);
-      setSelectedPageId(null);
-      return;
-    }
-
-    const projectId = selectedProjectId;
-    const controller = new AbortController();
-    setIsLoadingPages(true);
-    setIsLoadingNotes(true);
-    setErrorMessage(null);
-
-    async function loadProjectPages(): Promise<void> {
-      try {
-        const [nextPages, nextNotes] = await Promise.all([
-          listPages(projectId, controller.signal),
-          listProjectNotes(projectId, controller.signal),
-        ]);
-        setPages(nextPages);
-        setProjectNotes(nextNotes);
-        setSelectedPageId((current) => selectFallbackId(nextPages, current));
-      } catch (error) {
-        if (isAbortError(error)) {
-          return;
-        }
-
-        setErrorMessage(getErrorMessage(error));
-        setPages([]);
-        setProjectNotes([]);
-        setSelectedPageId(null);
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsLoadingPages(false);
-          setIsLoadingNotes(false);
-        }
-      }
-    }
-
-    void loadProjectPages();
-    return () => controller.abort();
-  }, [selectedProjectId]);
 
   async function runMutation(task: () => Promise<void>): Promise<void> {
     setIsMutating(true);
@@ -737,17 +178,60 @@ export function App() {
     }
   }
 
-  async function refreshProjectNotes(projectId: string): Promise<void> {
-    const nextNotes = await listProjectNotes(projectId);
-    setProjectNotes(nextNotes);
+  const {
+    exportImageDialogData,
+    setExportImageDialogData,
+    mermaidImportDialogOpen,
+    setMermaidImportDialogOpen,
+    crossProjectImportOpen,
+    setCrossProjectImportOpen,
+    handleExportPageClick,
+    handleExportImageConfirm,
+    handleImportPageButtonClick,
+    handleCrossProjectImportOpen,
+    handleCrossProjectImportConfirm,
+    handleMermaidImportConfirm,
+  } = usePageImportExport({
+    selectedProjectId,
+    selectedPage,
+    setPages,
+    setSelectedPageId,
+    isMutating,
+    runMutation,
+    refreshProjectNotes,
+  });
+
+  async function handleDeleteNote(noteFile: string): Promise<void> {
+    if (selectedProjectId === null) return;
+    const confirmed = window.confirm(
+      `刪除 Markdown 筆記「${noteFile}」及其在畫布上的連結？`,
+    );
+    if (!confirmed) return;
+
+    await runMutation(async () => {
+      await deleteProjectNote(selectedProjectId, noteFile);
+      closeNoteTab(noteFile);
+      await refreshProjectNotes(selectedProjectId);
+      // Refresh current page if needed
+      if (selectedPageId !== null) {
+        clearCachedPageBoardData(selectedPageId);
+        setPageRefreshTokenById((current) => ({
+          ...current,
+          [selectedPageId]: (current[selectedPageId] ?? 0) + 1,
+        }));
+      }
+    });
   }
 
-  function toggleSidebarSection(sectionId: SidebarSectionId): void {
-    setExpandedSidebarSections((current) => ({
-      ...current,
-      [sectionId]: !current[sectionId],
-    }));
-  }
+  const handleRefreshNotes = useCallback(async (): Promise<void> => {
+    if (selectedProjectId === null) return;
+    try {
+      await refreshProjectNotes(selectedProjectId);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    }
+  }, [selectedProjectId, refreshProjectNotes, setErrorMessage]);
+
 
   async function handleRevealProject(): Promise<void> {
     if (selectedProject === null) {
@@ -759,101 +243,96 @@ export function App() {
     });
   }
 
-  function openNoteTab(noteFile: string): void {
-    setOpenTabs((current) => {
-      if (current.some((tab) => tab.kind === 'note' && tab.id === noteFile)) {
-        return current;
-      }
-      return [...current, { kind: 'note', id: noteFile }];
+  function handleNoteRenamed(
+    previousNoteFile: string,
+    renamedNote: ProjectNote,
+  ): void {
+    const nextNoteFile = renamedNote.note_file;
+    setProjectNotes((current) => {
+      const replaced = current.map((note) =>
+        note.note_file === previousNoteFile ? renamedNote : note,
+      );
+      return replaced.some((note) => note.note_file === nextNoteFile)
+        ? replaced
+        : [...replaced, renamedNote];
     });
-    setActiveNoteFile(noteFile);
-  }
-
-  function closeNoteTab(noteFile: string): void {
-    setOpenTabs((current) =>
-      current.filter((tab) => !(tab.kind === 'note' && tab.id === noteFile)),
-    );
-    setActiveNoteFile((current) => {
-      if (current !== noteFile) return current;
-      return null;
-    });
-  }
-
-  function closePageTab(pageId: string): void {
-    const nextTabs = openTabs.filter(
-      (tab) => !(tab.kind === 'page' && tab.id === pageId),
-    );
-    setOpenTabs(nextTabs);
-    if (selectedPageId === pageId) {
-      const fallbackPage = [...nextTabs]
-        .reverse()
-        .find((tab) => tab.kind === 'page');
-      setSelectedPageId(fallbackPage?.id ?? null);
-      setActiveNoteFile(null);
+    handleNoteRenamedInTabs(previousNoteFile, renamedNote);
+    if (selectedPageId !== null) {
+      clearCachedPageBoardData(selectedPageId);
+      setPageRefreshTokenById((current) => ({
+        ...current,
+        [selectedPageId]: (current[selectedPageId] ?? 0) + 1,
+      }));
     }
   }
 
-  async function handleCreateProject(): Promise<void> {
-    const name = askForName('新增 Project 名稱', 'Untitled Project');
-    if (name === null) {
+  function openCreateProjectDialog(): void {
+    setCreateProjectNameDraft('Untitled Project');
+    setCreateProjectDialogOpen(true);
+  }
+
+  function closeCreateProjectDialog(): void {
+    if (isMutating) {
+      return;
+    }
+    setCreateProjectDialogOpen(false);
+    setCreateProjectNameDraft('');
+  }
+
+  async function handleCreateProject(
+    event?: FormEvent<HTMLFormElement>,
+  ): Promise<void> {
+    event?.preventDefault();
+    const name = createProjectNameDraft.trim();
+    if (name.length === 0) {
       return;
     }
 
     await runMutation(async () => {
       const project = await createProject(name);
       setProjects((current) => [...current, project]);
+      setCreateProjectDialogOpen(false);
+      setCreateProjectNameDraft('');
       openProject(project.id, null);
     });
   }
 
-  async function handleOpenProject(): Promise<void> {
+  function handleOpenProject(): void {
+    setFolderPickerOpen(true);
+  }
+
+  async function handleFolderPickerConfirm(folderPath: string): Promise<void> {
+    setFolderPickerOpen(false);
     await runMutation(async () => {
-      let project: Project;
-      try {
-        project = await openProjectWithDialog();
-      } catch (error) {
-        if (
-          error instanceof Error &&
-          error.message.toLowerCase().includes('cancelled')
-        ) {
-          return;
-        }
-
-        const path = window.prompt('Project folder path');
-        if (path === null || path.trim().length === 0) {
-          return;
-        }
-        project = await openProjectPath(path);
-      }
-
+      const openedProject = await openProjectPath(folderPath);
       const nextProjects = await listProjects();
       setProjects(nextProjects);
-      openProject(project.id, null);
+      openProject(openedProject.id, null);
     });
   }
 
-  async function handleSaveProjectName(): Promise<void> {
+  async function handleSaveProjectName(nextName: string): Promise<void> {
     if (selectedProject === null) {
       return;
     }
 
+    const normalized = nextName.trim();
     if (
-      normalizedProjectNameDraft.length === 0 ||
-      normalizedProjectNameDraft === selectedProject.name
+      normalized.length === 0 ||
+      normalized === selectedProject.name
     ) {
       return;
     }
 
     await runMutation(async () => {
       const updatedProject = await updateProject(selectedProject.id, {
-        name: normalizedProjectNameDraft,
+        name: normalized,
       });
       setProjects((current) =>
         current.map((project) =>
           project.id === updatedProject.id ? updatedProject : project,
         ),
       );
-      setProjectNameDraft(updatedProject.name);
     });
   }
 
@@ -866,6 +345,11 @@ export function App() {
 
     await runMutation(async () => {
       const page = await createPage(selectedProject.id, name);
+      updateCachedPageBoardData({
+        page,
+        board_items: [],
+        connector_links: [],
+      });
       setPages((current) => [...current, page]);
       setSelectedPageId(page.id);
     });
@@ -882,20 +366,23 @@ export function App() {
     const normalizedName = nextName.trim();
 
     if (normalizedName.length === 0 || normalizedName === pageToRename.name) {
-      setPageRenameTargetId(null);
-      setPageRenameDraft('');
       return;
     }
 
     await runMutation(async () => {
       const updatedPage = await updatePage(pageToRename.id, normalizedName);
+      const cached = pageBoardCacheRef.current.get(updatedPage.id);
+      if (cached !== undefined && cached !== UNLOADED_PAGE_BOARD_CACHE) {
+        pageBoardCacheRef.current.set(updatedPage.id, {
+          ...cached,
+          page: updatedPage,
+        });
+      }
       setPages((current) =>
         current.map((page) =>
           page.id === updatedPage.id ? updatedPage : page,
         ),
       );
-      setPageRenameTargetId(null);
-      setPageRenameDraft('');
     });
   }
 
@@ -916,9 +403,10 @@ export function App() {
 
     await runMutation(async () => {
       await deletePage(selectedPage.id);
+      clearCachedPageBoardData(selectedPage.id);
       setPages(remainingPages);
       setSelectedPageId((current) =>
-        current === selectedPage.id ? remainingPages[0]?.id ?? null : current,
+        current === selectedPage.id ? (remainingPages[0]?.id ?? null) : current,
       );
     });
   }
@@ -946,26 +434,31 @@ export function App() {
     });
   }
 
-  function handleExportProjectClick(): void {
-    if (selectedProject === null || isMutating) {
+  async function handleChangeProjectDefaultStyle(
+    patch: ProjectDefaultStyle,
+  ): Promise<void> {
+    if (selectedProject === null) {
       return;
     }
 
-    void runMutation(async () => {
-      const projectPages = await listPages(selectedProject.id);
-      const boardDataByPage = await Promise.all(
-        projectPages.map((page) => getPageBoardData(page.id)),
-      );
-      const payload = buildProjectExportSnapshot(selectedProject, boardDataByPage);
-      const safeProjectName = sanitizeExportName(selectedProject.name);
-      await saveFileWithPicker({
-        data: payload,
-        suggestedName: `${safeProjectName}.whiteboard-project.json`,
-        description: 'Whiteboard JSON',
-        accept: {
-          'application/json': ['.json'],
-        },
+    const nextDefaultStyleJson = serializeProjectDefaultStyle({
+      ...selectedProjectDefaultStyle,
+      ...patch,
+    });
+
+    if (nextDefaultStyleJson === selectedProject.default_style_json) {
+      return;
+    }
+
+    await runMutation(async () => {
+      const updatedProject = await updateProject(selectedProject.id, {
+        default_style_json: nextDefaultStyleJson,
       });
+      setProjects((current) =>
+        current.map((project) =>
+          project.id === updatedProject.id ? updatedProject : project,
+        ),
+      );
     });
   }
 
@@ -995,19 +488,7 @@ export function App() {
     setProjectSettingsDialogOpen(false);
   }
 
-  function beginPageRename(page: Page): void {
-    if (isMutating) {
-      return;
-    }
 
-    setPageRenameTargetId(page.id);
-    setPageRenameDraft(page.name);
-  }
-
-  function cancelPageRename(): void {
-    setPageRenameTargetId(null);
-    setPageRenameDraft('');
-  }
 
   function closeProjectDeleteDialog(): void {
     if (isMutating) {
@@ -1042,7 +523,9 @@ export function App() {
   async function handleRemoveProjectFromHome(projectId: string): Promise<void> {
     await runMutation(async () => {
       await deleteProject(projectId);
-      setProjects((current) => current.filter((project) => project.id !== projectId));
+      setProjects((current) =>
+        current.filter((project) => project.id !== projectId),
+      );
       if (selectedProjectId === projectId) {
         setPages([]);
         setSelectedProjectId(null);
@@ -1149,7 +632,10 @@ export function App() {
     }
   }
 
-  async function handleNoteDrop(noteFile: string, targetPageId: string): Promise<void> {
+  async function handleNoteDrop(
+    noteFile: string,
+    targetPageId: string,
+  ): Promise<void> {
     if (selectedProject === null) {
       return;
     }
@@ -1194,6 +680,7 @@ export function App() {
         ...current,
         [targetPage.id]: (current[targetPage.id] ?? 0) + 1,
       }));
+      clearCachedPageBoardData(targetPage.id);
       await refreshProjectNotes(selectedProject.id);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
@@ -1221,678 +708,189 @@ export function App() {
       return;
     }
 
-    if (currentDragState.kind !== kind || currentDragState.itemId === targetId) {
+    if (
+      currentDragState.kind !== kind ||
+      currentDragState.itemId === targetId
+    ) {
       return;
     }
 
     void handlePageDrop(currentDragState.itemId, targetId, position);
   }
 
-  function handleExportPageClick(format: 'json' | 'png' | 'pptx'): void {
-    if (selectedPage === null || isMutating) {
-      return;
-    }
 
-    void runMutation(async () => {
-      try {
-        const boardData = await getPageBoardData(selectedPage.id);
-        const safePageName = sanitizeExportName(selectedPage.name);
-        if (format === 'json') {
-          const payload = buildPageExportSnapshot(boardData);
-          await saveFileWithPicker({
-            data: payload,
-            suggestedName: `${safePageName}.whiteboard-page.json`,
-            description: 'Whiteboard JSON',
-            accept: {
-              'application/json': ['.json'],
-            },
-          });
-          return;
-        }
-
-        if (format === 'png') {
-          const pngBlob = await exportPageAsPng(boardData);
-          await saveFileWithPicker({
-            data: pngBlob,
-            suggestedName: `${safePageName}.png`,
-            description: 'PNG image',
-            accept: {
-              'image/png': ['.png'],
-            },
-          });
-          return;
-        }
-
-        const pptxBlob = await exportPageAsPptx(boardData);
-        await saveFileWithPicker({
-          data: pptxBlob,
-          suggestedName: `${safePageName}.pptx`,
-          description: 'PowerPoint presentation',
-          accept: {
-            'application/vnd.openxmlformats-officedocument.presentationml.presentation': [
-              '.pptx',
-            ],
-          },
-        });
-      } catch (error) {
-        if (isAbortError(error)) {
-          return;
-        }
-
-        throw error;
-      }
-    });
-  }
-
-  function handleImportPageButtonClick(): void {
-    if (selectedPage === null || isMutating) {
-      return;
-    }
-
-    pageImportInputRef.current?.click();
-  }
-
-  async function handleImportPageInputChange(
-    event: ChangeEvent<HTMLInputElement>,
-  ): Promise<void> {
-    const input = event.currentTarget;
-    const file = input.files?.[0];
-    input.value = '';
-
-    if (file === undefined || selectedPage === null) {
-      return;
-    }
-
-    await runMutation(async () => {
-      const importedPage = parsePageImportText(await file.text());
-      const currentBoardData = await getPageBoardData(selectedPage.id);
-      const mergedBoardState = mergeImportedPageBoardState(
-        selectedPage.id,
-        currentBoardData,
-        importedPage,
-      );
-      await replacePageBoardState(selectedPage.id, mergedBoardState);
-      setPageRefreshTokenById((current) => ({
-        ...current,
-        [selectedPage.id]: (current[selectedPage.id] ?? 0) + 1,
-      }));
-    });
-  }
 
   if (loadState === 'error' || appView === 'home') {
     return (
-      <HomeView
-        errorMessage={errorMessage}
-        isBusy={isMutating}
-        isLoading={loadState === 'loading'}
-        projects={projects}
-        selectedProjectId={selectedProjectId}
-        onCreateProject={() => void handleCreateProject()}
-        onOpenProject={() => void handleOpenProject()}
-        onSelectProject={(projectId) => openProject(projectId, null)}
-        onRemoveProject={(projectId) => void handleRemoveProjectFromHome(projectId)}
-        onRefreshProjects={() => void loadWorkspace()}
-      />
+      <>
+        <HomeView
+          errorMessage={errorMessage}
+          isBusy={isMutating}
+          isLoading={loadState === 'loading'}
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          onCreateProject={openCreateProjectDialog}
+          onOpenProject={() => handleOpenProject()}
+          onSelectProject={(projectId) => openProject(projectId, null)}
+          onRemoveProject={(projectId) =>
+            void handleRemoveProjectFromHome(projectId)
+          }
+          onRefreshProjects={() => void loadWorkspace()}
+        />
+        {folderPickerOpen ? (
+          <FolderPickerModal
+            isBusy={isMutating}
+            onConfirm={(folderPath) =>
+              void handleFolderPickerConfirm(folderPath)
+            }
+            onCancel={() => setFolderPickerOpen(false)}
+          />
+        ) : null}
+        {createProjectDialogOpen ? (
+          <div
+            className="confirmation-dialog-backdrop"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                closeCreateProjectDialog();
+              }
+            }}
+          >
+            <form
+              className="confirmation-dialog project-create-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="project-create-dialog-title"
+              onSubmit={(event) => void handleCreateProject(event)}
+            >
+              <div className="confirmation-dialog-header">
+                <h2 id="project-create-dialog-title">Create Project</h2>
+                <button
+                  type="button"
+                  className="ghost-button confirmation-dialog-close"
+                  disabled={isMutating}
+                  onClick={closeCreateProjectDialog}
+                  aria-label="Close create project dialog"
+                >
+                  X
+                </button>
+              </div>
+              <label
+                className="confirmation-dialog-label"
+                htmlFor="project-create-name-input"
+              >
+                Project name
+              </label>
+              <input
+                id="project-create-name-input"
+                className="confirmation-dialog-input"
+                disabled={isMutating}
+                value={createProjectNameDraft}
+                onChange={(event) =>
+                  setCreateProjectNameDraft(event.target.value)
+                }
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') {
+                    event.preventDefault();
+                    closeCreateProjectDialog();
+                  }
+                }}
+                autoFocus
+              />
+              <div className="confirmation-dialog-actions">
+                <button
+                  type="button"
+                  className="ghost-button"
+                  disabled={isMutating}
+                  onClick={closeCreateProjectDialog}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="ghost-button primary-action-button"
+                  disabled={
+                    isMutating || createProjectNameDraft.trim().length === 0
+                  }
+                >
+                  Create
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : null}
+      </>
     );
   }
 
   return (
     <>
-      <input
-        ref={pageImportInputRef}
-        hidden
-        accept=".json,.whiteboard-page.json"
-        type="file"
-        onChange={(event) => void handleImportPageInputChange(event)}
-      />
-
       <main
         className={`app-shell ${isSidebarCollapsed ? 'is-sidebar-collapsed' : ''}`}
         data-project-theme={selectedProject?.theme_color ?? 'default'}
       >
-        <aside className={`sidebar ${isSidebarCollapsed ? 'is-collapsed' : ''}`}>
-          <button
-            type="button"
-            className="ghost-button sidebar-edge-toggle"
-            aria-label={
-              isSidebarCollapsed ? 'Expand pages panel' : 'Collapse pages panel'
+        <WorkspaceSidebar
+          isSidebarCollapsed={isSidebarCollapsed}
+          setIsSidebarCollapsed={setIsSidebarCollapsed}
+          selectedProject={selectedProject}
+          selectedPageId={selectedPageId}
+          activeNoteFile={activeNoteFile}
+          isMutating={isMutating}
+          isLoadingPages={isLoadingPages}
+          isLoadingNotes={isLoadingNotes}
+          pages={pages}
+          projectNotes={projectNotes}
+          openTabs={openTabs}
+          dragState={dragState}
+          dropState={dropState}
+          onGoHome={goHome}
+          onOpenSettings={openProjectSettingsDialog}
+          onRefreshPages={() => {
+            if (selectedProjectId) {
+              void loadProjectSidebarData(
+                selectedProjectId,
+                selectedPageIdRef.current,
+              );
             }
-            aria-expanded={!isSidebarCollapsed}
-            onClick={() => setIsSidebarCollapsed((current) => !current)}
-            title={
-              isSidebarCollapsed ? 'Expand pages panel' : 'Collapse pages panel'
-            }
-          >
-            {isSidebarCollapsed ? '>' : '<'}
-          </button>
-          <section className="sidebar-header">
-            <div className="sidebar-brand-row">
-              <div>
-                <h1>Planvas</h1>
-                <p className="sidebar-copy">
-                  {selectedProject !== null ? 'Local workspace' : 'Select a project'}
-                </p>
-              </div>
-              <button
-                className="ghost-button sidebar-home-button"
-                aria-label="Home"
-                disabled={isMutating}
-                onClick={() => goHome()}
-                title="Home"
-              >
-                <span className="sidebar-home-button-label">Home</span>
-              </button>
-            </div>
-            <div className="sidebar-project-strip">
-              <div className="sidebar-project-strip-label">Project</div>
-              <div className="sidebar-project-strip-row">
-                <strong
-                  className="sidebar-project-strip-name"
-                  title={selectedProject?.name ?? 'No project selected'}
-                >
-                  {selectedProject?.name ?? 'No project selected'}
-                </strong>
-                <button
-                  type="button"
-                  className="ghost-button sidebar-project-settings-button"
-                  disabled={selectedProject === null || isMutating}
-                  aria-label={
-                    selectedProject !== null
-                      ? `Open settings for ${selectedProject.name}`
-                      : 'Project settings unavailable'
-                  }
-                  title={
-                    selectedProject !== null
-                      ? `Project settings for ${selectedProject.name}`
-                      : 'Project settings unavailable'
-                  }
-                  onClick={openProjectSettingsDialog}
-                >
-                  <IconSettings />
-                </button>
-              </div>
-            </div>
-          </section>
-          <section
-            className={`sidebar-section sidebar-foldout-section ${
-              expandedSidebarSections.pages ? 'is-expanded' : 'is-collapsed'
-            }`}
-          >
-            <button
-              type="button"
-              className="section-title-row sidebar-foldout-trigger"
-              aria-expanded={expandedSidebarSections.pages}
-              onClick={() => toggleSidebarSection('pages')}
-            >
-              <span className="sidebar-foldout-title">
-                <IconChevronDown />
-                <span className="sidebar-pages-heading">Pages</span>
-              </span>
-              <span className="count-badge">{pages.length}</span>
-            </button>
-            <div className="sidebar-section-body">
-              {selectedProject === null ? (
-              <p className="empty-copy">Select a project to view pages.</p>
-            ) : isLoadingPages ? (
-              <p className="empty-copy">Loading pages...</p>
-            ) : pages.length === 0 ? (
-              <p className="empty-copy">This project has no pages yet.</p>
-            ) : (
-              <div className="list-stack">
-                {pages.map((page) => {
-                  const isDragging =
-                    dragState?.kind === 'pages' && dragState.itemId === page.id;
-                  const isRenaming = pageRenameTargetId === page.id;
-                  const isOpenInTab = openTabs.some(
-                    (tab) => tab.kind === 'page' && tab.id === page.id,
-                  );
-                  const isSelectedPage =
-                    page.id === selectedPageId && activeNoteFile === null;
-                  const isDropBefore =
-                    dropState?.kind === 'pages' &&
-                    dropState.itemId === page.id &&
-                    dropState.position === 'before';
-                  const isDropAfter =
-                    dropState?.kind === 'pages' &&
-                    dropState.itemId === page.id &&
-                    dropState.position === 'after';
+          }}
+          onRefreshNotes={() => {
+            void handleRefreshNotes();
+          }}
+          onActivatePageTab={activatePageTab}
+          onSavePageName={handleSavePageName}
+          onDeletePage={handleDeletePage}
+          onCreatePage={handleCreatePage}
+          onOpenNoteTab={openNoteTab}
+          onDeleteNote={handleDeleteNote}
+          onDragStart={handleSidebarDragStart}
+          onDragOver={handleSidebarDragOver}
+          onDrop={handleSidebarDrop}
+          onClearDragState={clearDragState}
+        />
 
-                  return (
-                    <div
-                      key={page.id}
-                      className={`list-entry ${isDropBefore ? 'is-drop-before' : ''} ${
-                        isDropAfter ? 'is-drop-after' : ''
-                      }`}
-                      onDragOver={(event) =>
-                        handleSidebarDragOver('pages', page.id, event)
-                      }
-                      onDrop={(event) =>
-                        handleSidebarDrop('pages', page.id, event)
-                      }
-                    >
-                      {isRenaming ? (
-                        <div
-                          className={`list-button list-button-rename is-editing ${
-                            isOpenInTab ? 'is-open-tab' : ''
-                          } ${isSelectedPage ? 'is-selected' : ''}`}
-                          onMouseDown={(event) => event.stopPropagation()}
-                        >
-                          <input
-                            className="page-rename-input"
-                            aria-label={`Rename page ${page.name}`}
-                            disabled={isMutating}
-                            value={pageRenameDraft}
-                            placeholder="Page name"
-                            autoFocus
-                            onChange={(event) => setPageRenameDraft(event.target.value)}
-                            onBlur={() => {
-                              void handleSavePageName(page, pageRenameDraft);
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === 'Enter') {
-                                event.preventDefault();
-                                void handleSavePageName(page, pageRenameDraft);
-                              }
-
-                              if (event.key === 'Escape') {
-                                event.preventDefault();
-                                cancelPageRename();
-                              }
-                            }}
-                          />
-                          <small>zoom {page.zoom.toFixed(1)}x</small>
-                        </div>
-                      ) : (
-                        <button
-                          className={`list-button ${
-                            isOpenInTab ? 'is-open-tab' : ''
-                          } ${isSelectedPage ? 'is-selected' : ''} ${
-                            isDragging ? 'is-dragging' : ''
-                          } ${
-                            pages.length > 1 ? 'is-sortable' : ''
-                          }`}
-                          draggable={!isMutating && pages.length > 1}
-                          aria-label={
-                            pages.length > 1
-                              ? `Move page ${page.name}`
-                              : undefined
-                          }
-                          title={
-                            pages.length > 1
-                              ? `Move page ${page.name}`
-                              : undefined
-                          }
-                          onDragStart={(event) =>
-                            handleSidebarDragStart('pages', page.id, event)
-                          }
-                          onDragEnd={clearDragState}
-                          onClick={() => {
-                            setSelectedPageId(page.id);
-                            setActiveNoteFile(null);
-                          }}
-                        >
-                          <span>{page.name}</span>
-                          <small>zoom {page.zoom.toFixed(1)}x</small>
-                        </button>
-                      )}
-                      <div className="page-row-actions">
-                        <button
-                          type="button"
-                          className={`ghost-button page-icon-button page-rename-button ${
-                            isRenaming ? 'is-active' : ''
-                          }`}
-                          disabled={isMutating}
-                          title={
-                            isRenaming
-                              ? `Save page name for ${page.name}`
-                              : `Rename page ${page.name}`
-                          }
-                          aria-label={
-                            isRenaming
-                              ? `Save page name for ${page.name}`
-                              : `Rename page ${page.name}`
-                          }
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            if (isRenaming) {
-                              void handleSavePageName(page, pageRenameDraft);
-                              return;
-                            }
-
-                            beginPageRename(page);
-                          }}
-                        >
-                          <IconPencil />
-                        </button>
-                        <button
-                          type="button"
-                          className="ghost-button danger-button page-icon-button page-trash-button"
-                          disabled={isMutating}
-                          title={`Delete page ${page.name}`}
-                          aria-label={`Delete page ${page.name}`}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void handleDeletePage(page);
-                          }}
-                        >
-                          <IconTrash />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              )}
-              <button
-                className="primary-button sidebar-add-page-button"
-                disabled={selectedProject === null || isMutating}
-                onClick={() => void handleCreatePage()}
-              >
-                New page
-              </button>
-            </div>
-          </section>
-          <section
-            className={`sidebar-section sidebar-notes-section sidebar-foldout-section ${
-              expandedSidebarSections.notes ? 'is-expanded' : 'is-collapsed'
-            }`}
-          >
-            <button
-              type="button"
-              className="section-title-row sidebar-foldout-trigger"
-              aria-expanded={expandedSidebarSections.notes}
-              onClick={() => toggleSidebarSection('notes')}
-            >
-              <span className="sidebar-foldout-title">
-                <IconChevronDown />
-                <span className="sidebar-pages-heading">Notes</span>
-              </span>
-              <span className="count-badge">{projectNotes.length}</span>
-            </button>
-            <div className="sidebar-section-body">
-              {selectedProject === null ? (
-              <p className="empty-copy">Select a project to view notes.</p>
-            ) : isLoadingNotes ? (
-              <p className="empty-copy">Loading notes...</p>
-            ) : projectNotes.length === 0 ? (
-              <p className="empty-copy">This project has no markdown notes yet.</p>
-            ) : (
-              <div className="list-stack sidebar-notes-list">
-                {projectNotes.map((note) => {
-                  const isDragging =
-                    dragState?.kind === 'notes' &&
-                    dragState.itemId === note.note_file;
-                  const isOpenInTab = openTabs.some(
-                    (tab) => tab.kind === 'note' && tab.id === note.note_file,
-                  );
-                  const isSelectedNote = activeNoteFile === note.note_file;
-
-                  return (
-                    <button
-                      key={note.note_file}
-                      type="button"
-                      className={`list-button note-list-button ${
-                        isDragging ? 'is-dragging' : ''
-                      } ${isOpenInTab ? 'is-open-tab' : ''} ${
-                        isSelectedNote ? 'is-selected' : ''
-                      }`}
-                      draggable={!isMutating}
-                      title={`Click to edit · Drag to place on a page`}
-                      aria-label={`Open note ${note.note_file} in editor`}
-                      onClick={() => openNoteTab(note.note_file)}
-                      onDragStart={(event) =>
-                        handleSidebarDragStart('notes', note.note_file, event)
-                      }
-                      onDragEnd={clearDragState}
-                    >
-                      <span>{note.note_file}</span>
-                      <small>{note.title}</small>
-                    </button>
-                  );
-                })}
-              </div>
-              )}
-            </div>
-          </section>
-        </aside>
-
-        <section className={`workspace workspace-tabpos-${tabBarPosition}`}>
+        <section className="workspace">
           {/* ── browser-like tab bar ── */}
-          {selectedProject !== null && (() => {
-            const visibleTabs = openTabs.filter((tab) => {
-              if (tab.kind === 'page') {
-                return pages.some((p) => p.id === tab.id);
-              }
-              return projectNotes.some((n) => n.note_file === tab.id);
-            });
-            const lastVisibleTab = visibleTabs.at(-1);
-            const lastVisibleTabId =
-              lastVisibleTab === undefined
-                ? null
-                : `${lastVisibleTab.kind}:${lastVisibleTab.id}`;
-
-            return (
-              <div className={`ws-tab-bar ws-tab-bar-${tabBarPosition}`}>
-                {/* ── Left: Project name ── */}
-                <span
-                  className="ws-tab-project-name"
-                  title={selectedProject.name}
-                  aria-label={`Project: ${selectedProject.name}`}
-                >
-                  <span className="ws-tab-project-value">{selectedProject.name}</span>
-                </span>
-
-                <div className="ws-tab-divider-v" />
-
-                {/* ── Tab strip ── */}
-                <div
-                  className="ws-tab-strip"
-                  onDragOver={(event) => {
-                    const currentDragState = dragState;
-                    if (
-                      currentDragState?.kind !== 'tabs' ||
-                      lastVisibleTabId === null ||
-                      currentDragState.itemId === lastVisibleTabId
-                    ) {
-                      return;
-                    }
-
-                    const target = event.target;
-                    if (
-                      target instanceof Element &&
-                      target.closest('.ws-tab') !== null
-                    ) {
-                      return;
-                    }
-
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = 'move';
-                    setDropState({
-                      kind: 'tabs',
-                      itemId: lastVisibleTabId,
-                      position: 'after',
-                    });
-                  }}
-                  onDrop={(event) => {
-                    const target = event.target;
-                    if (
-                      target instanceof Element &&
-                      target.closest('.ws-tab') !== null
-                    ) {
-                      return;
-                    }
-
-                    event.preventDefault();
-                    const currentDragState = dragState;
-                    if (
-                      currentDragState?.kind !== 'tabs' ||
-                      lastVisibleTabId === null
-                    ) {
-                      clearDragState();
-                      return;
-                    }
-
-                    const draggedId = currentDragState.itemId;
-                    clearDragState();
-
-                    if (draggedId === lastVisibleTabId) return;
-
-                    setOpenTabs((current) => {
-                      const items = current.map((tab) => ({
-                        tab,
-                        id: `${tab.kind}:${tab.id}`,
-                      }));
-                      const orderedIds = buildDraggedOrder(
-                        items,
-                        draggedId,
-                        lastVisibleTabId,
-                        'after',
-                      );
-                      if (orderedIds === null) return current;
-
-                      const positions = new Map(
-                        orderedIds.map((id, index) => [id, index]),
-                      );
-                      return [...current].sort((left, right) => {
-                        const leftId = `${left.kind}:${left.id}`;
-                        const rightId = `${right.kind}:${right.id}`;
-                        const leftPos = positions.get(leftId) ?? 999;
-                        const rightPos = positions.get(rightId) ?? 999;
-                        return leftPos - rightPos;
-                      });
-                    });
-                  }}
-                >
-                  {visibleTabs.map((tab) => {
-                    const isActive =
-                      tab.kind === 'page'
-                        ? selectedPageId === tab.id && activeNoteFile === null
-                        : activeNoteFile === tab.id;
-
-                    const label =
-                      tab.kind === 'page'
-                        ? pages.find((p) => p.id === tab.id)?.name ?? 'Unknown'
-                        : projectNotes.find((n) => n.note_file === tab.id)?.title ?? tab.id;
-
-                    const isDraggingTab =
-                      dragState?.kind === 'tabs' && dragState.itemId === `${tab.kind}:${tab.id}`;
-                    const isDropBefore =
-                      dropState?.kind === 'tabs' &&
-                      dropState.itemId === `${tab.kind}:${tab.id}` &&
-                      dropState.position === 'before';
-                    const isDropAfter =
-                      dropState?.kind === 'tabs' &&
-                      dropState.itemId === `${tab.kind}:${tab.id}` &&
-                      dropState.position === 'after';
-
-                    return (
-                      <div
-                        key={`${tab.kind}:${tab.id}`}
-                        className={`ws-tab ws-tab-${tab.kind} ${isActive ? 'is-active' : ''} ${
-                          isDraggingTab ? 'is-dragging' : ''
-                        } ${isDropBefore ? 'is-drop-before' : ''} ${
-                          isDropAfter ? 'is-drop-after' : ''
-                        }`}
-                        draggable={!isMutating}
-                        onDragStart={(event) => {
-                          if (isMutating) {
-                            event.preventDefault();
-                            return;
-                          }
-                          event.dataTransfer.effectAllowed = 'move';
-                          event.dataTransfer.setData('text/plain', `tabs:${tab.kind}:${tab.id}`);
-                          setDragState({ kind: 'tabs', itemId: `${tab.kind}:${tab.id}` });
-                        }}
-                        onDragOver={(event) => {
-                          const currentDragState = dragState;
-                          if (currentDragState?.kind !== 'tabs') return;
-                          if (currentDragState.itemId === `${tab.kind}:${tab.id}`) return;
-                          event.preventDefault();
-                          event.dataTransfer.dropEffect = 'move';
-                          const position = getTabDropPosition(event);
-                          setDropState({
-                            kind: 'tabs',
-                            itemId: `${tab.kind}:${tab.id}`,
-                            position,
-                          });
-                        }}
-                        onDrop={(event) => {
-                          event.preventDefault();
-                          const currentDragState = dragState;
-                          if (currentDragState?.kind !== 'tabs') {
-                            clearDragState();
-                            return;
-                          }
-                          const draggedId = currentDragState.itemId;
-                          const targetId = `${tab.kind}:${tab.id}`;
-                          const position = getTabDropPosition(event);
-                          clearDragState();
-
-                          if (draggedId === targetId) return;
-
-                          setOpenTabs((current) => {
-                            const items = current.map(t => ({ tab: t, id: `${t.kind}:${t.id}` }));
-                            const orderedIds = buildDraggedOrder(items, draggedId, targetId, position);
-                            if (orderedIds === null) return current;
-                            
-                            const positions = new Map(orderedIds.map((id, index) => [id, index]));
-                            return [...current].sort((left, right) => {
-                              const leftId = `${left.kind}:${left.id}`;
-                              const rightId = `${right.kind}:${right.id}`;
-                              const leftPos = positions.get(leftId) ?? 999;
-                              const rightPos = positions.get(rightId) ?? 999;
-                              return leftPos - rightPos;
-                            });
-                          });
-                        }}
-                        onDragEnd={clearDragState}
-                      >
-                        <button
-                          type="button"
-                          className="ws-tab-label-btn"
-                          title={label}
-                          onClick={() => {
-                            if (tab.kind === 'page') {
-                              setSelectedPageId(tab.id);
-                              setActiveNoteFile(null);
-                            } else {
-                              setActiveNoteFile(tab.id);
-                            }
-                          }}
-                        >
-                          {tab.kind === 'note' && (
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="ws-tab-note-icon">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                              <polyline points="14 2 14 8 20 8"/>
-                            </svg>
-                          )}
-                          <span className="ws-tab-label">{label}</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="ws-tab-close"
-                          title={`Close tab: ${label}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (tab.kind === 'page') {
-                              closePageTab(tab.id);
-                            } else {
-                              closeNoteTab(tab.id);
-                            }
-                          }}
-                          aria-label={`Close tab ${label}`}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* ── Right: Spacer (toggle removed to fix tabs at bottom) ── */}
-                <div className="ws-tab-position-spacer" style={{ width: 34 }} />
-              </div>
-            );
-          })()}
-
+          {selectedProject !== null ? (
+            <WorkspaceTabs
+              activeNoteFile={activeNoteFile}
+              dragState={dragState?.kind === 'tabs' ? dragState : null}
+              dropState={dropState?.kind === 'tabs' ? dropState : null}
+              isMutating={isMutating}
+              onActivateNote={setActiveNoteFile}
+              onActivatePage={activatePageTab}
+              onClearDragState={clearDragState}
+              onCloseNote={closeNoteTab}
+              onClosePage={closePageTab}
+              onSetDragState={setDragState}
+              onSetDropState={setDropState}
+              onSetOpenTabs={setOpenTabs}
+              openTabs={openTabs}
+              pages={pages}
+              projectName={selectedProject.name}
+              projectNotes={projectNotes}
+              selectedPageId={selectedPageId}
+            />
+          ) : null}
           <div className="workspace-content-area">
             {errorMessage !== null ? (
               <div className="error-banner">{errorMessage}</div>
@@ -1904,6 +902,7 @@ export function App() {
                 projectId={selectedProjectId}
                 noteFile={activeNoteFile}
                 projectNotes={projectNotes}
+                onNoteRenamed={handleNoteRenamed}
                 onNotesChanged={() => {
                   if (selectedProjectId !== null) {
                     void refreshProjectNotes(selectedProjectId);
@@ -1914,7 +913,10 @@ export function App() {
               <section className="hero-panel">
                 <div className="hero-copy">
                   <h3>Select a project</h3>
-                  <p className="hero-text">Open a project from the home screen to start working on a board.</p>
+                  <p className="hero-text">
+                    Open a project from the home screen to start working on a
+                    board.
+                  </p>
                   <button
                     className="primary-button"
                     disabled={isMutating}
@@ -1927,7 +929,11 @@ export function App() {
             ) : selectedPage === null ? (
               <section className="hero-panel">
                 <div className="hero-copy">
-                  <h3>{pages.length === 0 ? `Create a page in ${selectedProject.name}` : 'Select a page'}</h3>
+                  <h3>
+                    {pages.length === 0
+                      ? `Create a page in ${selectedProject.name}`
+                      : 'Select a page'}
+                  </h3>
                   <p className="hero-text">
                     {pages.length === 0
                       ? 'Add a page to start arranging notes, tables, frames, and connectors.'
@@ -1946,165 +952,82 @@ export function App() {
               <Canvas
                 key={`${selectedPage.id}:${pageRefreshTokenById[selectedPage.id] ?? 0}`}
                 page={selectedPage}
+                cachedBoardData={(() => {
+                  const cached = pageBoardCacheRef.current.get(selectedPage.id);
+                  return cached !== undefined &&
+                    cached !== UNLOADED_PAGE_BOARD_CACHE &&
+                    cached.page.project_id === selectedProject.id
+                    ? cached
+                    : null;
+                })()}
                 projectNotes={projectNotes}
                 draggedProjectNoteFile={
                   dragState?.kind === 'notes' ? dragState.itemId : null
                 }
                 onImportPage={handleImportPageButtonClick}
+                onImportFromProject={handleCrossProjectImportOpen}
                 onExportPage={handleExportPageClick}
                 importExportDisabled={isMutating}
+                projectDefaultStyleJson={selectedProject.default_style_json}
                 onViewportChange={(viewport) =>
                   handlePageViewportChange(selectedPage.id, viewport)
                 }
+                onBoardDataCacheChange={updateCachedPageBoardData}
                 onOpenNote={openNoteTab}
                 onProjectNotesChanged={() => {
                   if (selectedProjectId !== null) {
                     void refreshProjectNotes(selectedProjectId);
                   }
-                  setPageRefreshTokenById((current) => ({
-                    ...current,
-                    [selectedPage.id]: (current[selectedPage.id] ?? 0) + 1,
-                  }));
                 }}
               />
             )}
           </div>
         </section>
       </main>
-      {projectSettingsDialogOpen && selectedProject !== null ? (
-        <div
-          className="confirmation-dialog-backdrop"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              closeProjectSettingsDialog();
-            }
-          }}
-        >
-          <section
-            className="project-settings-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="project-settings-dialog-title"
-          >
-            <div className="project-settings-dialog-header">
-              <div>
-                <div className="project-settings-dialog-kicker">Project settings</div>
-                <h2 id="project-settings-dialog-title">{selectedProject.name}</h2>
-              </div>
-              <button
-                type="button"
-                className="ghost-button confirmation-dialog-close"
-                disabled={isMutating}
-                onClick={closeProjectSettingsDialog}
-                aria-label="Close project settings dialog"
-              >
-                X
-              </button>
-            </div>
-            <div className="project-settings-dialog-grid">
-              <section className="project-settings-panel">
-                <div className="project-settings-panel-heading">Name</div>
-                <label className="sidebar-name-group" htmlFor="sidebar-project-name-input">
-                  <span className="sidebar-name-label">Project name</span>
-                  <div className="sidebar-name-edit-row">
-                    <input
-                      id="sidebar-project-name-input"
-                      className="sidebar-name-input project-settings-name-input"
-                      disabled={isMutating}
-                      type="text"
-                      value={projectNameDraft}
-                      onChange={(event) => setProjectNameDraft(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.preventDefault();
-                          void handleSaveProjectName();
-                        }
-                      }}
-                    />
-                    <button
-                      className="ghost-button sidebar-inline-save"
-                      disabled={
-                        isMutating ||
-                        normalizedProjectNameDraft.length === 0 ||
-                        normalizedProjectNameDraft === selectedProject.name
-                      }
-                      onClick={() => void handleSaveProjectName()}
-                    >
-                      Save
-                    </button>
-                  </div>
-                </label>
-              </section>
-              <section className="project-settings-panel">
-                <div className="project-settings-panel-heading">Appearance</div>
-                <label className="sidebar-project-theme-control">
-                  <span className="sidebar-name-label">Theme</span>
-                  <select
-                    disabled={isMutating}
-                    value={selectedProject.theme_color}
-                    onChange={(event) =>
-                      void handleChangeProjectTheme(
-                        event.target.value as ProjectThemeColor,
-                      )
-                    }
-                  >
-                    {PROJECT_THEME_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </section>
-              <section className="project-settings-panel">
-                <div className="project-settings-panel-heading">Location</div>
-                <div className="project-settings-location-row">
-                  <code
-                    className="project-settings-path"
-                    title={selectedProject.path ?? 'No path available'}
-                  >
-                    {selectedProject.path ?? 'No path available'}
-                  </code>
-                  <button
-                    type="button"
-                    className="ghost-button project-settings-reveal-button"
-                    disabled={isMutating || !selectedProject.path}
-                    onClick={() => void handleRevealProject()}
-                    title="Open in file explorer"
-                  >
-                    <IconFolder />
-                    <span>Open Folder</span>
-                  </button>
-                </div>
-              </section>
-              <section className="project-settings-panel project-settings-panel-actions">
-                <div className="project-settings-panel-heading">Actions</div>
-                <p className="confirmation-dialog-copy">
-                  Export the whole project or remove it from this local workspace.
-                </p>
-                <div className="sidebar-project-action-row">
-                  <button
-                    type="button"
-                    className="ghost-button sidebar-project-export-button"
-                    disabled={isMutating}
-                    onClick={handleExportProjectClick}
-                  >
-                    Export project
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button danger-button sidebar-project-delete-button"
-                    disabled={isMutating}
-                    onClick={openProjectDeleteDialog}
-                  >
-                    Delete project
-                  </button>
-                </div>
-              </section>
-            </div>
-          </section>
-        </div>
+      <ProjectSettingsDialog
+        isOpen={projectSettingsDialogOpen}
+        onClose={closeProjectSettingsDialog}
+        selectedProject={selectedProject}
+        isMutating={isMutating}
+        selectedProjectDefaultStyle={selectedProjectDefaultStyle}
+        onSaveProjectName={handleSaveProjectName}
+        onChangeProjectTheme={handleChangeProjectTheme}
+        onRevealProject={handleRevealProject}
+        onChangeProjectDefaultStyle={handleChangeProjectDefaultStyle}
+        onOpenProjectDeleteDialog={openProjectDeleteDialog}
+      />
+      {exportImageDialogData !== null ? (
+        <ExportImageModal
+          naturalWidth={exportImageDialogData.naturalWidth}
+          naturalHeight={exportImageDialogData.naturalHeight}
+          isBusy={isMutating}
+          onConfirm={handleExportImageConfirm}
+          onCancel={() => setExportImageDialogData(null)}
+        />
+      ) : null}
+      {mermaidImportDialogOpen ? (
+        <MermaidImportModal
+          isBusy={isMutating}
+          onConfirm={(title, code) =>
+            void handleMermaidImportConfirm(title, code)
+          }
+          onCancel={() => setMermaidImportDialogOpen(false)}
+        />
+      ) : null}
+      {crossProjectImportOpen && selectedProjectId !== null ? (
+        <CrossProjectImportModal
+          currentProjectId={selectedProjectId}
+          projects={projects}
+          isBusy={isMutating}
+          onConfirm={(pageIds, noteFiles, sourceProjectId) =>
+            void handleCrossProjectImportConfirm(
+              pageIds,
+              noteFiles,
+              sourceProjectId,
+            )
+          }
+          onCancel={() => setCrossProjectImportOpen(false)}
+        />
       ) : null}
       {projectDeleteDialogOpen && selectedProject !== null ? (
         <div
@@ -2148,7 +1071,9 @@ export function App() {
               className="confirmation-dialog-input"
               disabled={isMutating}
               value={projectDeleteConfirmation}
-              onChange={(event) => setProjectDeleteConfirmation(event.target.value)}
+              onChange={(event) =>
+                setProjectDeleteConfirmation(event.target.value)
+              }
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && canConfirmProjectDelete) {
                   event.preventDefault();

@@ -16,6 +16,7 @@ import type {
   ConnectorLink,
   Page,
   PageBoardData,
+  PageRegulateResult,
   Project,
   ProjectNote,
 } from '../src/types.js';
@@ -112,6 +113,7 @@ const tests: TestCase[] = [
       });
       assert.equal(created.status, 201);
       assert.equal(created.data.theme_color, 'default');
+      assert.equal(created.data.default_style_json, null);
 
       const projects = await requestJson<Project[]>(baseUrl, '/projects');
       assert.deepEqual(projects.data, [created.data]);
@@ -136,6 +138,21 @@ const tests: TestCase[] = [
       );
       assert.equal(themed.data.theme_color, 'sunset');
 
+      const styled = await requestJson<Project>(
+        baseUrl,
+        `/projects/${created.data.id}`,
+        {
+          method: 'PATCH',
+          ...jsonBody({
+            default_style_json: '{"textColor":"#1d4ed8","linkColor":"#ef4444"}',
+          }),
+        },
+      );
+      assert.equal(
+        styled.data.default_style_json,
+        '{"textColor":"#1d4ed8","linkColor":"#ef4444"}',
+      );
+
       const pageResponse = await requestJson<Page>(
         baseUrl,
         `/projects/${created.data.id}/pages`,
@@ -156,11 +173,46 @@ const tests: TestCase[] = [
             'project_store',
             'Roadmap-2026',
             '.pv_project',
-            'Quarter-Planning.xml',
+            'Quarter-Planning.semantic.xml',
           ),
         ),
         true,
       );
+      assert.equal(
+        fs.existsSync(
+          path.join(
+            settings.planvasRoot,
+            'project_store',
+            'Roadmap-2026',
+            '.pv_project',
+            'Quarter-Planning.presentation.xml',
+          ),
+        ),
+        true,
+      );
+      const metadataPath = path.join(
+        settings.planvasRoot,
+        'project_store',
+        'Roadmap-2026',
+        '.pv_project',
+        'metadata.json',
+      );
+      const semanticPath = path.join(
+        settings.planvasRoot,
+        'project_store',
+        'Roadmap-2026',
+        '.pv_project',
+        'Quarter-Planning.semantic.xml',
+      );
+      const metadataPayload = JSON.parse(
+        fs.readFileSync(metadataPath, 'utf8'),
+      ) as { project?: unknown; pages?: unknown };
+      assert.equal('project' in metadataPayload, true);
+      assert.equal('pages' in metadataPayload, false);
+      const semanticXml = fs.readFileSync(semanticPath, 'utf8');
+      assert.match(semanticXml, /viewport_x="240"/);
+      assert.match(semanticXml, /viewport_y="160"/);
+      assert.match(semanticXml, /zoom="1"/);
 
       const renamedPage = await requestJson<Page>(
         baseUrl,
@@ -171,6 +223,35 @@ const tests: TestCase[] = [
         },
       );
       assert.equal(renamedPage.data.name, 'Quarter Planning v2');
+      assert.equal(fs.existsSync(semanticPath), false);
+      const renamedSemanticPath = path.join(
+        settings.planvasRoot,
+        'project_store',
+        'Roadmap-2026',
+        '.pv_project',
+        'Quarter-Planning-v2.semantic.xml',
+      );
+      const renamedPresentationPath = path.join(
+        settings.planvasRoot,
+        'project_store',
+        'Roadmap-2026',
+        '.pv_project',
+        'Quarter-Planning-v2.presentation.xml',
+      );
+      assert.equal(fs.existsSync(renamedSemanticPath), true);
+      assert.equal(fs.existsSync(renamedPresentationPath), true);
+      assert.match(
+        fs.readFileSync(renamedSemanticPath, 'utf8'),
+        /name="Quarter Planning v2"/,
+      );
+      const listedPages = await requestJson<Page[]>(
+        baseUrl,
+        `/projects/${created.data.id}/pages`,
+      );
+      assert.deepEqual(
+        listedPages.data.map((page) => page.name),
+        ['Quarter Planning v2'],
+      );
 
       const deletePageResponse = await fetch(
         `${baseUrl}/pages/${pageResponse.data.id}`,
@@ -254,9 +335,135 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: 'refreshes the project index from project_store directories',
+    run: async () => {
+      const { baseUrl, settings } = await createTestServer();
+      const created = (
+        await requestJson<Project>(baseUrl, '/projects', {
+          method: 'POST',
+          ...jsonBody({ name: 'Indexed Later' }),
+        })
+      ).data;
+      const indexPath = path.join(settings.planvasRoot, 'project.json');
+      assert.equal(fs.existsSync(indexPath), true);
+
+      fs.rmSync(indexPath, { force: true });
+
+      const refreshed = await requestJson<Project[]>(baseUrl, '/projects');
+      assert.deepEqual(
+        refreshed.data.map((project) => project.id),
+        [created.id],
+      );
+      assert.equal(refreshed.data[0]?.storage_kind, 'project_store');
+      assert.equal(fs.existsSync(indexPath), true);
+    },
+  },
+  {
+    name: 'opens copied projects as separate paths without replacing originals',
+    run: async () => {
+      const { baseUrl, root } = await createTestServer();
+      const original = (
+        await requestJson<Project>(baseUrl, '/projects', {
+          method: 'POST',
+          ...jsonBody({ name: 'Same Name' }),
+        })
+      ).data;
+      assert.ok(original.path);
+
+      const copiedPath = path.join(root, 'outside', 'Same Name');
+      fs.mkdirSync(path.join(copiedPath, '.pv_project'), { recursive: true });
+      fs.copyFileSync(
+        path.join(original.path, '.pv_project', 'metadata.json'),
+        path.join(copiedPath, '.pv_project', 'metadata.json'),
+      );
+
+      const copied = await requestJson<Project>(
+        baseUrl,
+        '/projects/open-path',
+        {
+          method: 'POST',
+          ...jsonBody({ path: copiedPath }),
+        },
+      );
+
+      assert.equal(copied.data.name, original.name);
+      assert.notEqual(copied.data.id, original.id);
+      assert.equal(copied.data.path, path.resolve(copiedPath));
+
+      const reopened = await requestJson<Project>(
+        baseUrl,
+        '/projects/open-path',
+        {
+          method: 'POST',
+          ...jsonBody({ path: copiedPath }),
+        },
+      );
+      assert.equal(reopened.data.id, copied.data.id);
+
+      const projects = await requestJson<Project[]>(baseUrl, '/projects');
+      const projectIds = projects.data.map((project) => project.id);
+      assert.equal(projectIds.includes(original.id), true);
+      assert.equal(projectIds.includes(copied.data.id), true);
+      assert.equal(
+        projects.data.filter((project) => project.name === 'Same Name').length,
+        2,
+      );
+      assert.equal(
+        new Set(projects.data.map((project) => project.path)).size,
+        projects.data.length,
+      );
+    },
+  },
+  {
+    name: 'opens manual relative paths from the user home directory',
+    run: async () => {
+      const previousHome = process.env.HOME;
+      const previousUserProfile = process.env.USERPROFILE;
+      const fakeHome = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'whiteboard-home-'),
+      );
+      try {
+        process.env.HOME = fakeHome;
+        process.env.USERPROFILE = fakeHome;
+        const { baseUrl } = await createTestServer();
+        const relativeProjectPath = path.join('Documents', 'Client Plan');
+        const expectedPath = path.resolve(fakeHome, relativeProjectPath);
+
+        const opened = await requestJson<Project>(
+          baseUrl,
+          '/projects/open-path',
+          {
+            method: 'POST',
+            ...jsonBody({ path: relativeProjectPath }),
+          },
+        );
+
+        assert.equal(opened.data.path, expectedPath);
+        assert.equal(
+          fs.existsSync(
+            path.join(expectedPath, '.pv_project', 'metadata.json'),
+          ),
+          true,
+        );
+      } finally {
+        if (previousHome === undefined) {
+          delete process.env.HOME;
+        } else {
+          process.env.HOME = previousHome;
+        }
+        if (previousUserProfile === undefined) {
+          delete process.env.USERPROFILE;
+        } else {
+          process.env.USERPROFILE = previousUserProfile;
+        }
+        fs.rmSync(fakeHome, { recursive: true, force: true });
+      }
+    },
+  },
+  {
     name: 'persists board items, connectors, and board-state replacements',
     run: async () => {
-      const { baseUrl } = await createTestServer();
+      const { baseUrl, settings } = await createTestServer();
       const project = (
         await requestJson<Project>(baseUrl, '/projects', {
           method: 'POST',
@@ -336,6 +543,60 @@ const tests: TestCase[] = [
           }),
         })
       ).data;
+      const tableChild = await createBoardItem(baseUrl, {
+        page_id: page.id,
+        parent_item_id: null,
+        category: 'small_item',
+        type: 'text_box',
+        title: 'Ticket seed',
+        content: 'Create Jira ticket',
+        content_format: 'plain_text',
+        x: 520,
+        y: 132,
+        width: 160,
+        height: 120,
+        rotation: 0,
+        z_index: 3,
+        is_collapsed: false,
+        style_json: null,
+        data_json: null,
+      });
+      const tableData = {
+        rows: 1,
+        cols: 1,
+        colWidths: [1],
+        rowHeights: [1],
+        cells: [
+          [
+            {
+              id: 'cell-ticket',
+              content: 'Todo',
+              rowSpan: 1,
+              colSpan: 1,
+              isCollapsed: true,
+              childItemIds: [tableChild.id],
+            },
+          ],
+        ],
+      };
+      const table = await createBoardItem(baseUrl, {
+        page_id: page.id,
+        parent_item_id: null,
+        category: 'shape',
+        type: 'table',
+        title: 'Sprint board',
+        content: null,
+        content_format: null,
+        x: 480,
+        y: 80,
+        width: 360,
+        height: 216,
+        rotation: 0,
+        z_index: 4,
+        is_collapsed: false,
+        style_json: null,
+        data_json: JSON.stringify(tableData),
+      });
 
       const snapshot = (
         await requestJson<PageBoardData>(
@@ -343,8 +604,73 @@ const tests: TestCase[] = [
           `/pages/${page.id}/board-data`,
         )
       ).data;
-      assert.equal(snapshot.board_items.length, 3);
+      assert.equal(snapshot.board_items.length, 5);
       assert.deepEqual(snapshot.connector_links, [connector]);
+      const loadedTableChild = snapshot.board_items.find(
+        (item) => item.id === tableChild.id,
+      );
+      assert.equal(loadedTableChild?.parent_item_id, table.id);
+      const loadedTable = snapshot.board_items.find(
+        (item) => item.id === table.id,
+      );
+      assert.ok(loadedTable);
+      const loadedTableData = JSON.parse(loadedTable.data_json ?? '{}') as {
+        cells: Array<Array<{ childItemIds?: string[] } | null>>;
+      };
+      assert.deepEqual(
+        loadedTableData.cells[0]?.[0]?.childItemIds,
+        [tableChild.id],
+      );
+
+      const projectDataDir = path.join(
+        settings.planvasRoot,
+        'project_store',
+        'Execution',
+        '.pv_project',
+      );
+      const semanticXml = fs.readFileSync(
+        path.join(projectDataDir, 'Main-Board.semantic.xml'),
+        'utf8',
+      );
+      const presentationXml = fs.readFileSync(
+        path.join(projectDataDir, 'Main-Board.presentation.xml'),
+        'utf8',
+      );
+      assert.match(semanticXml, /<page_semantic schema_version="2"/);
+      assert.match(semanticXml, /<objects>/);
+      assert.match(semanticXml, /<links>/);
+      assert.match(presentationXml, /<page_presentation schema_version="2"/);
+      assert.match(presentationXml, /<items>/);
+      assert.match(
+        semanticXml,
+        new RegExp(
+          `<object id="${frame.id}"[^>]*type="frame"[\\s\\S]*<contains>[\\s\\S]*<item ref="${note.id}" />`,
+        ),
+      );
+      assert.match(
+        semanticXml,
+        new RegExp(
+          `<object id="${table.id}"[^>]*type="table"[\\s\\S]*<cell id="cell-ticket"[^>]*>[\\s\\S]*<item ref="${tableChild.id}" />`,
+        ),
+      );
+      assert.match(
+        semanticXml,
+        new RegExp(
+          `<link id="${connector.id}"[^>]*connector_item_id="${arrow.id}"[^>]*from="${note.id}"[^>]*to="${frame.id}"`,
+        ),
+      );
+      assert.match(
+        semanticXml,
+        new RegExp(
+          `<object id="${note.id}"[\\s\\S]*<connections>[\\s\\S]*<connection to="${frame.id}" by="${connector.id}" role="outgoing" />`,
+        ),
+      );
+      assert.match(
+        presentationXml,
+        new RegExp(
+          `<item ref="${note.id}"[^>]*x="${note.x}"[^>]*y="${note.y}"`,
+        ),
+      );
 
       const stray = await createBoardItem(baseUrl, {
         page_id: page.id,
@@ -359,7 +685,7 @@ const tests: TestCase[] = [
         width: 160,
         height: 160,
         rotation: 0,
-        z_index: 3,
+        z_index: 5,
         is_collapsed: false,
         style_json: null,
         data_json: null,
@@ -380,13 +706,152 @@ const tests: TestCase[] = [
 
       assert.deepEqual(
         replace.data.board_items.map((item) => item.id).sort(),
-        [frame.id, note.id, arrow.id].sort(),
+        [frame.id, note.id, arrow.id, tableChild.id, table.id].sort(),
       );
       assert.equal(
         replace.data.board_items.some((item) => item.id === stray.id),
         false,
       );
       assert.deepEqual(replace.data.connector_links, [connector]);
+    },
+  },
+  {
+    name: 'regulates Page XML and removes stale table child references',
+    run: async () => {
+      const { baseUrl, settings } = await createTestServer();
+      const project = (
+        await requestJson<Project>(baseUrl, '/projects', {
+          method: 'POST',
+          ...jsonBody({ name: 'Regulate' }),
+        })
+      ).data;
+      const page = (
+        await requestJson<Page>(baseUrl, `/projects/${project.id}/pages`, {
+          method: 'POST',
+          ...jsonBody({ name: 'Broken XML' }),
+        })
+      ).data;
+
+      const child = await createBoardItem(baseUrl, {
+        page_id: page.id,
+        parent_item_id: null,
+        category: 'small_item',
+        type: 'text_box',
+        title: null,
+        content: 'Valid child',
+        content_format: 'plain_text',
+        x: 24,
+        y: 24,
+        width: 120,
+        height: 72,
+        rotation: 0,
+        z_index: 1,
+        is_collapsed: false,
+        style_json: null,
+        data_json: null,
+      });
+      const sticky = await createBoardItem(baseUrl, {
+        page_id: page.id,
+        parent_item_id: null,
+        category: 'small_item',
+        type: 'sticky_note',
+        title: null,
+        content: 'Convert me',
+        content_format: 'plain_text',
+        x: 48,
+        y: 48,
+        width: 120,
+        height: 72,
+        rotation: 0,
+        z_index: 2,
+        is_collapsed: false,
+        style_json: null,
+        data_json: null,
+      });
+      const tableData = {
+        rows: 1,
+        cols: 1,
+        colWidths: [1],
+        rowHeights: [1],
+        cells: [
+          [
+            {
+              id: 'cell-regulate',
+              content: '',
+              rowSpan: 1,
+              colSpan: 1,
+              isCollapsed: true,
+              childItemIds: ['missing-child', child.id, child.id, sticky.id],
+            },
+          ],
+        ],
+      };
+      const table = await createBoardItem(baseUrl, {
+        page_id: page.id,
+        parent_item_id: null,
+        category: 'shape',
+        type: 'table',
+        title: 'Regulated table',
+        content: null,
+        content_format: null,
+        x: 0,
+        y: 0,
+        width: 240,
+        height: 120,
+        rotation: 0,
+        z_index: 3,
+        is_collapsed: false,
+        style_json: null,
+        data_json: JSON.stringify(tableData),
+      });
+
+      const regulated = (
+        await requestJson<PageRegulateResult>(
+          baseUrl,
+          `/pages/${page.id}/regulate`,
+          { method: 'POST' },
+        )
+      ).data;
+
+      assert.equal(regulated.report.removed_table_child_refs, 2);
+      assert.equal(regulated.report.normalized_items, 1);
+      const regulatedTable = regulated.board_items.find(
+        (item) => item.id === table.id,
+      );
+      assert.ok(regulatedTable);
+      const regulatedTableData = JSON.parse(
+        regulatedTable.data_json ?? '{}',
+      ) as typeof tableData;
+      assert.deepEqual(
+        regulatedTableData.cells[0]?.[0]?.childItemIds,
+        [child.id],
+      );
+      const regulatedChild = regulated.board_items.find(
+        (item) => item.id === child.id,
+      );
+      assert.equal(regulatedChild?.parent_item_id, table.id);
+      const regulatedSticky = regulated.board_items.find(
+        (item) => item.id === sticky.id,
+      );
+      assert.equal(regulatedSticky?.type, 'sticky_note');
+      assert.equal(regulatedSticky?.category, 'sticky_item');
+      assert.equal(regulatedSticky?.parent_item_id, null);
+
+      const semanticXml = fs.readFileSync(
+        path.join(
+          settings.planvasRoot,
+          'project_store',
+          'Regulate',
+          '.pv_project',
+          'Broken-XML.semantic.xml',
+        ),
+        'utf8',
+      );
+      assert.doesNotMatch(semanticXml, /missing-child/);
+      assert.match(semanticXml, /kind="sticky_object"/);
+      assert.match(semanticXml, /category="sticky_item"/);
+      assert.match(semanticXml, /type="sticky_note"/);
+      assert.match(semanticXml, /<\/page_semantic>/);
     },
   },
   {
@@ -448,7 +913,7 @@ const tests: TestCase[] = [
         '# Created note\n\nBody text',
       );
       const pageXml = fs.readFileSync(
-        path.join(projectDataDir, 'Main.xml'),
+        path.join(projectDataDir, 'Main.semantic.xml'),
         'utf8',
       );
       assert.doesNotMatch(pageXml, /# Created note/);
@@ -528,8 +993,11 @@ const tests: TestCase[] = [
       assert.equal(mainBoardAfterRename.board_items.length, 2);
       assert.equal(otherBoardAfterRename.board_items.length, 1);
       assert.ok(
-        [...mainBoardAfterRename.board_items, ...otherBoardAfterRename.board_items].every(
-          (item) => item.data_json?.includes('"noteFile":"Renamed-note.md"'),
+        [
+          ...mainBoardAfterRename.board_items,
+          ...otherBoardAfterRename.board_items,
+        ].every((item) =>
+          item.data_json?.includes('"noteFile":"Renamed-note.md"'),
         ),
       );
 
@@ -634,6 +1102,55 @@ const tests: TestCase[] = [
       assert.equal(
         fs.readFileSync(path.join(looseProjectDataDir, 'Loose.md'), 'utf8'),
         '# Loose note\n\nImported body',
+      );
+
+      const sameNameRename = (
+        await requestJson<ProjectNote>(
+          baseUrl,
+          `/projects/${looseProject.id}/notes/Loose.md/rename`,
+          {
+            method: 'PATCH',
+            ...jsonBody({ note_file: 'Loose.md' }),
+          },
+        )
+      ).data;
+      assert.equal(sameNameRename.note_file, 'Loose.md');
+      assert.equal(
+        fs.existsSync(path.join(looseProjectDataDir, 'Loose.md')),
+        true,
+      );
+
+      const renamedLooseNote = (
+        await requestJson<ProjectNote>(
+          baseUrl,
+          `/projects/${looseProject.id}/notes/Loose.md/rename`,
+          {
+            method: 'PATCH',
+            ...jsonBody({ note_file: 'Loose-renamed.md' }),
+          },
+        )
+      ).data;
+      assert.equal(renamedLooseNote.note_file, 'Loose-renamed.md');
+      assert.equal(
+        fs.existsSync(path.join(looseProjectDataDir, 'Loose.md')),
+        false,
+      );
+      assert.equal(
+        fs.readFileSync(
+          path.join(looseProjectDataDir, 'Loose-renamed.md'),
+          'utf8',
+        ),
+        '# Loose note\n\nImported body',
+      );
+      const looseBoardAfterRename = (
+        await requestJson<PageBoardData>(
+          baseUrl,
+          `/pages/${loosePage.id}/board-data`,
+        )
+      ).data;
+      assert.match(
+        looseBoardAfterRename.board_items[0]?.data_json ?? '',
+        /"noteFile":"Loose-renamed\.md"/,
       );
     },
   },

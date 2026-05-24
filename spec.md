@@ -1,4 +1,4 @@
-﻿# Whiteboard Planning App Spec
+# Whiteboard Planning App Spec
 
 ## Desktop Runtime Update Notes
 
@@ -24,7 +24,24 @@
 - A `Project` is a working directory that may live either under `project_store/` or at an external user-selected path.
 - Each Project directory must contain `.pv_project/` as a Planvas data directory.
 - Project metadata must live at `.pv_project/metadata.json`.
-- Each Page must be stored as an XML file inside `.pv_project/`.
+- `.pv_project/metadata.json` must store only project-level settings and timestamps; it must not persist page lists, note lists, or per-page viewport state.
+- Each Page must be stored as two XML files inside `.pv_project/`: `<page_name>.semantic.xml` and `<page_name>.presentation.xml`.
+- Page discovery must come from the `.pv_project/` XML files, and Project note discovery must come from `.pv_project/*.md`.
+- Renaming a Page must also rename its sibling XML files to match the new Page name, while preserving the Page id and board content.
+- Page XML v2 must separate AI-readable semantic data from visual presentation data at the file level.
+- Page XML v2 semantic files must describe the information inside the board and the relationships between board objects.
+- Page XML v2 presentation files must describe geometry, z-order, color, patterns, shape styling, and connector routing.
+- Page-level viewport fields such as `viewport_x`, `viewport_y`, and `zoom` must be stored on the Page XML root attributes rather than in `.pv_project/metadata.json`.
+- AI and automation workflows, including Jira ticket creation, should be able to read page meaning from the semantic file plus referenced markdown files without reading presentation data.
+- Page XML v2 semantic objects are grouped as `large_object`, `small_object`, `sticky_object`, and `link`.
+- `frame` and `table` are `large_object` types.
+- `text_box` and `note_paper` are `small_object` types.
+- `sticky_note` is a standalone `sticky_object` type. It is not a `small_object` or `large_object` and must not be contained by frames or tables.
+- `line` and `arrow` are `link` types only when they express a relationship; purely decorative lines may remain presentation-only.
+- `frame` can contain `small_object` children directly through semantic containment.
+- `table` is a `large_object`, but each `table_cell` is the semantic container that can contain `small_object` children.
+- Semantic links are the canonical source of truth for object-to-object relationships.
+- Object-level `connections` entries may exist as AI-friendly indexes, but they must be generated from or validated against canonical semantic links.
 - Markdown files placed directly under `.pv_project/` are project note files and must be represented as `note_paper` notes by the system.
 - `note_paper` body content must be stored in `.md` files under `.pv_project/`; Page XML stores only the board item placement and a markdown file reference.
 - Creating a `note_paper` on a Page must create a corresponding `.md` file under `.pv_project/`.
@@ -38,13 +55,18 @@
 ## Navigation Update Notes
 
 - The workspace left page sidebar and right inspector must both support collapse / expand toggles while keeping a visible restore handle.
-- Opening a `Project` from the dedicated home screen must create a browser history entry and enter a concrete `Page` immediately.
+- Opening a `Project` from the dedicated home screen must create a browser history entry, enter the workspace, and load the Project's Pages list without opening any Page by default.
 - The home screen left action area must show `Create Project` and `Open Project`; the previous project JSON import action is removed from the home screen.
-- `Open Project` should use a native folder picker when available and fall back to a manual path entry if the picker is unavailable.
+- `Create Project` should open an app modal for project naming instead of using a browser prompt.
+- `Open Project` should use the Windows native folder picker when available and fall back to manual path entry only if the picker is unavailable; manual paths may be absolute, `~`-based, or relative to `<user_home>`.
+- `Open Project` must identify already-opened projects by canonical filesystem path, not by Project name. Opening the same path again must reuse the same Project registration.
+- If two different Project paths have the same Project name, they must remain separate Common Projects.
+- If a copied Project folder has duplicated metadata ids, opening the copied path must assign that path a new Project id instead of replacing the original path's registration.
 - The home screen project list is `Common Projects`: first projects under `project_store/`, then registered projects from other paths.
 - The home screen must provide `Refresh` to re-check whether registered project paths still exist.
 - After Refresh marks a registered project path as missing, the home screen must provide a remove button that deletes only the `project.json` entry.
-- If the target project is already loaded in memory, the workspace should keep the current page when possible and otherwise fall back to that project's first page.
+- Entering a Project from the home screen must not keep or auto-open any previous Page selection; no Page should be selected until the user chooses one or the URL explicitly names one.
+- Entering a Project workspace from the home screen must refresh that Project's Pages and Notes from disk even when it is the same Project id that was previously selected.
 - The workspace left sidebar should stay focused on page navigation and should not render a project details panel.
 - The workspace sidebar header should show a top row with `Planvas` and `Home`, then a divided project summary row with `Project`, the current project name, and a settings icon button.
 - Project settings should open from that sidebar header settings button in a modal that uses about 70% of the viewport width on desktop.
@@ -61,13 +83,13 @@
 
 ## Toolbar Menu Update Notes
 
-- The top toolbar should follow an Office-like menu pattern where `瑼?` and `蝺刻摩` open dropdown menus after clicking the menu name.
-- `瑼?` dropdown should contain `import` and `export` entries instead of direct always-visible buttons.
+- The top toolbar should follow an Office-like menu pattern where `檔案` and `編輯` open dropdown menus after clicking the menu name.
+- `檔案` dropdown should contain `import` and `export` entries instead of direct always-visible buttons.
 - `export` should open a right-side submenu on hover so future formats can be extended without changing menu hierarchy.
 - The `export` submenu should be planned around multiple targets: existing `JSON`, quick-share `PNG`, presentation-oriented `PPTX`, and a read-only `Viewer` deliverable.
 - New export targets should reuse a shared snapshot source so format-specific output does not diverge from the persisted page / project model.
 - Canvas utility controls must live in the expandable canvas header ribbon, not in a separate right-upper floating strip.
-- The expanded header ribbon groups `瑼?`, `蝺刻摩`, and `瑼Ｚ?`; `瑼Ｚ?` contains `magnet`, `zoom`, and `?` controls.
+- The expanded header ribbon groups `檔案`, `編輯`, and `檢視`; `檢視` contains `magnet`, `zoom`, and `格線` controls.
 - The draggable toolbar should keep tool shortcuts only (selection and item creation tools), while non-tool utility controls move to the expandable canvas header ribbon.
 
 ## Zoom And Grid Update Notes
@@ -87,18 +109,26 @@
 - When a `text_box` becomes too small to show all text, it should keep showing as much text as fits without introducing a scrollbar.
 - When a `note_paper` becomes too small to show all markdown content, the body area should scroll instead of clipping the whole note.
 - When a `note_paper` has very limited space, the read view should prioritize the first Markdown `#` heading before showing lower-priority body blocks.
+- On the Page, `note_paper` must let the user toggle between expanded markdown content and a title-only view that shows just the first Markdown `#` heading, or the first non-empty line when no H1 exists.
 - `note_paper` content is markdown-file-backed: the frontend may continue using the API `content` field, but persistence must write the markdown body to `.pv_project/<note>.md` and reload the API `content` field from that file.
 - The right inspector must let users edit the `.md` filename for a selected `note_paper`; changing it renames the markdown backing file and updates the Page XML reference.
 - Project notes are reusable across Pages: placing a note from the left Notes box creates another board item placement that references the selected markdown file instead of duplicating note text into Page XML.
 - The Notes box must refresh after markdown-backed notes are created, renamed, updated, or deleted through the canvas or inspector so it reflects the Project's current note files.
+- When the user returns focus to the workspace or the browser tab becomes visible again, the frontend must refresh `.pv_project/*.md` project notes from disk and update visible `note_paper` placements that reference those files.
+- External `.md` file refresh must not overwrite an actively edited in-app note draft.
 - Deleting a `note_paper` from a Page deletes only that Page placement. It must not delete the backing `.md` file or remove the note from the left Notes box.
 - The same `.md` note may appear multiple times on the same Page and on multiple Pages. All placements share the same backing file, so content or filename changes update every placement that references that note.
 
 ## Table And Small-Item Sizing Update Notes
 
 - `table` must support up to `20 x 20` cells.
+- `table` edge controls must allow adding a row above or below the current table, and adding a column to the left or right of the current table.
+- Adding a `table` row or column from an outer edge must grow the table outward in that direction while preserving the existing cells' pixel sizes and positions.
+- Deleting a `table` row or column must remove that row or column, delete any `small_item` children contained by the removed cells, and close the remaining cells together.
+- When a `table` changes size or row / column structure, surviving `small_item` children must follow their containing cell through the table cell layout, not keep absolute canvas positions.
 - Every `table` cell must stay at least as large as the minimum `text_box` size.
-- The minimum `text_box` width should be reduced by two grid columns so it aligns with `sticky_note` width.
+- Clicking the toolbar `table` tool opens a fixed-origin table insertion preview that expands away from the toolbar dock: down-right for top/left toolbars, up-right for bottom toolbars, and down-left for right toolbars. Clicking the `table` tool again cancels the pending table insertion.
+- The minimum `text_box`, `sticky_note`, and `table` cell size should be `48 x 48`, matching two default text line-heights while staying aligned to the canvas grid.
 - Every board item minimum size, including `line`, `arrow`, and dynamic `table` minimum sizes, must stay aligned to whole canvas grid units.
 - When `magnet` is enabled, dragging internal `table` row and column divider lines must snap those divider lines to the canvas grid. Holding `Alt` temporarily disables this table-divider snapping.
 
@@ -112,92 +142,131 @@
 - Right-clicking empty canvas space should keep a lighter canvas context menu that exposes `paste` only.
 - Context-menu actions must stay aligned with the existing keyboard shortcuts so both entry points trigger the same behavior.
 
+## Inspector Tab Update Notes
+
+- The right inspector must expose two top-level tabs: `樣式` and `文字`.
+- The `樣式` tab contains object-level controls such as position, size, object/background/line colors, item text content, table cell text content, markdown filename, frame collapse controls, and table item layout.
+- The `文字` tab contains typography controls such as font size, bold/italic text style, text alignment, table label font size, table cell text alignment, and line/arrow label placement.
+- Line and arrow label text content belongs in `樣式`; label font size and label placement belong in `文字`.
+- Table cell fill/text colors and cell text content belong in `樣式`; table/cell typography and text alignment belong in `文字`.
+
+## Line Text Update Notes
+
+- `line` supports an optional text label stored in the board item `content` field.
+- Double-clicking a `line` enters inline text editing for that label.
+- The right inspector must let users place `line` text at front, center, or back along the line.
+- The right inspector must let users place `line` text above, middle, or below the line.
+- The right inspector must let users choose whether `line` text stays horizontal or follows the line slope.
+- `line` text editing and all text-related settings must be grouped together in the inspector.
+- `line` text background defaults to transparent and can be changed from the inspector.
+- `line` text size and text color can be changed from the inspector.
+- `arrow` head size defaults to a compact `14px` so labels and nearby board content remain readable.
+- The inspector commits `arrow` head size edits after the user finishes the field instead of clamping every intermediate keystroke.
+- Legacy connector-arrow placements must be migrated into segment-arrow geometry on load; the frontend should not keep a separate legacy arrow renderer.
+
+## Frame Exit Interaction Update Notes
+
+- Dragging a `small_item` fully outside its parent `frame` must detach it from the frame while preserving the user's dropped canvas position.
+- Dragging a `small_item` only partially out of its parent `frame` may use the frame eject behavior to place it just outside the nearest frame edge.
+
 ## Table Text Layout And Inspector Update Notes
 
-- `table` 銝?閬?喃?閫?憭＊蝷箏? ? 甈?摮?蝐扎?
-- `text_box` ?批捆憿舐內??箏?蝵桐葉嚗?閬箔? always centered嚗?
-- `note_paper` ?批捆?蝬剜?憒?摮??梯??孵?嚗撌虫?敺?喃?瘚?憿舐內??
-- ?喳 Inspector ?券??`table` ?????銝????`??` ??憛??葉?曄蔭???賊?隤踵嚗?憒摮?????見撘???
+- `table` 支援儲存格文字水平對齊（左 / 中 / 右）與垂直對齊（上 / 中 / 下）設定；預設為水平置中、垂直置中；Inspector 顯示對應的對齊、字型大小與文字顏色控制項。
+- 在 Inspector 選取整張 `table` 並調整文字樣式時，表格內所有儲存格文字必須立即套用相同字型大小、文字顏色、粗體與斜體；表格儲存格內嵌的 `small_item` 也必須同步套用這些文字樣式。
+- `text_box` 支援文字水平對齊（左 / 中 / 右）與垂直對齊（上 / 中 / 下）設定；預設為水平置中、垂直置中。
+- `note_paper` 內文以 Markdown 儲存；Inspector 顯示尺寸控制；在 Page 上可切換展開全文或只顯示第一個 Markdown H1 標題；在 `frame` 縮回時只顯示第一個 Markdown H1 標題。
+- 在 Inspector 中選取 `table` 時，應顯示「列 × 欄」尺寸標籤與新增/刪除列欄的操作按鈕；點擊表格儲存格文字區域時進入 inline 編輯模式，不透過 Inspector 面板介入文字輸入。
+- 在 Inspector 中選取 `table` 時，應顯示 optional「名子」欄位；輸入後才在表格左上方顯示小標籤，未輸入或舊 Page 缺少 `name` 時不顯示。
+- `table` 名稱標籤支援獨立字級設定；使用者可在 Inspector 調整標籤字級，也可在 Page 上雙擊標籤進行現場編輯。
+- `table` 的新增 row / col 邊緣按鈕必須保持容易點擊，控制層不得被表格內容裁切。
 
 ## Minimap And New-Page Viewport Update Notes
 
-- Canvas ?喃?閫?憿舐內 mini map嚗?靘撘萇?踹?撣?蝮桀?閬???
-- mini map ?憿舐內?桀? viewport ?敶Ｘ?嚗?雿輻??蜓閬?甇??銝???
-- mini map ?隞亙?暺＊蝷箇隞嗅?撣???憿瘝輻?隞嗥???脯?
-- ?啣? Page ???身 viewport ???具? 80% ?箇洵銝鞊⊿???0% ?箄?鞊⊿???韏瑕?閬???
+- Canvas 應在角落顯示 mini map；使用者可點擊 mini map 上任意位置以跳轉至對應畫布區域。
+- Mini map 應顯示當前 viewport 的位置框，使用者可拖曳 viewport 框來平移畫布。
+- Mini map 應能正確顯示已縮回的 `frame` 物件之代表內容，不得因縮回狀態顯示錯誤範圍。
+- 切換到 Page 時，若 Page 有既有物件，初始 viewport 應設定為讓所有物件適合在 80% 的畫布可見範圍內；若 Page 為空，使用預設縮放。
 
-## 1. ?Ｗ?摰?
+## Cross-Page Copy and Paste Update Notes
 
-?銝??local-first ?鈭箇?輯??極?瘀??身?其蝙?刻撌梁??餉銝誑?祆???蝡舀??撘?雿????舀??Ｘ挺???
+- Clipboard data must be stored in `window.localStorage` (or memory fallback if `window.localStorage` is unavailable) to allow copy-pasting of whiteboard items across different pages (and different projects).
+- Clipboard entries store the original item IDs and the full payloads of the selected items (retaining hierarchy like parent frame IDs).
+- When pasting, the paste count is incremented, and items are offset on the target page based on the paste count to avoid visual overlap.
+- When copying new items, the paste count is reset to 0.
+- When copy-pasting objects, any parent-child frame containment relationships between the copied objects must be preserved by mapping parent IDs to their newly pasted equivalent IDs.
 
-銝餉?雿輻??嚗?
+## 1. 專案背景
+
+這是一個為了替代公司無法採購的商業軟體而自行開發的本機優先白板工具。
+
+主要使用情境：
 
 - brainstorming
-- sprint 撌乩???
-- roadmap 閬?
-- 撠??撘??
+- sprint 工作分配
+- roadmap 規劃
+- 專案頁面式整理
 
-蝚砌???暺?鈭箄???蝔???銝?憭犖???蝡臬?甇交?甈?蝟餌絞??
+產品方向是 local-first，重點在單人規劃效率，而不是第一版就做多人協作平台。
 
-## 2. ?箏??銵捱蝑?
+## 2. 技術架構
 
 ### Frontend
 
-雿輻 **React + TypeScript**??
+採用 **React + TypeScript**。
 
-?嚗?
+原因：
 
-- ?賣?anvas?rag-drop????????拙???React 撱箇??舐雁霅瑞? UI
-- TypeScript 撠?輻隞嗚??? API 憟???憿臬鼠??
+- Canvas、drag-drop、multi-select 等複雜互動需要 React 元件化渲染 UI
+- TypeScript 保證嚴格型別與 API 合約一致性
 
 ### Backend
 
-雿輻 **TypeScript + Node.js**??
+採用 **TypeScript + Node.js**。
 
-?嚗?
+原因：
 
-- TypeScript ? backend ? frontend ??輻隞嗚??? API ??蝯?銝??
-- Node.js ?拙????祆? HTTP API嚗??垢???Ⅱ隞摮?鞈?
+- TypeScript 讓 backend 與 frontend 共用型別定義與 API 合約
+- Node.js 適合提供輕量 HTTP API 並直接存取本機檔案系統
 
 ### Persistence
 
-雿輻 **Planvas file storage**??
+採用 **Planvas file storage**。
 
-?嚗?
+原因：
 
-- ?格??祆?鞈??脣??雿?
-- 銝?鞈游??冽???
-- ?拙? MVP ?挾
+- 適合 local-first 的使用情境
+- 不依賴資料庫
+- 適合 MVP 優先的實作方式
 
-## 3. 蝭?
+## 3. 範圍
 
 ### In Scope
 
-- Project 蝞∠?
-- 擐??? Project ?豢??遣蝡??臬?亙
-- 瘥?Project 摨?憭?Page
-- 瘥?Page ?臭?撘萇??
-- ?賣?拐辣?遣蝡楊頛胯?扎宏?葬?整?摨?
-- Planvas file storage ?祆?????
-- ?祆???蝡臬???蝔?
+- Project 管理
+- 每個 Project 下支援多個 Page 的白板功能
+- Page 的新增、讀取、更新、刪除
+- Board item 的新增、讀取、更新、刪除
+- 多種白板物件工具
+- Planvas file storage 持久化
+- 持久化測試與冒煙測試
 
 ### Out of Scope
 
-- 憭犖??
-- ?脩垢?郊
-- 甈?蝟餌絞
-- 撣唾??餃
-- 銵?鋆蔭撠?
+- 多人協作
+- 權限控管
+- 雲端同步
+- 行動裝置支援
+- 外掛系統
 
-## 4. ?詨?鞈?蝯?
+## 4. 資料模型
 
-### 4.1 銝駁?
+### 4.1 基本架構
 
-- 銝??App ?批隞交?憭?`Project`
-- 銝??`Project` ?批隞交?憭?`Page`
-- 銝??`Page` ?批隞交?憭?輻隞?
+- 一個 App 可以開啟多個 `Project`
+- 一個 `Project` 底下有多個 `Page`
+- 一個 `Page` 底下有多個白板物件
 
-### 4.2 ?拐辣??
+### 4.2 白板物件分類
 
 #### `shape`
 
@@ -207,8 +276,11 @@
 #### `small_item`
 
 - `text_box`
-- `sticky_note`
 - `note_paper`
+
+#### `sticky_item`
+
+- `sticky_note`
 
 #### `large_item`
 
@@ -218,27 +290,28 @@
 
 - `arrow`
 
-## 5. ??瘙?
+## 5. 功能規格
 
 ### 5.1 Project
 
-雿輻?隞伐?
+每個 Project 支援的操作：
 
-- ??敺??擐?
-- 敺?????Project ?脣撌乩??
-- 撱箇? Project
-- 敺?JSON 瑼??Project
-- ??賢? Project
-- ?芷 Project
-- 隞交??矽??Project ??
-- ?臬 Project ?箏霈 viewer ?澈瑼?
-- ???桀? Project
+- 顯示首頁清單並開啟
+- 開啟外部 Project 資料夾
+- 建立 Project
+- 匯出 JSON 快照
+- 重新命名 Project
+- 刪除 Project
+- 切換 Project 主題色彩
+- 匯出 Project 為 viewer 靜態頁面
+- 開啟 Project 設定
 
-Project ?喳??嚗?
+Project 資料欄位：
 
 - `id`
 - `name`
 - `theme_color`
+- `default_style_json`
 - `created_at`
 - `updated_at`
 - `sort_order`
@@ -250,37 +323,45 @@ Project theme color rules:
 - The theme applies to workspace chrome outside the canvas, including the sidebar, workspace header, toolbar, and inspector surfaces.
 - Canvas content, canvas item styling, and canvas grid/background controls remain independent from project theme color.
 
-Project ?臬閬?嚗?
+Project default item style rules:
 
-- 擐????臬?亙
-- ?臬瑼??澆???JSON snapshot
-- ?臬??撱箇??啁??祆? Project嚗?閬神?Ｘ? Project
-- ?臬???遣 Page?oard item ??connector ?璈?id嚗???Ｘ? Planvas file storage 鞈?銵?
+- `default_style_json` stores Project-level defaults for canvas item styling. Missing or empty values use app defaults.
+- Project settings must let users change defaults for all object text color, small-object fill color, large-object fill color, link stroke color, and link text color.
+- `text_box` and `note_paper` use the small-object fill default when the item has no item-level fill override. `sticky_note` keeps its own sticky color default when it has no item-level fill override.
+- `frame` and `table` use the large-object fill default when the item has no item-level fill override.
+- `line` and `arrow` use the link stroke default and link text default when the item has no item-level style override.
+- Item-level style settings remain more specific than Project defaults; clearing an item style returns that item to the Project defaults.
 
-Project ?臬 / ?澈閬?嚗?
+Project 匯出備註：
 
-- viewer ?臬隞?Project ?箏雿??靽?憭?Page ??砍?閬質??
-- viewer 頛詨?誑???嫣??典?鋆?whiteboard app ??backend???嚗????舐?仿??????航?蝬脤?瑼? / 撠?
-- viewer ??批?撠? snapshot嚗?靘陷?脩垢??嚗?銝?瘙隞嗉?憭?鋆??澈
-- viewer ??靘霈?汗嚗age ???an / zoom?rame 撅?????批捆?梯?嚗???蝺刻摩??乓?交???
-- viewer 頛詨??踹? `file://` 憿????嚗??芸??∪銝 HTML ????撠?嚗?閬??嗡辣????server
+- 支援匯出所有 Page 為 JSON 快照。
+- JSON 匯出包含完整的 Project JSON 備份，匯入時可建立新 Project。
+- 匯入後的 Page、board item、connector 均取得新的 id，不沿用 Planvas file storage 的舊有 id。
+
+Project 匯出 / 靜態頁面備註：
+
+- viewer 靜態頁面包含 Project 的所有 Page 及其物件的唯讀快照。
+- viewer 不依賴原始 whiteboard app 的 backend，不需要 server；頁面載入時直接讀取嵌入的快照。
+- viewer 封裝為 self-contained snapshot；資料不依賴外部服務，不同步即時更新。
+- viewer 支援基本互動：page pan / zoom、frame 展開收折、捲動文字，但不提供編輯與拖拽。
+- viewer 必須能在 `file://` 協議下直接開啟，不需要額外 server。
 
 ### 5.2 Page
 
-瘥?Project 摨??臭誑嚗?
+每個 Project 可建立多個 Page：
 
-- 撱箇? Page
-- ??賢? Page
-- ?芷 Page
-- 銴ˊ Page
-- ?臬?桀? Page ??JSON snapshot
-- ?臬?桀? Page ??PNG
-- ?臬?桀? Page ??PPTX
-- 敺?JSON ?臬 Page ?批捆?啁??Page嚗?桀? Page 撌脫??批捆??亦???
-- 隞交??矽??Page ??
-- ?? Page
+- 建立 Page
+- 重新命名 Page
+- 刪除 Page
+- 複製 Page
+- 匯出單一 Page 為 JSON 快照
+- 匯出單一 Page 為 PNG
+- 匯出單一 Page 為 PPTX
+- 從 JSON 匯入 Page 物件，建立新 Page；保留 Page 內物件的相對位置
+- 切換 Page 時更新 viewport
+- 開啟 Page
 
-Page ?喳??嚗?
+Page 資料欄位：
 
 - `id`
 - `project_id`
@@ -292,35 +373,34 @@ Page ?喳??嚗?
 - `updated_at`
 - `sort_order`
 
-Page ?臬鋆?閬?嚗?
+Page 匯出備註：
 
-- ?臬??JSON ???靽? `board_items[].parent_item_id` ??湔?風??`item_hierarchy`嚗邦? children 蝯?嚗?
-- `item_hierarchy` ??`parent_item_id` 敹?鈭銝?湛??踹?敺? MCP / agent 瘨祥??暹郁蝢?
-- PNG ?臬?誑?????隞嗥???銝鳴??⊿?頛詨?游撐?怠?
-- PNG ?臬???撖虫??撣??胯隞園??脯?璇????航???
-- PPTX ?臬?芸?隞乓???Page 撠?銝撘?slide????靽? Page ?迂?隞嗥撠?蝵株?銝餉?閬死撅斗活
-- PPTX ?臬?身雿輻?舐楊頛臬??隞塚?`table` 雿輻 PowerPoint 銵冽?拐辣?frame` 雿輻摨?拙耦 + 銝璅???獢擗?輻隞嗡蝙?冽?摮??輯??批捆
-- PPTX ?臬??⊿?瘝輻?賣?拐辣憿嚗??航????莎?嚗??冽撘??舀????亥???
-- ?亙?賣?拐辣??PPTX 銝剝隞亙???撱綽??迂隞?item-level rasterized snapshot 雿?詨捆 fallback嚗?頛詨瘚???Ⅱ摰儔 fallback ??
-- PNG?PTX?iewer ??典?銝隞賜??Ｚ?蝞??臬銝剔匱鞈?嚗???撘? frame ????摮?瑁? item hierarchy ?圾霈銝???
+- JSON 匯出包含 `board_items[].parent_item_id` 以描述物件父子關係及 `item_hierarchy`；children 均已展開序列化。
+- `item_hierarchy` 比 `parent_item_id` 更易讓 MCP / agent 解析物件樹狀結構。
+- PNG 匯出必須可見度良好，不受瀏覽器截圖尺寸限制。
+- PNG 匯出僅包含實際有物件的範圍，不包含過多空白。
+- PPTX 匯出應讓每個 Page 對應一個 slide；盡量保留 Page 的視覺版面與物件相對位置。
+- PPTX 匯出應盡量向量化；`table` 使用 PowerPoint 原生表格；`frame` 使用分組矩形加標題欄；其餘物件使用向量幾何或文字方塊。
+- PPTX 匯出不保證 100% 精確還原每個樣式，但需保留足夠辨識度。
+- 任何白板物件在 PPTX 無法向量化時，以 item-level rasterized snapshot 作為 fallback；系統應盡量避免 fallback 的觸發。
+- PNG、PPTX、viewer 匯出均使用統一的快照來源，確保各格式不因來源差異而偏離持久化的 page / Project 模型。
 
-### 5.3 ?賣??賢?
+### 5.3 白板互動
 
-瘥?Page ?抒??賣??湛?
+每個 Page 上的互動：
 
-- ?拐辣撱箇???扎宏??
-- ?拐辣 resize
-- z-index ??
-- 憭
-- ?賣蝛箇?皛?獢嚗?撠??典??急獢蝭????拐辣??詨?嚗蒂?臭?韏瑟??喟宏??
+- 物件建立、移動、resize
+- z-index 管理
+- 多選
+- 右鍵選單
 - Undo / Redo
-- ?祆?????
-- ?瑁??舐??拐辣??脣?賢? 7 ??閮剜????脖葉?豢?
-- ???脣?賢?撠?擃ˊ??閮剛蟡其葉?豢?
+- 磁鐵對齊
+- 選取後可針對 7 種操作開啟物件相關選單（在合理位置浮出）
+- 複選後可一次操作的選單以交集行為為準
 
-### 5.4 ?隞嗅???
+### 5.4 白板物件清單
 
-?舀隞乩??賣?拐辣嚗?
+白板上可放置的物件：
 
 - `line`
 - `table`
@@ -332,148 +412,144 @@ Page ?臬鋆?閬?嚗?
 
 ### 5.5 `line`
 
-- `line` / `arrow` ?垢暺?暺?銝剜挾??蝭暺???頛之??曌銝剔????踹?敹?蝎暹?憯撠?暺????
-
-- ?撌脩?摰?connector anchor ??`line` 蝺澈??蝟餌絞????detach嚗???freeform segment 敺?撟喟宏
-
-- `line` ????銝?蝑?游??亦敶ｇ??賭葉??誑蝺挾?祈澈??stroke width ??銝??捆?臬祝摨西?蝞?
-- `line` ?舐?交??喟?頨怠?撟喟宏嚗蝡舫?撌脩?摰隞隞塚??蝺澈????detach ?像蝘?
-
-- ?航?望???
-- 隞亥絲暺?蝯?摰儔蝺挾嚗?隞交?頧敶Ｖ??箔蜓閬??芋??
-- ?舐?交??單?園?隤踵韏琿???暺摨西??孵?
-- ?航身摰?祆見撘?
+- `line` / `arrow` 共用 freeform segment 機制；端點可附著 connector anchor；純裝飾線可不附著任何 connector，拖曳端點時沿 freeform 路徑延伸。
+- 若已連接 connector anchor，`line` 端點可拖離而自動 detach；保留 freeform segment 的手動操控。
+- `line` 可設定顏色、線寬、線段樣式（實線、虛線、點線）等屬性；角落樣式可選直角或圓角；Inspector 顯示對應的樣式控制項。
+- `line` 支援文字標籤；標籤文字支援即時編輯，連線的方向不影響標籤判讀方向。
+- 連線路徑中間可設置中繼 segment 點，依序連接各段端點。
+- 文字標籤位置可在路徑中央附近。
+- 支援路徑手動彎折。
 
 ### 5.6 `table`
 
-- 暺?銝極?瑕???`table` ?啣???敺??隞亥府??雿蔭雿?箏???嚗?嗅銝憿舐內銝??`1 ? 1` 撠”?潮?閬踝?皛??芾府????敺??/ 銝宏??嚗?閬賡?靘??曌?蝵桀?撘萇 `n ? m`嚗?暺?銝??迤隞亥府???詨遣蝡”??
-- ?航?望???
-- 鞈?璅∪?嚗TableData`嚗???`colWidths`嚗?甈祝摨血??賂??rowHeights`嚗?擃??賂??cells`嚗TableCellData | null` 鈭雁???嚗?
-- ?脣??潭??`rowSpan` / `colSpan`嚗?雿萄??摮?桀?嚗?
-- ?脣??澆隞亙??乩???`small_item` 敹怎嚗embed` 甈?嚗 type / content / styleJson嚗?
-- ?詨? table 敺?銵冽?蝺矽?游?撖?/ 甈?嚗誑摰孵?曉?瘥??貉?蝞?zoom-agnostic嚗?
-- ?詨? table 敺?皛??詨??蝺?憿舐內 `+` ??嚗筑韏瑕??恬??臬閰脖?蝵格??交??row ??col
-- ???脣??澆蝺刻摩??
-- 皛?獢憭敺＊蝷箝?雿萸????蔥?箏銝?脣??潘?`rowSpan` / `colSpan` > 1嚗?
-- 撌脣?雿萄摮?舀?璈怠? / 蝮勗???Ｗ儔
-- ?舀? `small_item`嚗text_box`?sticky_note`?note_paper`嚗??脣摮?賊?嚗? `frame`?詨?摩嚗?item 敺撣?歹??批捆摮?脣??潛?`embed` 甈?
-- 銵冽 resize ???脣??澆撌脣?? `small_item` 敹?頝?靘???cell bounds ?郊????葬?橘?銝衣雁???典??砍摮??
-- 撋?拐辣?摮?舀??嚗＊蝷箸?閬?/ 撅?嚗＊蝷箏??游摰對???
-- ???詨捆嚗閫???? `string[][]` ?澆?銝西????唳撘?
-- Inspector 憿舐內?桀?? / 甈?歇憛急?賂??航?嚗??????寧?賣??inline ??
-- ?蝺黎蝯???皛??詨???**?賊???湔?蝺挾**銝韏瑕?蝎?鈭殷?銝血閰脩黎蝯葉憭桅＊蝷?`+` ??嚗?湔??湔?蝺挾?脰??祝 / 甈?隤踵
-- ?蔥隤?嚗摮銝?血?雿蛛?閬\**?啁??函??脣??澆祕擃?*嚗??????儔?鋡怨??摮? identity
-- ?蝺蝡改??交?撌血嚗?銝?嚗?雿萄摮嚗◤?蔥?脣??潔葉?瑞?銝?嚗?撌血嚗??潛?閬**?函?蝺挾蝢斤?**嚗??芣????蝘餉?勗漲嚗????賊???
-- ?敺?畾萇蝡改?撌脣?雿萄摮?活????啁???脣??潸??箸?摮??啁??銝剝??蝺誑**?桀??蔥?潛???**?閮?嚗????甈?雿蔭嚗?銝??芸???銝?/ 撌血?蝺挾??????蝢斤?
-- 憭??游?隤?嚗?銵冽?憭??啣? row / col ???撘?table 憭?嚗????剝???????函??蝺?瑽????????憭批????潛?雿蔭??cell layout 敹?蝬剜? **exact 銝?**
-- ?芷 row / col 隤?嚗?文??誑?”?澆?獢葬撠銝鳴????舫?蝞??嗡??澆??曉之嚗?芰??舫?蝺?row / col嚗?亙??方府???亙?銝剝? row / col嚗?湔摮?亦?啣耦??雿菔?閬綽??嗡??芸?敶梢?澆???蝝偕撖貊雁??霈?
-- ?芷 row / col 敺?雿?嗡??脣??澆??`small_item` ?頝???cell layout ?郊雿宏????銝???蝵?
-- ?脣??潔誑 absolute positioning ??嚗?銵????潛?雿蔭?臬?蝢斤???蝡?蝘鳴?鞈?璅∪?銝凋誑 `colDividerPositions` / `rowDividerPositions` 閮?瘥挾?蝺?雿蔭閬神嚗蒂隞?`colDividerBreaks` / `rowDividerBreaks` 閮?銝??芸??????畾菜暺?
-
-- table ?芸?閮梢??憭惜???詨??游隞嗉?憿舐內蝘餃?皜豢?嚗?曌??潸”?澆?冽?嚗???湔??格嚗?雿??單??臬辣隡貊憭?詨?
-- table ?批??賭??潭?憭??銝頝喳憿??脣蔗?詨嚗??Inspector ?Ｘ???脫?嗆??湔憟?啗◤??脣???
+- 建立時先以 `1 × 1` 的最小尺寸起始，拖曳後擴充至指定的 `n × m`；建立後仍可新增 / 移除列欄。
+- 支援的 connector anchor 位置同其他物件。
+- 資料結構：`TableData`，包含 `colWidths`（每欄寬度陣列）、`rowHeights`（每列高度陣列）、`cells`（`TableCellData | null` 二維陣列）。
+- 支援儲存格 `rowSpan` / `colSpan`，合併儲存格時相應縮減獨立儲存格。
+- 支援儲存格內嵌入 `small_item`（`embed` 物件，帶 type / content / styleJson）。
+- 表格的欄寬列高以絕對像素計算，不依賴 zoom；儲存格數值為視覺像素大小。
+- 表格支援列欄操作按鈕，滑鼠懸停時顯示 `+` 按鈕以新增 row 或 col。
+- 表格支援 optional `name` 欄位；預設不設定名稱，既有 Page 的 `table` 若沒有 `name` 必須照常載入且不顯示額外標籤。
+- 當使用者在 Inspector 的「名子」欄位輸入文字時，表格左上方顯示一個小標籤；清空或缺少 `name` 時不顯示標籤。
+- 表格名稱標籤支援 optional `labelFontSize` 欄位；缺少時使用預設標籤字級；雙擊既有標籤可在 Page 上 inline 編輯名稱。
+- 新增 row / col 的 `+` 按鈕必須有足夠點擊範圍，不得因位於表格邊界外而被裁切到難以點擊。
+- 支援儲存格文字編輯。
+- 儲存格合併操作在拖選多格後於右鍵選單呈現，系統計算合理的 `rowSpan` / `colSpan` > 1。
+- 合併後的儲存格顯示合併前各格的文字拼接 / 空格分隔。
+- 新增欄列時，預設儲存格的 `embed` 為空。
+- 表格支援列欄刪除操作。
+- Inspector 顯示選中的 row/col 的 resize 控制以及對應的文字樣式選項。
+- 儲存格支援嵌入 `small_item`：`text_box`、`note_paper`；不支援嵌入 `sticky_note` 或 `frame`；物件必須透過 `embed` 機制存在，不可以 item 形式直接嵌入。
+- 儲存格內多個 `small_item` 的排列方向可設定為上下分或左右分；預設為上下分。`table` 可設定整張表格的預設格內排列方向，每個儲存格也可單獨設定；當表格層級與儲存格層級都有設定時，以較晚設定者為有效設定。
+- 欄列 resize 時，若儲存格內有 `small_item` 物件，儲存格邊界隨之調整；`small_item` 的相對位置不超出 cell bounds 的情況下會隨之平移。
+- 已嵌入物件可以選取、拖拽或刪除；拖出 table 範圍後，物件脫離 embed 獨立存在於畫布上。
+- 資料序列化時，以 `string[][]` 格式輸出文字內容，供快速存取。
+- Inspector 顯示目前選取的儲存格之文字對齊與樣式；在鎖定模式下不顯示 inline 操作。
+- **欄寬列高的記憶機制**：系統必須在新增欄列、resize 時同步更新分隔線位置，不依賴 CSS 自動計算。
+- 分隔線機制：系統使用整數索引位置表記錄每條分隔線的絕對位置（像素值）；`colDividerBreaks` / `rowDividerBreaks` 記錄合併儲存格邊界，供合併時跳過部分分隔線使用。
+- table 的欄列數計算必須準確，不可因儲存格合併而誤算數量或錯誤渲染邊框。
+- table 的選取行為有多層級：選取整個 table、選取某行 / 列、選取某儲存格；Inspector 顯示對應層級的操作。
+- 選取 table 儲存格時，按 `Delete` / `Backspace` 或使用右鍵選單的刪除必須依選取範圍執行：若選取範圍完整覆蓋一或多個 row，刪除該 row；若完整覆蓋一或多個 column，刪除該 column；若只選取零散儲存格，則只清除已選取儲存格的內容與內嵌項目，不刪除整個 table 物件。刪除 row / column 後，未刪除儲存格的像素大小必須維持不變，table 總高度或總寬度縮減；刪除中間 row / column 後，相鄰的上下 row 或左右 column 必須接合。
 
 ### 5.7 `text_box`
 
-- ?航?望???
-- ?舐?亦楊頛舀?摮?
-- 蝮桀? frame ??憿舐內摰??
+- 支援的 connector anchor 位置同其他物件。
+- 支援即時 inline 文字編輯。
+- 可在 `frame` 內顯示完整文字。
 
 ### 5.8 `sticky_note`
 
-- ?航?望???
-- ?舐楊頛臬摰?
-- 蝮桀? frame ?憿舐內?典???
+- 支援的 connector anchor 位置同其他物件。
+- 支援即時 inline 文字編輯（字元數受限）。
+- 支援文字樣式設定，包含文字顏色、字級、粗體、斜體與對齊設定。
+- `sticky_note` 是獨立便利貼物件，不屬於 `small_item` 或 `large_item`。
+- `sticky_note` 不可被 `frame` 或 `table` 容納，亦不參與 `frame` 縮回摘要。
+- 新建 `sticky_note` 預設放在目前最前一層圖層。
+- `sticky_note` 視覺樣式需在右上角顯示三角形摺痕。
 
 ### 5.9 `note_paper`
 
-- ?批捆?澆???Markdown
-- 憿舐內璅∪??誑??蝺刻摩??祇?閬賜銝?
-- 蝮桀? frame ?憿舐內蝚砌???Markdown H1
+- 內文格式為 Markdown。
+- 顯示模式切換：檢視模式以 Markdown 渲染；編輯模式開啟原始文字編輯器。
+- 在 `frame` 縮回時只顯示第一個 Markdown H1 標題。
 
 ### 5.10 `frame`
 
-- ?航?望??唾? resize
-- ?臬捆蝝???`small_item`
-- ?臬???/ 蝮桀?
-- 撅??＊蝷箏?典??游摰?
-- 蝮桀????折?拐辣?憿舐內??
-- 撅?銝剔? `frame` ??舀??詨 `small_item`
-- ?嗉◤??拐辣??`frame` ????靘之??25%嚗誑?拐辣?Ｙ???frame ?Ｙ?隞颱??寡?蝞?璅???`frame` ?脣 focus mode嚗蒂憿舐內敺桀?瘚株絲?
-- ??focus mode 銝??曌?嚗隞嗅?????游??`frame`
-- ?亙?交??拐辣?之嚗???瘥葬?曉銝???`frame` 撖祇???60% ???
-- ?拐辣敺?`frame` ?扳??箸?嚗?閬?撠???箏???
-- ?暸?皛?敺?`small_item` ??蝯?????蝣箄??`frame` ?扳? `frame` 憭?銝???券??葉?隞◤閮 `frame` ?批捆
-- `frame` ?折?迂?拐辣敶潭迨??嚗??閬?霈?
-- ?芾??拐辣隞惇?潭???`frame`嚗?航?蝭?銝??遙雿??典?頞閰?`frame` ?批捆?
-- ?拐辣敺?`frame` ?扳??箸?嚗??蝯?蝵桀??湧????`frame` 敺?蝞??宏?綽??交摰?ａ?嚗??????`frame` ??
+- 支援的 connector anchor 位置同其他物件，支援 resize。
+- 可包含 `small_item` 物件。
+- 支援展開 / 縮回。
+- 縮回時 `small_item` 以縮圖或摘要顯示。
+- 展開後可顯示所有物件的完整內容。
+- 縮回時不可拖出 `frame` 的 `small_item`。
+- 若物件與 `frame` 重疊面積超過 25%，物件即自動被 `frame` 吸附；物件進入 frame 時進入 focus mode。
+- 在 focus mode 中可滾動顯示，切換出當前 `frame`。
+- 跨 frame 拖拽物件時，若拖放位置距離另一個 `frame` 中心在 60% 範圍內，判定為進入該 `frame`。
+- 物件從 `frame` 外面進入時，只要拖入邊界即觸發。
+- 捲動時若 `small_item` 的中心點在某個 `frame` 範圍之外，判定為離開 `frame`；離開後物件移至 `frame` 邊界之外並脫離。
+- `frame` 縮回時，拖入的物件會等 `frame` 展開後再合理顯示。
+- 跨 frame 拖拽物件時，若物件處於另一 `frame` 的邊緣，應顯示輔助提示線，說明物件的 `frame` 歸屬。
+- 物件從 `frame` 外往 `frame` 拖入時，若在邊緣懸停，`frame` 應展開顯示內容。
 
 ### 5.11 `arrow`
 
-- ?撌脩?摰?connector anchor ??`arrow` 蝺澈??蝟餌絞????detach嚗???freeform segment 敺?撟喟宏嚗egacy connector arrow 銋?典?銝閬?
+- 若已連接 connector anchor，`arrow` 端點可拖離而自動 detach；保留 freeform segment 的手動操控；legacy connector arrow 不再另行渲染。
+- `arrow` 同樣共用 freeform segment 機制；端點方向可設定箭頭樣式（雙向、單向、無箭頭）；支援折線、曲線等路由模式。
+- `arrow` 支援文字標籤；標籤文字支援即時編輯，連線的方向不影響標籤判讀方向。
+- 連線路徑中間可設置中繼 segment 點，依序連接各段端點。
 
-- `arrow` ?????見銝?雿輻?游??亦敶ｇ??賭葉??窒?悌蝺擃?蝞?銝虫?????雿捆?臬祝摨?
-- `arrow` ?舐?交??喟?頨怠?撟喟宏嚗蝡舫?撌脩?摰隞隞塚??蝺澈????detach ?像蝘?
+### 5.12 磁鐵對齊
 
-- 隞亥絲暺?蝯?摰儔蝞剝嚗?隞亦敶Ｘ??隞園??雿銝餉?鈭?璅∪?
-- 撱箇????臬? draw.io 銝璅?誑??孵?瘙箏??孵??摨?
-- ?舐?交??單?園?隤踵韏琿???暺摨西??孵?
-- ?航身摰?祉?璇見撘?
-- 韏琿???暺????喟隞嗥?蝤折暺?connector anchor嚗??????摮??`data_json` 銝剔? `startConnection` / `endConnection`
-- 鋡恍???拐辣蝘餃???撌脤????`arrow` ??`line` 蝡舫??????
+白板應有磁鐵對齊功能：
 
-### 5.12 撠?????
+- 物件邊緣的吸附
+- 物件與 `frame` 邊緣的對齊
+- 顯示對齊輔助線
+- 對齊精準度設定
+- 關閉 `magnet` 時物件自由移動不吸附
+- 按住 `Alt` 鍵可臨時停用 `magnet`
 
-?賣???magnet嚗?
+### 5.13 Connector Anchor（連接點）
 
-- ?拐辣?隞嗅?朣?
-- ?拐辣??frame ??撠?
-- 憿舐內撠?頛蝺?
-- ?身?粹???
-- ? `magnet` ????朣??舐雯??
-- ?? `Alt` ???急?? `magnet`
+適用於 `line` 與 `arrow` 的連接點規則：
 
-### 5.13 ???函??折暺?Connector Anchor嚗?
+- 拖曳端點靠近其他物件時，自動顯示可連接的 anchor 點。
+- 可連接的物件類型：`text_box`、`sticky_note`、`note_paper`、`frame`、`table`。
+- `line` / `arrow` 端點可吸附至任一物件的 connector anchor。
+- 吸附範圍約 24px。
+- Anchor 方向分為：`top`、`right`、`bottom`、`left`。
+- 連線端點的吸附資料儲存在 segment 的 `data_json` 中：`{ itemId: string, anchor: string }`。
+- 移動已連接的物件時，相連 segment 端點自動跟隨移動。
 
-?嗡蝙??`line` ??`arrow` 撌亙??
+## 6. 實作計畫
 
-- 皜豢????舫???拐辣???拐辣??銝剝??＊蝷粹暺?蝷箏嚗???嚗?
-- ?舫???拐辣憿??嚗text_box`?sticky_note`?note_paper`?frame`?table`
-- ? `line` / `arrow` ?絲暺?蝯??????券???? connector anchor
-- ?賊??曉潛 24px
-- ?券????祆雿?`top`?right`?bottom`?left`
-- ?????閮???segment ??`data_json` 銝哨??澆???`{ itemId: string, anchor: string }`
-- 鋡恍???拐辣?冽??喟宏??嚗????segment 蝡舫??單?頝
+建議實作順序：
 
-## 6. 雿輻瘚?
+1. 先顯示首頁讓使用者建立 / 開啟 Project
+2. 開啟既有的 Project；支援建立 / 匯出快照 Project
+3. 切換 Project 後建立一個預設的第一個 Page
+4. 在 Page 上建立 `frame`、`note`、`table`、`arrow`
+5. 儲存到資料庫
+6. 儲存到 Planvas file storage
 
-?詨???瘚?嚗?
+## 7. UX 注意事項
 
-1. ??敺??脣擐?
-2. 敺?????Project嚗?撱箇? / ?臬?啁? Project
-3. ??Project 摨?撱箇?銝?啣???Page
-4. ??Page 銝剖遣蝡?frame?ote?able?rrow
-5. ????摰?
-6. 摮? Planvas file storage
+- 首頁載入完成後立即顯示 Project 清單，不依賴非必要的 API 延遲
+- 切換 Project / Page 時保持畫面穩定，避免閃爍或版面位移
+- 不保留過多彈窗層級
+- 錯誤訊息簡潔並告知修正方向
+- 鍵盤快捷鍵：`Delete`、`Ctrl/Cmd + C`、`Ctrl/Cmd + X`、`Ctrl/Cmd + V`、`Ctrl/Cmd + Z`、`Ctrl/Cmd + Shift + Z`
+- 白板物件選取時，滑鼠懸停應在合理位置顯示「移動」、「縮放」、「刪除」、「旋轉」等輔助 handle，不遮蓋物件內容本身
+- 白板背景應跟隨瀏覽器視窗尺寸調整，不出現不必要的滾動條
+- 白板右鍵選單應清晰展示「新增」與「貼上」兩個主要操作
 
-## 7. UX ??
-
-- ??敺?憿舐內擐?嚗?銝剜蝵?Project ?豢??遣蝡??臬?亙
-- 撌血?? Project / Page 撠汗嚗????憿臬?憛惜甈∟?頞喳?撠?
-- 銝剝??舐?蹂蜓???
-- ?喳?筑??輯?鞎祉隞嗉身摰?
-- 敹急?菔撠??`Delete`?Ctrl/Cmd + C`?Ctrl/Cmd + X`?Ctrl/Cmd + V`?Ctrl/Cmd + Z`?Ctrl/Cmd + Shift + Z`
-- ?賣?拐辣??輻征?賢??賣?游?菟?殷?銝行?靘?`?芯?`?銴ˊ`?鞎潔?`??芷` ?箸??嚗??舐???隞?disabled ?
-- ?賣??身?箄?擃?瘥?暺?摨?嚗?銝?祈撟???誑颲刻?
-- ?賣?喃?閫????璅∪???嚗撠??`暺?` ??`?潛?` ?拍車憿舐內
-
-## 8. 鞈?璅∪?
+## 8. 資料結構
 
 ### 8.1 `projects`
 
 - `id`
 - `name`
 - `theme_color`
+- `default_style_json`
 - `sort_order`
 - `created_at`
 - `updated_at`
@@ -515,11 +591,11 @@ Page ?臬鋆?閬?嚗?
 - `created_at`
 - `updated_at`
 
-鋆?嚗?
+備註：
 
-- `parent_item_id` ?舐?輻隞嗅?撅祇?靽????蜓甈?嚗?憒?frame ??child item嚗?
-- `line` ??`arrow` ?絲暺?/ 蝯?鞈????暹 `data_json`
-- `x`?y`?width`?height` 隞雿?賭葉??????????
+- `parent_item_id` 用於描述物件的父子關係，通常代表 `frame` 的 child item。
+- `line` 與 `arrow` 的連接 / 起訖資料存在 `data_json`。
+- `x`、`y`、`width`、`height` 為視覺像素座標與尺寸。
 
 ### 8.4 `connector_links`
 
@@ -530,122 +606,214 @@ Page ?臬鋆?閬?嚗?
 - `from_anchor`
 - `to_anchor`
 
-`connector_links` ?舀?????Ｘ?鞈??詨捆?靘??雿?MVP ??`arrow` ??`line` 撌脫??`data_json` 銝剔? `startConnection` / `endConnection` 甈?閮?蝤折暺??嚗???鞈湔迨銵其??箔蜓閬??撘?
+`connector_links` 是線段物件的端點連接資料；目前的 MVP 中，`arrow` 與 `line` 以 `data_json` 的 `startConnection` / `endConnection` 欄位記錄端點連接，此表為後續強化 API 的備用架構。
 
-## 9. 蝟餌絞?嗆?
+## 9. 系統架構
 
-### 9.1 蝯?
+### 9.1 模組
 
 - `frontend-web-ui`: React + TypeScript + Vite
 - `backend-service`: TypeScript Node.js
 - `persistence`: Planvas project directory, `.pv_project/metadata.json`, and Page XML files
 
-### 9.2 ?祆??隞
+### 9.2 開發伺服器位址
 
 - Frontend dev server: `http://127.0.0.1:5173`
 - Backend dev server: `http://127.0.0.1:18000`
 - Health endpoint: `GET http://127.0.0.1:18000/healthz`
+- Source checkout launch command: `planvas` starts the unbuilt source-mode frontend and backend after dependencies are installed.
 
-### 9.3 ??蝡航痊隞?
+### 9.3 模組職責分工
 
-Frontend嚗?
+Frontend：
 
-- ?賣 UI
+- 白板 UI
 - drag / resize / select / magnet
-- Project / Page 撠汗
-- API ?澆????甇?
+- Project / Page 管理
+- API 資料綁定與同步
 
-Backend嚗?
+Backend：
 
 - Project / Page CRUD
 - board item CRUD
 - connector CRUD
-- Page board state replace API嚗? Undo / Redo ??雿輻嚗?
-- Planvas file storage 摮?
-- ?亙熒瑼Ｘ??祈身摰?
+- Page board state replace API（Undo / Redo 所使用）
+- Planvas file storage 實作
+- 靜態頁面匯出處理
 
-## 10. ?祆?瑼?頝臬?
+## 10. 目錄結構
 
-?砍?獢??誑獢摰?頝臬??箸敹??隞?backend ?瑁??寧?銝颯?
+以下為本專案各目錄用途說明；backend 目錄結構不包含 Planvas project 的資料。
 
 ### 10.1 Backend Root
 
-???閮剔 `backend/`??
-Backend root remains responsible for logs; Planvas project files live under `<user_home>/.planvas/` unless `WHITEBOARD_PLANVAS_ROOT` overrides it.
+後端根目錄為 `backend/`。Backend root remains responsible for logs; Planvas project files live under `<user_home>/.planvas/` unless `WHITEBOARD_PLANVAS_ROOT` overrides it.
 
-### 10.2 Planvas file storage 頝臬?
+### 10.2 Planvas file storage 目錄結構
 
-Planvas file storage 敹?雿嚗?
+Planvas file storage 預設根目錄：
 
-`<user_home>/.planvas/<project_name>/`
+`<user_home>/.planvas/`
 
-### 10.3 Log 頝臬?
+新建 Project 預設儲存在：
 
-Log 敹?雿嚗?
+`<user_home>/.planvas/project_store/<project_name>/`
+
+外部開啟的 Project 可位於使用者選定路徑，但仍必須包含 `.pv_project/` 資料目錄。
+
+### 10.3 Log 目錄結構
+
+Log 儲存路徑：
 
 - `<backend_root>/logs/app.log`
 - `<backend_root>/logs/backend.log`
 
-## 11. ???賡?瘙?
+## 11. 效能需求
 
-- App ??敺?5 蝘?摰??箇?頛
-- 300 ??輻隞嗥? Page 銝??＊?⊿?
-- ??敹????????祆? Planvas file storage
-- ??銝阡??啣???嚗????舀迤蝣箏?敺?
+- App 啟動應在 5 秒以內完成初始載入
+- 300 個白板物件的 Page 不應有明顯卡頓
+- 所有操作在啟用自動儲存時應自動防抖存檔至 Planvas file storage，或支援手動儲存存檔
+- 儲存操作不應阻塞 UI 渲染
+- Backend must log slow HTTP requests, event loop lag, uncaught exceptions, and unhandled promise rejections to `<backend_root>/logs/app.log` so local performance stalls and crashes can be diagnosed after the fact.
+- Frontend write paths that update multiple board items as one user action should prefer one `PUT /pages/{page_id}/board-state` persistence call over parallel per-item `PATCH /board-items/{id}` calls, because each per-item write rewrites the Page XML files.
+- Creating board items should update the canvas optimistically before the backend persistence round trip completes. If persistence fails, the temporary item is removed and the error is logged.
+- Autosave can be toggled on/off via a dedicated button next to `magnet` in the Canvas Ribbon. The autosave preference is persisted in `localStorage`. When enabled, item and viewport updates are debounced and saved in a single bulk write rather than high-frequency individual requests.
+- The frontend should keep a per-Page in-memory board cache after the first successful `GET /pages/{page_id}/board-data`; switching back to a cached Page should restore from memory instead of re-fetching board data unless the Page is explicitly refreshed or invalidated.
+- Canvas item, connector, and viewport state changes must update the per-Page in-memory cache immediately so Page switching preserves the latest local working state while debounced persistence is still pending.
+- Pending viewport autosave must flush when the Canvas unmounts for Page switches or view changes, rather than only canceling the debounce timer.
+- Markdown note editing should autosave about every 5 seconds, flush immediately when the browser window/tab is left, and flush when leaving the markdown editor view. Returning to a Page or focusing the window should only refresh project notes and update their visible content in memory; it must not clear the page board cache, reload the page list, or remount the active Page.
+- The backend exposes `POST /pages/{page_id}/regulate` as a schema-aware maintenance endpoint. It rereads the current Page XML, normalizes existing `sticky_note` objects to the standalone `sticky_item` / `sticky_object` schema, clears stale sticky containment, removes stale table cell child references, removes connector links pointing to missing items, normalizes item category / table parent references according to the current schema, and rewrites the Page as well-formed Page XML v2.
+- The canvas header exposes a refresh-style regulate action beside the autosave and `magnet` controls; clicking it calls the regulate endpoint for the current Page and reloads the returned board data.
+- Any future Page XML schema change must update the regulate function in the same change so maintenance repair behavior stays aligned with the canonical schema.
 
-## 12. MVP 蝭?
+## 12. MVP 範圍
 
-MVP ?喳??嚗?
+MVP 必要功能：
 
-- Project / Page 蝞∠?
-- 擐???Project JSON ?臬
-- `text_box`?sticky_note`?note_paper`
+- Project / Page 管理
+- 首頁顯示 Project JSON 匯出
+- `text_box`、`sticky_note`、`note_paper`
 - `frame`
 - `arrow`
-- magnet 蝬脫?賊?
-- Planvas file storage ????
-- ?祆???蝡臬???蝔?
+- magnet 磁鐵對齊
+- Planvas file storage 持久化
+- 持久化測試與冒煙測試
 
-撱嗅??嚗?
+延後實作：
 
 - Markdown rich preview
-- table ?脤???
-- Undo / Redo 甇瑕?芸?
-- viewer ?臬
-- 憭犖??
+- table 複雜操作
+- Undo / Redo 進階歷史
+- viewer 匯出
+- 多人協作
 
-## 13. 撽璇辣
+## 13. 驗收測試
 
-撽?喳???嚗?
+驗收測試包含以下情境：
 
-- 撅?銝剔? `frame` 撠?`small_item` ?? overlap-based focus mode嚗蒂?冽?曌???航???
-- ?之??`small_item` ?脣 `frame` ????蝮格?唬?頞? frame 撖祇???60%
-- `small_item` ?脣???`frame` ???賣??航儘霅??剖??怠?擖?
-- `small_item` 敺?`frame` ?ａ?敺??蝯?蝵格?鋡急?蝣箏???frame 憭?銝???????
-- `frame` ?抒? item ?舫???雿??迂?典?頞 frame ?批捆?
-- 敺?`frame` ?岫? item ???交摰蝘餃嚗???????frame ??
+1. 首頁載入後建立新 Project，驗證能開啟 Project 並進入 Page
+2. 匯出 Project 的 JSON 快照，並匯入建立新 Project
+3. 在 Project 下建立多個 Page，含 `text_box`、`sticky_note`、`note_paper`、`frame`、`arrow`
+4. Page 上的物件支援 resize、移動、多選
+5. `frame` 支援展開 / 縮回，縮回後正確顯示摘要
+6. `line` 與 `arrow` 支援 draw.io 風格的起點 / 終點建立，及端點拖拽重設
+7. magnet 磁鐵對齊正常運作
+8. 資料儲存後重新啟動，以 Planvas file storage 確認資料持久化
+9. 前端與 backend 均能存取 `GET /healthz`
+10. 多選後可批量刪除、複製、貼上等操作
+11. 匯出單一 Page 為 PNG
+12. 匯出單一 Page 為 PPTX（含 page-by-slide 版面）
+13. 匯出 Project 為靜態 viewer，可在瀏覽器中閱覽各 Page
 
-1. ???垢敺??脣擐?嚗??臬?擐??豢??Ｘ? Project
-2. ?臬遣蝡??啣???Project嚗蒂?臬? JSON ?臬?啁? Project
-3. ?臬 Project 銝遣蝡??啣??扎???Page
-4. Page 銝剖撱箇??喳? `text_box`?sticky_note`?note_paper`?frame`?arrow`
-5. ?拐辣?舀??喋esize?????
-6. `frame` ?臬???/ 蝮桀?嚗?蝮桀???閬?甇?Ⅱ
-7. `line` ??`arrow` ?臬? draw.io 銝璅?誑韏琿? / 蝯?撱箇?嚗??舀??單?園?隤踵
-8. magnet 蝬脫?賊??舐
-9. 鞈??臬神?乩蒂?? Planvas file storage
-10. ?垢?舀????`GET /healthz`
-11. ??脰????脣?賢?蝟餌絞???摰蟡其葉?豢?
-12. ?臬??桀? Page ?臬?箏霈??PNG
-13. ?臬??桀? Page ?臬?箏?澈??PPTX嚗撠???page-by-slide 撠?
-14. ?臬? Project ?臬?箔??摰? app/backend ?霈 viewer嚗蒂?舫蝺????? Page
+## 14. 實作順序
 
-## 14. 撱箄降撖虫???
+1. 先確認端對端健康狀態，驗證通過 `GET /healthz`
+2. Planvas file storage 與 backend CRUD 實作
+3. Frontend app shell 與 Project / Page 管理
+4. 白板基本物件渲染與互動
+5. 物件拖拽調整
+6. magnet 磁鐵對齊
+7. Planvas file storage 持久化完整驗收測試
 
-1. ??蝡臬蝷遣蝵株? `GET /healthz`
-2. Planvas file storage ??backend CRUD
-3. Frontend app shell ??Project / Page 撠汗
-4. ?賣?怠???砌???
-5. ?拐辣??郊鋆?
-6. magnet ???
-7. Planvas file storage ????撽皜祈岫
+## 15. Page XML v2 Semantic Storage
+
+Page XML v2 must split each page into two sibling files:
+
+- `<page_name>.semantic.xml`: AI-readable board meaning, including object content, containment, table cell structure, and canonical links.
+- `<page_name>.presentation.xml`: visual rendering data, including position, size, rotation, z-order, colors, fill patterns, shape details, and connector routes.
+
+The semantic file is the preferred source for AI, automation, Jira ticket generation, summaries, and project reasoning. Those workflows should not need to read the presentation file unless they are answering a visual layout question.
+
+Semantic object kinds:
+
+- `large_object`: `frame`, `table`
+- `small_object`: `text_box`, `note_paper`
+- `sticky_object`: `sticky_note`
+- `link`: `line`, `arrow` when the connector expresses a semantic relationship
+
+Containment rules:
+
+- `frame` may contain `small_object` children directly. `sticky_object` children are not allowed.
+- `table` is a `large_object`; its cells are nested semantic containers.
+- `table_cell` may contain `small_object` children.
+- A `table_cell` should have a stable id so semantic links and presentation layout can reference the cell.
+- MVP table cells should contain only `small_object` children. `sticky_object` and nested `large_object` children are not allowed.
+
+Relationship rules:
+
+- `links/link` in the semantic file is the canonical source of truth for relationships between objects or cells.
+- Each link must have a stable `id`, `type`, `from`, and `to`.
+- Links may include `label` and `meaning`; `meaning` should use explicit values such as `dependency`, `blocked_by`, `workflow_transition`, `reference`, or `related`.
+- `line` records without object endpoints, labels, or explicit semantic meaning may stay presentation-only.
+- Objects and cells may include `connections` entries such as `<connection to="item-b" by="link-a" role="outgoing" />` as AI-friendly indexes.
+- Object-level `connections` must be derived from or validated against canonical links so the same relationship does not drift between two sources.
+
+Example target semantic file:
+
+```xml
+<page_semantic id="page-1" schema_version="2">
+  <objects>
+    <object id="frame-1" kind="large_object" type="frame">
+      <title>Sprint 12</title>
+      <contains>
+        <item ref="note-1" />
+        <item ref="note-2" />
+      </contains>
+      <connections>
+        <connection to="table-1" by="link-a" role="outgoing" />
+      </connections>
+    </object>
+
+    <object id="table-1" kind="large_object" type="table">
+      <title>Sprint board</title>
+      <table>
+        <row id="row-1" index="0">
+          <cell id="cell-1" row="0" column="0">
+            <text>Todo</text>
+            <contains>
+              <item ref="note-3" />
+            </contains>
+          </cell>
+        </row>
+      </table>
+    </object>
+  </objects>
+
+  <links>
+    <link id="link-a" type="arrow" from="frame-1" to="table-1">
+      <label>feeds into</label>
+      <meaning>dependency</meaning>
+    </link>
+  </links>
+</page_semantic>
+```
+
+Example target presentation file:
+
+```xml
+<page_presentation id="page-1" schema_version="2">
+  <items>
+    <item ref="frame-1" x="80" y="80" width="640" height="420" z_index="1" />
+  </items>
+</page_presentation>
+```

@@ -4,7 +4,7 @@ Local-first whiteboard planning app built with React, TypeScript, Node.js, and f
 
 ## Navigation Notes
 
-- Opening a `Project` from the home screen now writes a dedicated browser history entry and enters the workspace on a real `Page` immediately. If a current page is already known for that project, the app keeps it; otherwise it falls back to the first page in the project.
+- Opening a `Project` from the home screen writes a dedicated browser history entry and enters the workspace with the Project's Pages list loaded. No Page opens by default; select a Page from the sidebar to load its board.
 - The workspace left sidebar no longer shows project controls. Project renaming now happens directly in the top workspace header.
 - The `Home` button now lives in the workspace sidebar header, to the right of the `Whiteboard` title.
 - The workspace left sidebar includes a `Notes` box listing every markdown note filename in the current Project. Drag a note onto any Page row to place that note on that Page.
@@ -15,6 +15,12 @@ Local-first whiteboard planning app built with React, TypeScript, Node.js, and f
 - `frontend/`: React + TypeScript + Vite web UI
 - `backend/`: TypeScript + Node.js local API service
 - `scripts/`: Windows preflight and bootstrap helpers
+
+Frontend pure helper modules are grouped by responsibility. `frontend/src/tableData.ts`
+and `frontend/src/canvasHelpers.ts` remain compatibility barrels, while grouped
+modules under `frontend/src/tableData/` and `frontend/src/canvasHelpers/` expose
+table parsing / mutation / layout / divider helpers and canvas selection / frame
+layout / connector anchor / layer ordering / payload conversion helpers.
 
 ## Prerequisites
 
@@ -40,13 +46,34 @@ Install workspace dependencies:
 npm install
 ```
 
-Start frontend and backend together:
+For a source checkout, register the local `planvas` command once:
+
+```powershell
+npm link
+```
+
+Then start Planvas directly without building:
+
+```powershell
+planvas
+```
+
+This starts the same source-mode frontend and backend used during development
+in the background, then returns control to PowerShell. Open
+`http://127.0.0.1:5173` in your browser. Dev server output is written to
+`backend/logs/planvas-dev.log`.
+
+To watch the background dev log:
+
+```powershell
+Get-Content .\backend\logs\planvas-dev.log -Wait
+```
+
+You can still start frontend and backend through npm:
 
 ```powershell
 npm run dev
 ```
-
-Open `http://127.0.0.1:5173` in your browser.
 
 This mode keeps Vite on `5173` and the TypeScript backend on `18000`.
 If `18000` is already serving a healthy Planvas backend, the dev backend wrapper
@@ -141,7 +168,7 @@ Node.js first.
 The app now opens on a dedicated home page. From there you can:
 
 - create a new `Project`
-- open an existing `Project` folder with the native folder picker
+- open an existing `Project` folder with the Windows native folder picker
 - refresh common projects to re-check whether registered paths still exist
 - remove missing registered projects from the common project list
 
@@ -149,6 +176,12 @@ New projects are created under `<user_home>/.planvas/project_store/`. Opened
 external folders are initialized as Planvas projects when needed, then registered
 in `<user_home>/.planvas/project.json`. The home list shows `project_store`
 projects first, then registered projects from other paths.
+Opening the same folder again reuses the same project registration by canonical
+filesystem path. Projects with the same display name remain separate when their
+paths differ, and copied project folders with duplicated metadata ids are
+assigned a new id instead of replacing the original registration.
+If the native folder picker is unavailable, the manual fallback accepts absolute
+paths, `~` paths, and paths relative to `<user_home>`.
 
 ## Page JSON Export / Import
 
@@ -194,29 +227,46 @@ Project content is stored as regular files. By default the backend creates:
 
 - `<user_home>/.planvas/project.json`
 - `<user_home>/.planvas/project_store/<project_name>/.pv_project/`
-- `<user_home>/.planvas/project_store/<project_name>/.pv_project/metadata.json`
-- `<user_home>/.planvas/project_store/<project_name>/.pv_project/<page_name>.xml`
+- `<user_home>/.planvas/project_store/<project_name>/.pv_project/metadata.json` containing only project-level settings
+- `<user_home>/.planvas/project_store/<project_name>/.pv_project/<page_name>.semantic.xml`
+- `<user_home>/.planvas/project_store/<project_name>/.pv_project/<page_name>.presentation.xml`
 - `<user_home>/.planvas/project_store/<project_name>/.pv_project/<note_name>.md`
 - `backend/logs/app.log`
 - `backend/logs/backend.log`
+
+`backend/logs/app.log` also records backend diagnostics for slow HTTP requests,
+event loop lag, uncaught exceptions, and unhandled promise rejections.
 
 Projects opened from other folders use the same `.pv_project/` data directory
 inside the selected folder, with metadata, page XML files, and markdown note
 files under it. Their paths are tracked in `project.json`.
 
+`metadata.json` stores only project-level settings and timestamps. Page lists
+are derived from the sibling Page XML files, Project notes are derived from
+`.pv_project/*.md`, and each Page XML root stores that Page's viewport fields.
+
+Page XML uses the v2 Planvas layout. Each page is stored as a semantic XML file
+and a presentation XML file. The semantic file stores board objects, frame
+containment, table cell containment, markdown note references, canonical links,
+and derived object connection indexes. AI and automation should read this file
+plus referenced markdown files. The presentation file stores geometry, z-order,
+collapsed state, styles, and visual routing data needed to restore the canvas.
+
 Markdown files placed directly in `.pv_project/` are treated as `note_paper`
 notes. Creating or editing a `note_paper` still uses the normal app UI and API,
 but the backend stores the markdown body in a sibling `.md` file; Page XML keeps
-the board placement plus a reference to that markdown file. Select a
+the semantic note reference plus the visual board placement. Select a
 `note_paper` and use the right inspector's `Markdown file` field to rename the
 backing `.md` file. The workspace sidebar lists those project notes and supports
 dragging a note onto any Page row to add a placement that references the same
 markdown file. The note list refreshes after markdown-backed notes are created,
-renamed, updated, or deleted in the canvas. Deleting a note from a Page removes
-only that board placement; the `.md` file remains in the Project and stays in
-the left Notes list. The same note file can be placed multiple times on one
-Page or across Pages, and every placement reads and writes the same backing
-markdown file.
+renamed, updated, or deleted in the canvas. It also refreshes from disk when
+the workspace regains focus or the browser tab becomes visible, so external
+edits to `.pv_project/*.md` files are reflected in the sidebar and on visible
+`note_paper` placements. Deleting a note from a Page removes only that board
+placement; the `.md` file remains in the Project and stays in the left Notes
+list. The same note file can be placed multiple times on one Page or across
+Pages, and every placement reads and writes the same backing markdown file.
 
 You can override the project storage root with `WHITEBOARD_PLANVAS_ROOT`:
 

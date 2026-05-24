@@ -231,10 +231,16 @@ h3 {
   opacity: 0.72;
 }
 
-.page-row-actions {
+.page-row-actions,
+.note-row-actions {
   display: inline-flex;
   align-items: stretch;
   gap: 6px;
+}
+
+.list-entry:hover .page-row-actions,
+.list-entry:hover .note-row-actions {
+  opacity: 1;
 }
 
 .page-icon-button {
@@ -290,14 +296,16 @@ h3 {
   color: #6b7280;
 }
 
-.page-trash-button {
+.page-trash-button,
+.note-trash-button {
   border: 1px solid rgba(248, 113, 113, 0.2);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.06);
   color: #fecaca;
 }
 
-.page-trash-button:hover {
+.page-trash-button:hover,
+.note-trash-button:hover {
   border-color: rgba(248, 113, 113, 0.42);
   background: rgba(248, 113, 113, 0.14);
   color: #fee2e2;

@@ -2,6 +2,9 @@
   "name": "whiteboard-planner",
   "private": true,
   "version": "0.1.0",
+  "bin": {
+    "planvas": "./scripts/planvas.cmd"
+  },
   "workspaces": [
     "backend",
     "frontend"
