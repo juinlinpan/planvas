@@ -36,6 +36,64 @@ npm install
 
 ---
 
+## 桌面版 (Desktop Version)
+
+Planvas 目前提供 Windows 桌面版，桌面殼使用 Tauri 2。桌面版沿用既有的 React UI 與 Node 本機 API，因此 `.planvas` 專案儲存行為會和瀏覽器本機版一致。
+
+> 目前限制：打包後的桌面版可以自動啟動隨附的 backend JavaScript，但執行環境仍需要本機已安裝 `node.exe`。如果目標電腦沒有 Node.js，請先安裝 Node.js LTS，或改用本機 Web 啟動器。
+
+### 1. 準備桌面版建置工具
+
+Windows 上的 Tauri 需要 Visual Studio C++ Build Tools、Windows SDK 與 Rust。若桌面版開發或打包時提示缺少 MSVC `link.exe`、`cargo` 或 `rustc`，請先執行：
+
+```powershell
+npm run desktop:setup
+```
+
+若跳出 Windows UAC 權限提示，請同意後重新開啟 PowerShell。如果 Visual Studio Build Tools 已安裝，但 `where.exe link` 仍找不到工具，也可以再執行一次 setup 指令，讓它補齊缺少的 C++ workload。
+
+### 2. 啟動桌面開發版
+
+```powershell
+npm run desktop:dev
+```
+
+此指令會啟動或重用 `127.0.0.1:18000` 的本機 backend，並開啟 Tauri 桌面視窗。
+
+### 3. 建置 Windows 安裝檔
+
+```powershell
+npm run desktop:build
+```
+
+建置完成後，NSIS 安裝檔會產生在：
+
+```text
+src-tauri\target\release\bundle\nsis\Planvas_0.1.0_x64-setup.exe
+```
+
+未來版本號可能會改變；若找不到完全相同的檔名，請在同一個資料夾中尋找：
+
+```text
+src-tauri\target\release\bundle\nsis\Planvas_*_x64-setup.exe
+```
+
+### 4. 安裝與啟動
+
+1. 雙擊產生的 `Planvas_0.1.0_x64-setup.exe`。
+2. 依照安裝程式提示完成安裝。安裝檔使用目前使用者安裝模式，通常不需要系統層級安裝權限。
+3. 從開始功能表或桌面捷徑開啟 Planvas。
+4. Planvas 啟動時會檢查 `http://127.0.0.1:18000/healthz`。若沒有可用的 backend，桌面版會自動啟動隨附的 Node backend。
+5. 關閉桌面版時，由桌面版啟動的 backend process 也會一併停止。
+
+若公司環境或 Windows 安全性政策封鎖未簽章的安裝檔或執行檔，請改用瀏覽器版本機啟動器：
+
+```powershell
+npm run web:start
+```
+
+---
+
 ## 啟動與使用方式
 
 專案提供多種啟動與使用方式，以滿足不同的開發與使用情境：
