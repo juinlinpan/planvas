@@ -36,9 +36,34 @@ npm install
 
 ---
 
-## 使用方式
+## 啟動與使用方式
 
-### 開發模式（前後端同時啟動）
+專案提供多種啟動與使用方式，以滿足不同的開發與使用情境：
+
+### 1. 背景執行模式 (`planvas` 指令)
+透過內建的腳本，您可以在背景啟動系統，而不會佔用當前的命令列視窗。
+在專案根目錄下，執行：
+
+```powershell
+./scripts/planvas.cmd
+```
+
+*(如果已將專案設定為全域指令，例如透過 `npm link`，也可以直接輸入 `planvas`)*
+
+啟動後會提示以下資訊：
+- Frontend: `http://127.0.0.1:5173`
+- Backend: `http://127.0.0.1:18000`
+- 背景執行記錄（Log）：位於 `backend\logs\planvas-dev.log`
+
+> **提示**：若要停止背景執行的 Planvas，或是遇到 Port 被佔用的問題，請執行：
+> ```powershell
+> npm run dev:stop
+> ```
+
+---
+
+### 2. 開發模式（前景執行，前後端同時啟動）
+適合在開發時查看即時日誌。
 
 ```powershell
 npm run dev
@@ -50,19 +75,12 @@ npm run dev
 http://127.0.0.1:5173
 ```
 
-> 如果啟動失敗、提示 port 被佔用，先執行：
->
-> ```powershell
-> npm run dev:stop
-> ```
->
-> 再重新 `npm run dev`。
-
 ---
 
-### 單 Port 模式（適合分享給他人使用，只需一個網址）
+### 3. 單 Port 模式（Production 模式）
+適合分享給他人使用，前端會被建置並由後端靜態伺服，只需一個網址。
 
-先建置 frontend：
+先建置：
 
 ```powershell
 npm run build
@@ -79,6 +97,19 @@ npm run serve
 ```
 http://127.0.0.1:18000
 ```
+
+---
+
+## 開發與維護指令
+
+除了上述的啟動指令，專案還提供以下常用的 npm scripts 來協助開發與維護：
+
+- **`npm run check`**：執行完整的程式碼檢查，包含 Lint、測試 (Test) 以及建置 (Build)。
+- **`npm run lint`**：執行前端的 ESLint 與後端的型別檢查 (Typecheck)。
+- **`npm run typecheck`**：檢查前後端的 TypeScript 型別。
+- **`npm run format`**：使用 Prettier 自動格式化所有程式碼。
+- **`npm run smoke`**：執行基本的系統可用性測試 (Smoke Test)。
+- **`npm run backup`**：打包備份目前的 `.planvas` 資料夾。
 
 ---
 
