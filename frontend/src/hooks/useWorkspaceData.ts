@@ -324,10 +324,31 @@ export function useWorkspaceData({
 
   const refreshProjectNotes = useCallback(
     async (projectId: string): Promise<void> => {
-      setIsLoadingNotes(true);
+      // NOTE: We intentionally do NOT set isLoadingNotes=true here.
+      // The initial load path already handles the loading indicator.
+      // During a refresh, notes are already displayed — flipping the
+      // loading flag would briefly replace the list with "Loading notes…"
+      // causing a visible flash.
       try {
         const nextNotes = await listProjectNotes(projectId);
-        setProjectNotes(nextNotes);
+        // Only update state if notes actually changed — avoids creating a new
+        // array reference that would cause downstream re-renders (Canvas sync
+        // useEffect, sidebar list, etc.).
+        setProjectNotes((prev) => {
+          if (
+            prev.length === nextNotes.length &&
+            prev.every(
+              (n, i) =>
+                n.note_file === nextNotes[i].note_file &&
+                n.title === nextNotes[i].title &&
+                n.content === nextNotes[i].content &&
+                n.updated_at === nextNotes[i].updated_at,
+            )
+          ) {
+            return prev; // same reference → no re-render
+          }
+          return nextNotes;
+        });
       } finally {
         setIsLoadingNotes(false);
       }

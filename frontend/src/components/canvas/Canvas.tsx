@@ -318,9 +318,18 @@ export function Canvas({
         });
         onBoardDataCacheChange?.(persisted);
         setSaveStatus('saved');
-        const hasNotePaper = itemsRef.current.some((item) => item.type === ITEM_TYPE.note_paper);
-        if (hasNotePaper) {
-          onProjectNotesChanged?.();
+        // Only refresh project notes on explicit (non-silent) saves like Ctrl+S.
+        // Silent auto-saves write data TO the backend — frontend already has
+        // the correct state.  Refreshing notes after every auto-save causes:
+        //   new projectNotes array → Canvas re-render → sync useEffect →
+        //   potential save cascade and UI jank (selection lost, notes flicker).
+        if (!silent) {
+          const hasNotePaper = itemsRef.current.some(
+            (item) => item.type === ITEM_TYPE.note_paper,
+          );
+          if (hasNotePaper) {
+            onProjectNotesChanged?.();
+          }
         }
       } catch (err) {
         console.error('[Canvas] Failed to save board state', err);
@@ -501,7 +510,9 @@ export function Canvas({
       editingId,
     );
     if (syncedItems !== currentItems) {
-      setItemsAndSync(syncedItems);
+      // Use silent=true to avoid triggering another save — this sync is
+      // reacting to external note changes, not user edits on the board.
+      setItemsAndSync(syncedItems, true);
     }
   }, [editingId, projectNotes, setItemsAndSync]);
 
