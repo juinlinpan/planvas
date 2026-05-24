@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { type BoardItem } from '../api';
 import type { ProjectDefaultStyle } from '../itemStyles';
+import type { ResizeEdge } from '../canvasTypes';
 import type { SegmentEndpoint } from '../segmentData';
 import { Frame, type FrameSummaryEntry } from './Frame';
 import { NotePaper } from './NotePaper';
@@ -34,7 +35,7 @@ type Props = {
   ) => void;
   deletingWaypointIndex?: number;
   onDoubleClick: () => void;
-  onResizeMouseDown: (e: React.MouseEvent) => void;
+  onResizeMouseDown: (e: React.MouseEvent, edge: ResizeEdge) => void;
   onToggleCollapse: () => void;
   onUpdate: (item: BoardItem) => void;
   onEditEnd: () => void;
@@ -96,14 +97,64 @@ function BoardItemRendererComponent({
       onMouseDown(e);
     }
   };
-  const resizeHandle =
-    !isStatic && isSelected && !isEditing && !isSegmentItem ? (
-      <button
-        type="button"
-        className="board-item-resize-handle"
-        onMouseDown={onResizeMouseDown}
-        aria-label="Resize item"
-      />
+  const isTable = item.type === 'table';
+  const isInsideParent = item.parent_item_id !== null;
+  const resizeHandles =
+    !isStatic && isSelected && !isEditing && !isSegmentItem && !isInsideParent ? (
+      <>
+        <button
+          type="button"
+          className="board-item-resize-handle board-item-resize-handle-nw"
+          onMouseDown={(e) => onResizeMouseDown(e, 'nw')}
+          aria-label="Resize northwest"
+        />
+        <button
+          type="button"
+          className="board-item-resize-handle board-item-resize-handle-ne"
+          onMouseDown={(e) => onResizeMouseDown(e, 'ne')}
+          aria-label="Resize northeast"
+        />
+        <button
+          type="button"
+          className="board-item-resize-handle board-item-resize-handle-se"
+          onMouseDown={(e) => onResizeMouseDown(e, 'se')}
+          aria-label="Resize southeast"
+        />
+        <button
+          type="button"
+          className="board-item-resize-handle board-item-resize-handle-sw"
+          onMouseDown={(e) => onResizeMouseDown(e, 'sw')}
+          aria-label="Resize southwest"
+        />
+        {!isTable && (
+          <>
+            <button
+              type="button"
+              className="board-item-resize-handle board-item-resize-handle-n"
+              onMouseDown={(e) => onResizeMouseDown(e, 'n')}
+              aria-label="Resize north"
+            />
+            <button
+              type="button"
+              className="board-item-resize-handle board-item-resize-handle-e"
+              onMouseDown={(e) => onResizeMouseDown(e, 'e')}
+              aria-label="Resize east"
+            />
+            <button
+              type="button"
+              className="board-item-resize-handle board-item-resize-handle-s"
+              onMouseDown={(e) => onResizeMouseDown(e, 's')}
+              aria-label="Resize south"
+            />
+            <button
+              type="button"
+              className="board-item-resize-handle board-item-resize-handle-w"
+              onMouseDown={(e) => onResizeMouseDown(e, 'w')}
+              aria-label="Resize west"
+            />
+          </>
+        )}
+      </>
     ) : null;
 
   switch (item.type) {
@@ -133,7 +184,7 @@ function BoardItemRendererComponent({
             deletingWaypointIndex={deletingWaypointIndex}
             projectDefaultStyle={projectDefaultStyle}
           />
-          {resizeHandle}
+          {resizeHandles}
         </div>
       );
 
@@ -154,7 +205,7 @@ function BoardItemRendererComponent({
             onEditEnd={onEditEnd}
             projectDefaultStyle={projectDefaultStyle}
           />
-          {resizeHandle}
+          {resizeHandles}
         </div>
       );
 
@@ -217,7 +268,7 @@ function BoardItemRendererComponent({
               />
             </>
           )}
-          {resizeHandle}
+          {resizeHandles}
         </div>
       );
 
@@ -238,7 +289,7 @@ function BoardItemRendererComponent({
             onEditEnd={onEditEnd}
             projectDefaultStyle={projectDefaultStyle}
           />
-          {resizeHandle}
+          {resizeHandles}
         </div>
       );
 
@@ -260,7 +311,7 @@ function BoardItemRendererComponent({
             projectDefaultStyle={projectDefaultStyle}
             renderMode={renderMode}
           />
-          {resizeHandle}
+          {resizeHandles}
         </div>
       );
 
@@ -282,7 +333,7 @@ function BoardItemRendererComponent({
             showToggle={!isStatic}
             projectDefaultStyle={projectDefaultStyle}
           />
-          {resizeHandle}
+          {resizeHandles}
         </div>
       );
 
@@ -306,7 +357,7 @@ function BoardItemRendererComponent({
           onContextMenu={onContextMenu}
         >
           {item.type}
-          {resizeHandle}
+          {resizeHandles}
         </div>
       );
   }

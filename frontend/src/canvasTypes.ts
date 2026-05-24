@@ -18,10 +18,15 @@ export type DragState = {
   hasDetachedSegments: boolean;
 };
 
+export type ResizeEdge = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+
 export type ResizeState = {
   itemId: string;
+  edge: ResizeEdge;
   startMouseX: number;
   startMouseY: number;
+  startX: number;
+  startY: number;
   startWidth: number;
   startHeight: number;
   snapshot: BoardSnapshot;

@@ -80,24 +80,61 @@ export function magnetMoveRect(
   };
 }
 
+export type ResizeEdge = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+
 export function magnetResizeRect(
   rect: MagnetRect,
   gridSize: number,
   tolerance: number,
-): { width: number; height: number } {
-  const horizontalMatch = getNearestGridMatch(
-    [rect.x + rect.width],
-    gridSize,
-    tolerance,
-  );
-  const verticalMatch = getNearestGridMatch(
-    [rect.y + rect.height],
-    gridSize,
-    tolerance,
-  );
+  edge: ResizeEdge,
+  rawRect: MagnetRect,
+): MagnetRect {
+  const result = { ...rawRect };
 
-  return {
-    width: rect.width + (horizontalMatch?.delta ?? 0),
-    height: rect.height + (verticalMatch?.delta ?? 0),
-  };
+  const movesLeft = edge.includes('w');
+  const movesRight = edge.includes('e');
+  const movesTop = edge.includes('n');
+  const movesBottom = edge.includes('s');
+
+  if (movesRight) {
+    const horizontalMatch = getNearestGridMatch(
+      [result.x + result.width],
+      gridSize,
+      tolerance,
+    );
+    result.width += horizontalMatch?.delta ?? 0;
+  }
+  if (movesLeft) {
+    const horizontalMatch = getNearestGridMatch(
+      [result.x],
+      gridSize,
+      tolerance,
+    );
+    if (horizontalMatch) {
+      result.x += horizontalMatch.delta;
+      result.width -= horizontalMatch.delta;
+    }
+  }
+
+  if (movesBottom) {
+    const verticalMatch = getNearestGridMatch(
+      [result.y + result.height],
+      gridSize,
+      tolerance,
+    );
+    result.height += verticalMatch?.delta ?? 0;
+  }
+  if (movesTop) {
+    const verticalMatch = getNearestGridMatch(
+      [result.y],
+      gridSize,
+      tolerance,
+    );
+    if (verticalMatch) {
+      result.y += verticalMatch.delta;
+      result.height -= verticalMatch.delta;
+    }
+  }
+
+  return result;
 }

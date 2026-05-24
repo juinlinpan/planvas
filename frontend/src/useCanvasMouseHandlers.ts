@@ -55,6 +55,7 @@ import type {
   DragState,
   ItemsUpdater,
   PanState,
+  ResizeEdge,
   ResizeState,
   SegmentDraftState,
   SegmentDraftTool,
@@ -537,8 +538,8 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     handleSegmentMidpointMouseDownFromHook(e, itemId, segmentIndex, startViewportPan);
   }
 
-  function handleResizeMouseDown(e: React.MouseEvent, itemId: string) {
-    startResize(e, itemId, startViewportPan);
+  function handleResizeMouseDown(e: React.MouseEvent, itemId: string, edge: ResizeEdge) {
+    startResize(e, itemId, edge, startViewportPan);
   }
 
   function handleMouseMove(e: React.MouseEvent) {

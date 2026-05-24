@@ -17,7 +17,7 @@ import {
 import { magnetResizeRect } from './magnet';
 import { CANVAS_GRID_SIZE, MAGNET_TOLERANCE } from './canvasConstants';
 import { ITEM_TYPE, type Viewport } from './types';
-import type { ConnectorsUpdater, ItemsUpdater, ResizeState } from './canvasTypes';
+import type { ConnectorsUpdater, ItemsUpdater, ResizeEdge, ResizeState } from './canvasTypes';
 
 export type UseCanvasResizeParams = {
   resizeRef: MutableRefObject<ResizeState | null>;
@@ -30,6 +30,39 @@ export type UseCanvasResizeParams = {
   captureBoardSnapshot: () => any;
   recordHistoryCheckpoint: (snapshot: any) => void;
 };
+
+function computeResize(
+  edge: ResizeEdge,
+  start: { x: number; y: number; width: number; height: number },
+  dx: number,
+  dy: number,
+): { x: number; y: number; width: number; height: number } {
+  let x = start.x;
+  let y = start.y;
+  let width = start.width;
+  let height = start.height;
+
+  const movesLeft = edge.includes('w');
+  const movesRight = edge.includes('e');
+  const movesTop = edge.includes('n');
+  const movesBottom = edge.includes('s');
+
+  if (movesLeft) {
+    x = start.x + dx;
+    width = start.width - dx;
+  } else if (movesRight) {
+    width = start.width + dx;
+  }
+
+  if (movesTop) {
+    y = start.y + dy;
+    height = start.height - dy;
+  } else if (movesBottom) {
+    height = start.height + dy;
+  }
+
+  return { x, y, width, height };
+}
 
 export function useCanvasResize({
   resizeRef,
@@ -45,6 +78,7 @@ export function useCanvasResize({
   function startResize(
     e: React.MouseEvent,
     itemId: string,
+    edge: ResizeEdge,
     startViewportPan: (e: React.MouseEvent) => boolean,
   ) {
     if (startViewportPan(e)) {
@@ -65,8 +99,11 @@ export function useCanvasResize({
     setEditingId(null);
     resizeRef.current = {
       itemId,
+      edge,
       startMouseX: e.clientX,
       startMouseY: e.clientY,
+      startX: item.x,
+      startY: item.y,
       startWidth: item.width,
       startHeight: item.height,
       snapshot: captureBoardSnapshot(),
@@ -89,19 +126,30 @@ export function useCanvasResize({
       return true;
     }
 
-    const rawRect = {
-      x: item.x,
-      y: item.y,
-      width: resize.startWidth + dx,
-      height: resize.startHeight + dy,
+    const start = {
+      x: resize.startX,
+      y: resize.startY,
+      width: resize.startWidth,
+      height: resize.startHeight,
     };
-    const magnetRect = shouldUseMagnet
-      ? magnetResizeRect(rawRect, CANVAS_GRID_SIZE, MAGNET_TOLERANCE)
-      : { width: rawRect.width, height: rawRect.height };
+    const rawRect = computeResize(resize.edge, start, dx, dy);
+
+    let nextRect = rawRect;
+    if (shouldUseMagnet) {
+      const magnetResult = magnetResizeRect(
+        { x: item.x, y: item.y, width: item.width, height: item.height },
+        CANVAS_GRID_SIZE,
+        MAGNET_TOLERANCE,
+        resize.edge,
+        rawRect,
+      );
+      nextRect = magnetResult;
+    }
+
     const nextSize = clampItemSize(
       item.type,
-      magnetRect.width,
-      magnetRect.height,
+      nextRect.width,
+      nextRect.height,
       item.data_json,
     );
 
@@ -113,6 +161,8 @@ export function useCanvasResize({
 
         const updated = {
           ...currentItem,
+          x: nextRect.x,
+          y: nextRect.y,
           width: nextSize.width,
           height: nextSize.height,
         };

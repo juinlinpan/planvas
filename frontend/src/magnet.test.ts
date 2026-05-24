@@ -64,37 +64,86 @@ describe('magnetMoveRect', () => {
 });
 
 describe('magnetResizeRect', () => {
-  it('snaps the resized right and bottom edges to the background grid', () => {
+  it('snaps the resized right and bottom edges to the background grid (se edge)', () => {
     const result = magnetResizeRect(
-      {
-        x: 24,
-        y: 24,
-        width: 46,
-        height: 71,
-      },
+      { x: 24, y: 24, width: 48, height: 72 },
       24,
       3,
+      'se',
+      { x: 24, y: 24, width: 46, height: 71 },
     );
 
     expect(result).toEqual({
+      x: 24,
+      y: 24,
       width: 48,
       height: 72,
     });
   });
 
-  it('leaves resize unchanged when the edges are outside the tolerance', () => {
+  it('snaps the left edge during a west-side resize', () => {
     const result = magnetResizeRect(
-      {
-        x: 24,
-        y: 24,
-        width: 41,
-        height: 65,
-      },
+      { x: 0, y: 0, width: 100, height: 100 },
       24,
-      3,
+      5,
+      'w',
+      { x: 22, y: 0, width: 78, height: 100 },
     );
 
     expect(result).toEqual({
+      x: 24,
+      y: 0,
+      width: 76,
+      height: 100,
+    });
+  });
+
+  it('snaps the top edge during a north-side resize', () => {
+    const result = magnetResizeRect(
+      { x: 0, y: 0, width: 100, height: 100 },
+      24,
+      5,
+      'n',
+      { x: 0, y: 22, width: 100, height: 78 },
+    );
+
+    expect(result).toEqual({
+      x: 0,
+      y: 24,
+      width: 100,
+      height: 76,
+    });
+  });
+
+  it('snaps both edges during a northwest corner resize', () => {
+    const result = magnetResizeRect(
+      { x: 0, y: 0, width: 100, height: 100 },
+      24,
+      5,
+      'nw',
+      { x: 22, y: 22, width: 78, height: 78 },
+    );
+
+    expect(result).toEqual({
+      x: 24,
+      y: 24,
+      width: 76,
+      height: 76,
+    });
+  });
+
+  it('leaves resize unchanged when the edges are outside the tolerance', () => {
+    const result = magnetResizeRect(
+      { x: 24, y: 24, width: 48, height: 72 },
+      24,
+      3,
+      'se',
+      { x: 24, y: 24, width: 41, height: 65 },
+    );
+
+    expect(result).toEqual({
+      x: 24,
+      y: 24,
       width: 41,
       height: 65,
     });

@@ -14,7 +14,7 @@ import { getItemConnectorAnchors } from './canvasHelpers/connectorAnchors';
 import { canTranslateSegmentItem, buildSegmentGeometry, type SegmentEndpoint } from './segmentData';
 import { ITEM_CATEGORY, ITEM_CATEGORY_FOR_TYPE, ITEM_TYPE } from './types';
 import type { AnchorHit, TableCellHit } from './canvasHelpers/types';
-import type { SegmentDraftState } from './canvasTypes';
+import type { SegmentDraftState, ResizeEdge } from './canvasTypes';
 import type { ProjectDefaultStyle } from './itemStyles';
 
 type CanvasItemLayerProps = {
@@ -39,7 +39,7 @@ type CanvasItemLayerProps = {
   handleSegmentWaypointMouseDown: (e: React.MouseEvent<any>, itemId: string, waypointIndex: number) => void;
   handleSegmentMidpointMouseDown: (e: React.MouseEvent<any>, itemId: string, segmentIndex: number) => void;
   handleItemDoubleClick: (item: BoardItem) => void;
-  handleResizeMouseDown: (e: React.MouseEvent<any>, itemId: string) => void;
+  handleResizeMouseDown: (e: React.MouseEvent<any>, itemId: string, edge: ResizeEdge) => void;
   handleToggleFrameCollapse: (itemId: string) => void;
   handleItemUpdate: (item: BoardItem) => void;
   handleEditEnd: () => void;
@@ -196,7 +196,7 @@ export function CanvasItemLayer({
                 : undefined
             }
             onDoubleClick={() => handleItemDoubleClick(item)}
-            onResizeMouseDown={(e) => handleResizeMouseDown(e, item.id)}
+            onResizeMouseDown={(e, edge) => handleResizeMouseDown(e, item.id, edge)}
             onToggleCollapse={() => handleToggleFrameCollapse(item.id)}
             onUpdate={handleItemUpdate}
             onEditEnd={handleEditEnd}
