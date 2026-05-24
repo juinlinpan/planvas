@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   getPageBoardData,
   regulatePage,
@@ -65,13 +65,18 @@ export function useCanvasBoardLoader({
 }: Params) {
   const [isRegulatingPage, setIsRegulatingPage] = useState(false);
 
+  const cachedBoardDataRef = useRef(cachedBoardData);
+  useEffect(() => {
+    cachedBoardDataRef.current = cachedBoardData;
+  }, [cachedBoardData]);
+
   useEffect(() => {
     const controller = new AbortController();
 
     async function load() {
       try {
         const data =
-          cachedBoardData ?? (await getPageBoardData(pageId, controller.signal));
+          cachedBoardDataRef.current ?? (await getPageBoardData(pageId, controller.signal));
         const normalized = normalizeLoadedBoardItems(
           data.board_items,
           data.connector_links,
@@ -119,7 +124,6 @@ export function useCanvasBoardLoader({
     return () => controller.abort();
   }, [
     pageId,
-    cachedBoardData,
     onBoardDataCacheChange,
     resetHistory,
     clearSelection,
