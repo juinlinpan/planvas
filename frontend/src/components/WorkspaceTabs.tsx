@@ -1,12 +1,12 @@
 import type { DragEvent as ReactDragEvent } from 'react';
 
-import type { Page, ProjectNote } from './api';
-import { getInlineDropPosition, type DropPosition } from './dragDrop';
+import type { Page, ProjectNote } from '../services/api';
+import { getInlineDropPosition, type DropPosition } from '../utils/dragDrop';
 import {
   getWorkspaceTabId,
   reorderWorkspaceTabs,
   type WorkspaceTab,
-} from './workspaceTabState';
+} from '../utils/workspaceTabState';
 
 type TabDragState = {
   kind: 'tabs';

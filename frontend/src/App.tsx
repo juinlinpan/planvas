@@ -23,34 +23,34 @@ import {
   type Page,
   type ProjectNote,
   type ProjectThemeColor,
-} from './api';
-import { Canvas } from './Canvas';
-import { FolderPickerModal } from './FolderPickerModal';
-import { HomeView } from './HomeView';
-import { MarkdownEditor } from './MarkdownEditor';
-import { WorkspaceTabs } from './WorkspaceTabs';
-import { ExportImageModal } from './ExportImageModal';
-import { MermaidImportModal } from './MermaidImportModal';
-import { CrossProjectImportModal } from './CrossProjectImportModal';
-import { usePageImportExport } from './usePageImportExport';
+} from './services/api';
+import { Canvas } from './components/canvas/Canvas';
+import { FolderPickerModal } from './components/dialogs/FolderPickerModal';
+import { HomeView } from './components/HomeView';
+import { MarkdownEditor } from './components/MarkdownEditor';
+import { WorkspaceTabs } from './components/WorkspaceTabs';
+import { ExportImageModal } from './components/dialogs/ExportImageModal';
+import { MermaidImportModal } from './components/dialogs/MermaidImportModal';
+import { CrossProjectImportModal } from './components/dialogs/CrossProjectImportModal';
+import { usePageImportExport } from './hooks/usePageImportExport';
 import { readAppRoute } from './appRoute';
-import { useWorkspaceData, UNLOADED_PAGE_BOARD_CACHE } from './useWorkspaceData';
-import { type DropPosition, getDropPosition, buildDraggedOrder, reorderItemsByIds } from './dragDrop';
-import { useWorkspaceTabs } from './workspaceTabState';
-import { getErrorMessage, readStoredBoolean } from './utils';
-import { buildUntitledPageName } from './workspaceNavigation';
+import { useWorkspaceData, UNLOADED_PAGE_BOARD_CACHE } from './hooks/useWorkspaceData';
+import { type DropPosition, getDropPosition, buildDraggedOrder, reorderItemsByIds } from './utils/dragDrop';
+import { useWorkspaceTabs } from './utils/workspaceTabState';
+import { getErrorMessage, readStoredBoolean } from './utils/index';
+import { buildUntitledPageName } from './utils/workspaceNavigation';
 import {
   parseProjectDefaultStyle,
   serializeProjectDefaultStyle,
   type ProjectDefaultStyle,
-} from './itemStyles';
+} from './items/itemStyles';
 import {
   WorkspaceSidebar,
   type SidebarDragState,
   type SidebarDropState,
   type SidebarListKind,
-} from './WorkspaceSidebar';
-import { ProjectSettingsDialog } from './ProjectSettingsDialog';
+} from './components/WorkspaceSidebar';
+import { ProjectSettingsDialog } from './components/dialogs/ProjectSettingsDialog';
 
 type AppView = 'home' | 'workspace';
 

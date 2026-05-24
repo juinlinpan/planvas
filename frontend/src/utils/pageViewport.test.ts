@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Page } from './api';
+import type { Page } from '../services/api';
 import { syncPageViewport } from './pageViewport';
 
 function createPage(overrides: Partial<Page> = {}): Page {

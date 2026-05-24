@@ -2,8 +2,8 @@ import {
   TABLE_INSERT_PREVIEW_CELL_HEIGHT,
   TABLE_INSERT_PREVIEW_CELL_WIDTH,
   getTableInsertPreviewPosition,
-} from './tableInsertPreview';
-import type { TableInsertPreviewState } from './canvasTypes';
+} from '../../tableData/tableInsertPreview';
+import type { TableInsertPreviewState } from '../../types/canvas';
 
 type Props = {
   tableInsertPreview: TableInsertPreviewState | null;

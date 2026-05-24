@@ -16,18 +16,18 @@ import {
   type Page,
   type ProjectNote,
   type PageBoardData,
-} from './api';
+} from '../services/api';
 import {
   buildAppRouteUrl,
   readAppRoute,
   type AppRoute,
-} from './appRoute';
+} from '../appRoute';
 import {
   selectFallbackId,
   resolveProjectEntryPageId,
-} from './workspaceNavigation';
-import { syncPageViewport } from './pageViewport';
-import { getErrorMessage } from './utils';
+} from '../utils/workspaceNavigation';
+import { syncPageViewport } from '../utils/pageViewport';
+import { getErrorMessage } from '../utils/index';
 
 export const UNLOADED_PAGE_BOARD_CACHE = Symbol('unloaded-page-board-cache');
 

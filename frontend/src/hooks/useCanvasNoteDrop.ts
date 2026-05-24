@@ -1,8 +1,8 @@
 import { useCallback, type DragEvent as ReactDragEvent } from 'react';
-import type { BoardItem, BoardItemPayload, ProjectNote } from './api';
-import { createBoardItem } from './api';
-import { ITEM_CATEGORY, ITEM_TYPE } from './types';
-import type { Point } from './segmentData';
+import type { BoardItem, BoardItemPayload, ProjectNote } from '../services/api';
+import { createBoardItem } from '../services/api';
+import { ITEM_CATEGORY, ITEM_TYPE } from '../types/index';
+import type { Point } from '../utils/export/segmentData';
 
 export function resolveSidebarNoteDragFile(
   projectNotes: ProjectNote[],

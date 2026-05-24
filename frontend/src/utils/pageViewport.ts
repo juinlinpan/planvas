@@ -1,5 +1,5 @@
-import type { Page } from './api';
-import type { Viewport } from './types';
+import type { Page } from '../services/api';
+import type { Viewport } from '../types/index';
 
 export function applyViewportToPage(page: Page, viewport: Viewport): Page {
   return {

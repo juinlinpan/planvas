@@ -6,16 +6,16 @@ import {
   replacePageBoardState,
   type Page,
   type PageBoardData,
-} from './api';
+} from '../services/api';
 import {
   exportPageAsPng,
   getPagePngExportBoundsFromBoardData,
-} from './pagePngExport';
-import { exportPageAsPptx } from './pagePptxExport';
-import { exportPageAsHtml } from './pageHtmlExport';
-import { exportPageAsMarkdown } from './pageMermaidExport';
-import { parseMermaidToBoardData } from './mermaidImport';
-import type { ExportImageOptions } from './ExportImageModal';
+} from '../utils/export/pagePngExport';
+import { exportPageAsPptx } from '../utils/export/pagePptxExport';
+import { exportPageAsHtml } from '../utils/export/pageHtmlExport';
+import { exportPageAsMarkdown } from '../utils/export/pageMermaidExport';
+import { parseMermaidToBoardData } from '../utils/export/mermaidImport';
+import type { ExportImageOptions } from '../components/dialogs/ExportImageModal';
 
 export interface UsePageImportExportParams {
   selectedProjectId: string | null;

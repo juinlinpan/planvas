@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { BoardItem } from './api';
+import type { BoardItem } from '../services/api';
 import {
   BACKGROUND_COLOR_OPTIONS,
   TEXT_COLOR_OPTIONS,
@@ -11,7 +11,7 @@ import {
   serializeBoardItemStyle,
   serializeProjectDefaultStyle,
 } from './itemStyles';
-import { ITEM_CATEGORY, ITEM_TYPE } from './types';
+import { ITEM_CATEGORY, ITEM_TYPE } from '../types/index';
 
 const FIXTURE_TIMESTAMP = '2026-04-12T00:00:00+00:00';
 

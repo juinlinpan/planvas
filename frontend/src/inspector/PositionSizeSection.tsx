@@ -1,7 +1,7 @@
-import type { BoardItem } from '../api';
-import { ITEM_TYPE } from '../types';
-import { ITEM_MIN_SIZE } from '../types';
-import { getTableMinSizeFromDataJson } from '../tableData';
+import type { BoardItem } from '../services/api';
+import { ITEM_TYPE } from '../types/index';
+import { ITEM_MIN_SIZE } from '../types/index';
+import { getTableMinSizeFromDataJson } from '../tableData/tableData';
 
 function clampDimension(
   item: BoardItem,

@@ -3,7 +3,7 @@ import type {
   BoardItemPayload,
   ConnectorLink,
   ConnectorLinkPayload,
-} from '../api';
+} from '../services/api';
 import type { FrameSummaryEntry } from '../items/Frame';
 import {
   buildSegmentGeometry,
@@ -13,7 +13,7 @@ import {
   getSegmentWaypoints,
   getSegmentWorldPoints,
   hasStoredSegmentData,
-} from '../segmentData';
+} from '../utils/export/segmentData';
 import {
   getEffectiveTableCellChildLayoutDirection,
   parseTableData,
@@ -23,8 +23,8 @@ import {
   getCellBounds as getTableCellBoundsFrac,
   getTableMinSizeFromDataJson,
   type TableChildLayoutDirection,
-} from '../tableData';
-import { ITEM_CATEGORY, ITEM_MIN_SIZE, ITEM_TYPE } from '../types';
+} from '../tableData/tableData';
+import { ITEM_CATEGORY, ITEM_MIN_SIZE, ITEM_TYPE } from '../types/index';
 
 type Anchor =
   | 'top_left'

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import type { BoardItem } from './api';
+import type { BoardItem } from '../services/api';
 import {
   computeCellChildLayout,
   getSelectionMagnetBounds,
   reorderItemsForLayer,
 } from './canvasHelpers';
-import { buildSegmentGeometry } from './segmentData';
-import { ITEM_CATEGORY, ITEM_TYPE } from './types';
+import { buildSegmentGeometry } from '../utils/export/segmentData';
+import { ITEM_CATEGORY, ITEM_TYPE } from '../types/index';
 
 function createBoardItem(overrides: Partial<BoardItem>): BoardItem {
   return {

@@ -7,9 +7,9 @@ import {
   type Page,
   type Project,
   type ProjectNote,
-} from './api';
-import type { WorkspaceTab } from './workspaceTabState';
-import type { DropPosition } from './dragDrop';
+} from '../services/api';
+import type { WorkspaceTab } from '../utils/workspaceTabState';
+import type { DropPosition } from '../utils/dragDrop';
 import {
   IconChevronDown,
   IconPencil,

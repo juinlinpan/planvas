@@ -3,8 +3,8 @@ import {
   MAX_ZOOM,
   MIN_ZOOM,
   TOOLBAR_ZOOM_STEP,
-} from './canvasConstants';
-import type { Viewport } from './types';
+} from '../constants/canvas';
+import type { Viewport } from '../types/index';
 
 type ScreenPoint = {
   x: number;

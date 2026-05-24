@@ -2,18 +2,18 @@ import { useState } from 'react';
 import {
   type Project,
   type ProjectThemeColor,
-} from './api';
+} from '../../services/api';
 import {
   ColorPaletteField,
   CommitNumberInput,
-} from './Inspector';
+} from '../Inspector';
 import {
   BACKGROUND_COLOR_OPTIONS,
   STROKE_COLOR_OPTIONS,
   TEXT_COLOR_OPTIONS,
   type ProjectDefaultStyle,
-} from './itemStyles';
-import { IconFolder } from './AppIcons';
+} from '../../items/itemStyles';
+import { IconFolder } from '../AppIcons';
 
 const PROJECT_THEME_OPTIONS: Array<{
   value: ProjectThemeColor;

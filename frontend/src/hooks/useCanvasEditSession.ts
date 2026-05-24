@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
-import type { BoardItem } from './api';
-import type { EditSessionState } from './canvasTypes';
-import { isInlineEditable } from './canvasHelpers/core';
+import type { BoardItem } from '../services/api';
+import type { EditSessionState } from '../types/canvas';
+import { isInlineEditable } from '../canvasHelpers/core';
 
 export function useCanvasEditSession() {
   const [editingId, setEditingId] = useState<string | null>(null);

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { type BoardItem } from '../api';
-import { CANVAS_GRID_SIZE } from '../canvasConstants';
-import { type ProjectDefaultStyle, resolveBoardItemStyle } from '../itemStyles';
-import { snapValueToGrid } from '../magnet';
+import { type BoardItem } from '../services/api';
+import { CANVAS_GRID_SIZE } from '../constants/canvas';
+import { type ProjectDefaultStyle, resolveBoardItemStyle } from './itemStyles';
+import { snapValueToGrid } from '../utils/magnet';
 import {
   addCol,
   addRow,
@@ -32,8 +32,8 @@ import {
   type TableCellData,
   type TableData,
   updateTableCell,
-} from '../tableData';
-import { reconcileTableInteractionState } from '../tableInteractionState';
+} from '../tableData/tableData';
+import { reconcileTableInteractionState } from '../tableData/tableInteractionState';
 
 // ── Types ─────────────────────────────────────────────────────────────────
 

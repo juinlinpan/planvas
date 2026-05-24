@@ -3,12 +3,12 @@ import {
   getPageBoardData,
   regulatePage,
   replacePageBoardState,
-} from './api';
-import type { BoardItem, ConnectorLink, PageBoardData } from './api';
-import { normalizeConnectorArrowsToSegments } from './canvasHelpers/connectorAnchors';
-import { relayoutTableItems } from './canvasHelpers/tableLayout';
-import type { ConnectorsUpdater, ItemsUpdater, SegmentDraftState } from './canvasTypes';
-import { ITEM_TYPE, type Viewport } from './types';
+} from '../services/api';
+import type { BoardItem, ConnectorLink, PageBoardData } from '../services/api';
+import { normalizeConnectorArrowsToSegments } from '../canvasHelpers/connectorAnchors';
+import { relayoutTableItems } from '../canvasHelpers/tableLayout';
+import type { ConnectorsUpdater, ItemsUpdater, SegmentDraftState } from '../types/canvas';
+import { ITEM_TYPE, type Viewport } from '../types/index';
 
 type Params = {
   pageId: string;

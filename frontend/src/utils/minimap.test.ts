@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import type { BoardItem } from './api';
+import type { BoardItem } from '../services/api';
 import {
   MAX_CANVAS_EDGE,
   getMinimapLayout,
   getViewportWorldBounds,
   worldToMinimap,
 } from './minimap';
-import { ITEM_CATEGORY, ITEM_TYPE, type Viewport } from './types';
+import { ITEM_CATEGORY, ITEM_TYPE, type Viewport } from '../types/index';
 
 function createItem(overrides: Partial<BoardItem>): BoardItem {
   return {

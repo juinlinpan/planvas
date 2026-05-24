@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { type BoardItem } from '../api';
+import { type BoardItem } from '../services/api';
 import {
   getBoardItemTypographyStyle,
   type ProjectDefaultStyle,
   resolveBoardItemStyle,
-} from '../itemStyles';
+} from './itemStyles';
 
 function toJustifyContent(
   value: 'left' | 'center' | 'right',

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { listDirs, type DirEntry } from './api';
+import { listDirs, type DirEntry } from '../../services/api';
 
 type Props = {
   onConfirm: (path: string) => void;

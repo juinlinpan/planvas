@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseMermaidToBoardData } from './mermaidImport';
-import { ITEM_TYPE } from './types';
+import { ITEM_TYPE } from '../../types/index';
 
 describe('parseMermaidToBoardData', () => {
   it('parses basic flowchart with nodes and edges', () => {

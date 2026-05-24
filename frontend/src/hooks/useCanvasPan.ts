@@ -1,7 +1,7 @@
 import type React from 'react';
 import type { MutableRefObject, RefObject } from 'react';
-import type { PanState } from './canvasTypes';
-import type { Viewport } from './types';
+import type { PanState } from '../types/canvas';
+import type { Viewport } from '../types/index';
 
 export type UseCanvasPanParams = {
   viewportRef: RefObject<Viewport>;

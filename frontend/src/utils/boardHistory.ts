@@ -1,4 +1,4 @@
-import type { BoardItem, ConnectorLink } from './api';
+import type { BoardItem, ConnectorLink } from '../services/api';
 
 export type BoardSnapshot = {
   items: BoardItem[];

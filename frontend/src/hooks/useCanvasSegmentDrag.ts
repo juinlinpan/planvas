@@ -1,15 +1,15 @@
 import type React from 'react';
 import type { MutableRefObject, RefObject } from 'react';
-import type { BoardItem } from './api';
+import type { BoardItem } from '../services/api';
 import {
   findNearestConnectorAnchor,
   getItemsNearPoint,
-} from './canvasHelpers/connectorAnchors';
-import type { AnchorHit } from './canvasHelpers/types';
+} from '../canvasHelpers/connectorAnchors';
+import type { AnchorHit } from '../canvasHelpers/types';
 import {
   CONNECTOR_SNAP_THRESHOLD,
   CANVAS_GRID_SIZE,
-} from './canvasConstants';
+} from '../constants/canvas';
 import {
   buildSegmentGeometry,
   getSegmentConnections,
@@ -21,15 +21,15 @@ import {
   type Point,
   type SegmentConnection,
   type SegmentEndpoint,
-} from './segmentData';
-import { snapPointToGrid } from './magnet';
-import { persistItems } from './canvasSyncHelpers';
+} from '../utils/export/segmentData';
+import { snapPointToGrid } from '../utils/magnet';
+import { persistItems } from '../canvasHelpers/canvasSyncHelpers';
 import type {
   SegmentDraftState,
   SegmentEndpointDragState,
   WaypointDragState,
-} from './canvasTypes';
-import type { ActiveTool } from './types';
+} from '../types/canvas';
+import type { ActiveTool } from '../types/index';
 
 export type UseCanvasSegmentDragParams = {
   waypointDragRef: MutableRefObject<WaypointDragState | null>;

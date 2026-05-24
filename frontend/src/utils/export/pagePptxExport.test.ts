@@ -54,7 +54,7 @@ vi.mock('./pagePngExport', () => ({
   getPagePngExportBounds: getPagePngExportBoundsMock,
 }));
 
-import type { PageBoardData } from './api';
+import type { PageBoardData } from '../../services/api';
 import { exportPageAsPptx } from './pagePptxExport';
 
 const boardData: PageBoardData = {

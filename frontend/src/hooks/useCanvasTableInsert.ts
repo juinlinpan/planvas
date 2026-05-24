@@ -1,19 +1,19 @@
 import type React from 'react';
 import type { MutableRefObject, RefObject } from 'react';
-import { snapPointToGrid } from './magnet';
-import { CANVAS_GRID_SIZE } from './canvasConstants';
+import { snapPointToGrid } from '../utils/magnet';
+import { CANVAS_GRID_SIZE } from '../constants/canvas';
 import {
   getTableInsertCanvasDimensions,
   getTableInsertCanvasSize,
-} from './tableInsertPreview';
+} from '../tableData/tableInsertPreview';
 import {
   TABLE_MAX_DIMENSION,
   createTableData,
   serializeTableData,
-} from './tableData';
-import { ITEM_TYPE, ITEM_DEFAULT_SIZE, type ActiveTool } from './types';
-import type { Point } from './segmentData';
-import type { TableInsertDraftState, TableInsertPreviewState } from './canvasTypes';
+} from '../tableData/tableData';
+import { ITEM_TYPE, ITEM_DEFAULT_SIZE, type ActiveTool } from '../types/index';
+import type { Point } from '../utils/export/segmentData';
+import type { TableInsertDraftState, TableInsertPreviewState } from '../types/canvas';
 
 export type UseCanvasTableInsertParams = {
   tableInsertDraftRef: MutableRefObject<TableInsertDraftState | null>;

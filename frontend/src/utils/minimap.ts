@@ -1,5 +1,5 @@
-import type { BoardItem } from './api';
-import type { Viewport } from './types';
+import type { BoardItem } from '../services/api';
+import type { Viewport } from '../types/index';
 
 export type Rect = {
   x: number;

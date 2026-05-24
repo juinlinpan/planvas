@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { BoardItem, ConnectorLink } from './api';
+import type { BoardItem, ConnectorLink } from '../services/api';
 import {
   areBoardSnapshotsEqual,
   createBoardHistoryEntry,
@@ -10,7 +10,7 @@ import {
   prepareUndoHistory,
   pushUndoHistory,
 } from './boardHistory';
-import { ITEM_CATEGORY, ITEM_TYPE } from './types';
+import { ITEM_CATEGORY, ITEM_TYPE } from '../types/index';
 
 const FIXTURE_TIMESTAMP = '2026-04-12T00:00:00+00:00';
 

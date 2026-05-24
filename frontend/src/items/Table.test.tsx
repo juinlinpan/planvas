@@ -1,9 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import type { BoardItem } from '../api';
-import { createTableData, mergeCells, serializeTableData } from '../tableData';
-import { ITEM_CATEGORY, ITEM_TYPE } from '../types';
+import type { BoardItem } from '../services/api';
+import { createTableData, mergeCells, serializeTableData } from '../tableData/tableData';
+import { ITEM_CATEGORY, ITEM_TYPE } from '../types/index';
 import {
   buildTableGridLines,
   getMagnetSnappedTableDividerPosition,

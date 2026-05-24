@@ -1,16 +1,16 @@
-import { type BoardItem } from '../api';
+import { type BoardItem } from '../services/api';
 import {
   parseBoardItemStyle,
   type ProjectDefaultStyle,
   resolveBoardItemStyle,
-} from '../itemStyles';
+} from './itemStyles';
 import {
   getSegmentLocalPoints,
   getSegmentWaypoints,
   type Point,
   type SegmentEndpoint,
-} from '../segmentData';
-import { ITEM_TYPE } from '../types';
+} from '../utils/export/segmentData';
+import { ITEM_TYPE } from '../types/index';
 
 type Props = {
   item: BoardItem;

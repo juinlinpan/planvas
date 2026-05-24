@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { updatePageViewport } from './api';
-import { VIEWPORT_SAVE_DELAY } from './canvasConstants';
-import type { Viewport } from './types';
+import { updatePageViewport } from '../services/api';
+import { VIEWPORT_SAVE_DELAY } from '../constants/canvas';
+import type { Viewport } from '../types/index';
 
 type Params = {
   pageId: string;

@@ -1,13 +1,13 @@
 import type React from 'react';
 import type { MutableRefObject, RefObject } from 'react';
-import type { BoardItem } from './api';
+import type { BoardItem } from '../services/api';
 import {
   getItemMagnetBounds,
   getUniqueItemIds,
   isHiddenByCollapsedFrame,
-} from './canvasHelpers/selection';
-import type { MarqueeSelectionState } from './canvasTypes';
-import type { Point } from './segmentData';
+} from '../canvasHelpers/selection';
+import type { MarqueeSelectionState } from '../types/canvas';
+import type { Point } from '../utils/export/segmentData';
 
 export type UseCanvasMarqueeParams = {
   marqueeSelectionRef: MutableRefObject<{

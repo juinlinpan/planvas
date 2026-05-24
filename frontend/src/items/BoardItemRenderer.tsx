@@ -1,8 +1,8 @@
 import { memo } from 'react';
-import { type BoardItem } from '../api';
-import type { ProjectDefaultStyle } from '../itemStyles';
-import type { ResizeEdge } from '../canvasTypes';
-import type { SegmentEndpoint } from '../segmentData';
+import { type BoardItem } from '../services/api';
+import type { ProjectDefaultStyle } from './itemStyles';
+import type { ResizeEdge } from '../types/canvas';
+import type { SegmentEndpoint } from '../utils/export/segmentData';
 import { Frame, type FrameSummaryEntry } from './Frame';
 import { NotePaper } from './NotePaper';
 import { SegmentShape } from './SegmentShape';

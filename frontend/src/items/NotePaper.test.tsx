@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import type { BoardItem } from '../api';
-import { ITEM_CATEGORY, ITEM_TYPE } from '../types';
+import type { BoardItem } from '../services/api';
+import { ITEM_CATEGORY, ITEM_TYPE } from '../types/index';
 import { NotePaper } from './NotePaper';
 
 const FIXTURE_TIMESTAMP = '2026-04-12T00:00:00+00:00';

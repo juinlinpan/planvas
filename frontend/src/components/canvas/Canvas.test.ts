@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import type { BoardItem, ConnectorLink, ProjectNote } from './api';
+import type { BoardItem, ConnectorLink, ProjectNote } from '../../services/api';
 import { Canvas } from './Canvas';
-import { resolveSidebarNoteDragFile } from './useCanvasNoteDrop';
+import { resolveSidebarNoteDragFile } from '../../hooks/useCanvasNoteDrop';
 import {
   buildClipboardPayload,
   getClipboardData,
@@ -10,19 +10,19 @@ import {
   getPasteCount,
   setPasteCount,
   generateUUID,
-} from './useCanvasItemActions';
+} from '../../hooks/useCanvasItemActions';
 import {
   getAutoAnchors,
   getConnectorPoints,
   getPartialFrameExitEjectPosition,
   normalizeConnectorArrowsToSegments,
   summarizeFrameChild,
-} from './canvasHelpers';
-import { parseBoardItemStyle, resolveBoardItemStyle } from './itemStyles';
-import { syncMarkdownBackedItems } from './noteSync';
-import { normalizeLoadedBoardItems } from './useCanvasBoardLoader';
-import { serializeTableData, type TableData } from './tableData';
-import { ITEM_CATEGORY, ITEM_TYPE } from './types';
+} from '../../canvasHelpers/canvasHelpers';
+import { parseBoardItemStyle, resolveBoardItemStyle } from '../../items/itemStyles';
+import { syncMarkdownBackedItems } from '../../services/noteSync';
+import { normalizeLoadedBoardItems } from '../../hooks/useCanvasBoardLoader';
+import { serializeTableData, type TableData } from '../../tableData/tableData';
+import { ITEM_CATEGORY, ITEM_TYPE } from '../../types/index';
 
 const FIXTURE_TIMESTAMP = '2026-04-11T00:00:00+00:00';
 

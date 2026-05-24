@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 import html2canvas from 'html2canvas';
 
-import type { BoardItem, PageBoardData } from './api';
+import type { BoardItem, PageBoardData } from '../../services/api';
 import {
   getFrameChildren,
   getItemMagnetBounds,
@@ -11,8 +11,8 @@ import {
   normalizeConnectorArrowsToSegments,
   sortItemsByLayer,
   summarizeFrameChild,
-} from './canvasHelpers';
-import { BoardItemRenderer } from './items/BoardItemRenderer';
+} from '../../canvasHelpers/canvasHelpers';
+import { BoardItemRenderer } from '../../items/BoardItemRenderer';
 
 type Rect = {
   x: number;

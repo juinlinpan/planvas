@@ -4,7 +4,7 @@ import {
   type ConnectorLink,
   updateBoardItem,
   updateConnector,
-} from './api';
+} from '../services/api';
 import {
   getAutoAnchors,
   getAnchorPoint,
@@ -12,15 +12,15 @@ import {
   toConnectorPayload,
   toPayload,
 } from './canvasHelpers';
-import type { ConnectorsUpdater, ItemsUpdater } from './canvasTypes';
+import type { ConnectorsUpdater, ItemsUpdater } from '../types/canvas';
 import {
   buildSegmentGeometry,
   getSegmentConnections,
   getSegmentWorldWaypoints,
   getSegmentWorldPoints,
   hasStoredSegmentData,
-} from './segmentData';
-import { ITEM_TYPE } from './types';
+} from '../utils/export/segmentData';
+import { ITEM_TYPE } from '../types/index';
 
 /**
  * Persist a batch of items to the backend. Fire-and-forget.

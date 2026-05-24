@@ -1,10 +1,10 @@
-import { type BoardItem } from '../api';
+import { type BoardItem } from '../services/api';
 import {
   getBoardItemTypographyStyle,
   type ProjectDefaultStyle,
   resolveBoardItemStyle,
-} from '../itemStyles';
-import { ITEM_TYPE_LABEL } from '../types';
+} from './itemStyles';
+import { ITEM_TYPE_LABEL } from '../types/index';
 
 export type FrameSummaryEntry = {
   id: string;

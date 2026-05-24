@@ -1,7 +1,7 @@
 import {
   sanitizeTextHorizontalAlign,
   sanitizeTextVerticalAlign,
-} from '../itemStyles';
+} from '../items/itemStyles';
 import {
   DEFAULT_TABLE_COLS,
   DEFAULT_TABLE_ROWS,

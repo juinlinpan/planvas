@@ -5,7 +5,7 @@ import {
   type Page,
   type Project,
   type ProjectNote,
-} from './api';
+} from '../../services/api';
 
 type Props = {
   currentProjectId: string;

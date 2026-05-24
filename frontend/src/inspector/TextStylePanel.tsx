@@ -1,4 +1,4 @@
-import type { BoardItem } from '../api';
+import type { BoardItem } from '../services/api';
 import {
   BACKGROUND_COLOR_OPTIONS,
   TEXT_COLOR_OPTIONS,
@@ -7,11 +7,11 @@ import {
   serializeBoardItemStyle,
   type BoardItemStyle,
   type ProjectDefaultStyle,
-} from '../itemStyles';
-import { countFilledTableCells, parseTableData } from '../tableData';
-import { ITEM_TYPE } from '../types';
-import { ColorPaletteField, CommitNumberInput } from '../Inspector';
-import type { TableCellData } from '../tableData';
+} from '../items/itemStyles';
+import { countFilledTableCells, parseTableData } from '../tableData/tableData';
+import { ITEM_TYPE } from '../types/index';
+import { ColorPaletteField, CommitNumberInput } from '../components/Inspector';
+import type { TableCellData } from '../tableData/tableData';
 
 const TEXT_HORIZONTAL_ALIGN_OPTIONS = [
   { value: 'left', label: 'Left' },

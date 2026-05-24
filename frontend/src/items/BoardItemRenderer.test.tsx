@@ -1,9 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import type { BoardItem } from '../api';
-import { createTableData, serializeTableData } from '../tableData';
-import { ITEM_CATEGORY, ITEM_TYPE } from '../types';
+import type { BoardItem } from '../services/api';
+import { createTableData, serializeTableData } from '../tableData/tableData';
+import { ITEM_CATEGORY, ITEM_TYPE } from '../types/index';
 import { BoardItemRenderer } from './BoardItemRenderer';
 
 const FIXTURE_TIMESTAMP = '2026-04-20T00:00:00+00:00';

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   type CanvasBackgroundMode,
-} from './canvasBackground';
-import { adjustZoomByStep, adjustResetZoomByStep, getDisplayZoom } from './viewport';
-import type { Viewport } from './types';
+} from '../../utils/canvasBackground';
+import { adjustZoomByStep, adjustResetZoomByStep, getDisplayZoom } from '../../utils/viewport';
+import type { Viewport } from '../../types/index';
 
 type UtilityMenuId = 'file' | 'edit' | null;
 

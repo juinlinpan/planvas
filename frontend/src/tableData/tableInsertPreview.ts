@@ -1,4 +1,4 @@
-import { ITEM_DEFAULT_SIZE, ITEM_TYPE } from './types';
+import { ITEM_DEFAULT_SIZE, ITEM_TYPE } from '../types/index';
 import {
   TABLE_CELL_MIN_HEIGHT,
   TABLE_CELL_MIN_WIDTH,

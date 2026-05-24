@@ -1,7 +1,7 @@
-import type { BoardItem, PageBoardData } from './api';
-import { ITEM_TYPE } from './types';
-import { parseTableData } from './tableData';
-import type { TableCellData } from './tableData';
+import type { BoardItem, PageBoardData } from '../../services/api';
+import { ITEM_TYPE } from '../../types/index';
+import { parseTableData } from '../../tableData/tableData';
+import type { TableCellData } from '../../tableData/tableData';
 import { getSegmentConnections } from './segmentData';
 
 // ── Cell helpers ──────────────────────────────────────────────────────────────

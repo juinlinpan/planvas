@@ -1,8 +1,8 @@
-import type { BoardItem, PageBoardData } from './api';
+import type { BoardItem, PageBoardData } from '../../services/api';
 import { getPagePngExportBounds } from './pagePngExport';
-import { parseBoardItemStyle, resolveBoardItemStyle } from './itemStyles';
-import { parseTableData } from './tableData';
-import { ITEM_TYPE } from './types';
+import { parseBoardItemStyle, resolveBoardItemStyle } from '../../items/itemStyles';
+import { parseTableData } from '../../tableData/tableData';
+import { ITEM_TYPE } from '../../types/index';
 
 const PPTX_MIME_TYPE =
   'application/vnd.openxmlformats-officedocument.presentationml.presentation';

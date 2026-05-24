@@ -14,50 +14,50 @@ import {
   deleteBoardItem,
   replacePageBoardState,
   updateBoardItem,
-} from './api';
-import type { BoardSnapshot } from './boardHistory';
-import { PASTE_OFFSET_STEP, ITEM_SAVE_DELAY } from './canvasConstants';
-import { relayoutTableItems } from './canvasHelpers/tableLayout';
-import { clampItemSize } from './canvasHelpers/frameLayout';
+} from '../services/api';
+import type { BoardSnapshot } from '../utils/boardHistory';
+import { PASTE_OFFSET_STEP, ITEM_SAVE_DELAY } from '../constants/canvas';
+import { relayoutTableItems } from '../canvasHelpers/tableLayout';
+import { clampItemSize } from '../canvasHelpers/frameLayout';
 import {
   expandSelectionItemIds,
   getPrimarySelectionId,
   getUniqueItemIds,
   isInlineEditable,
-} from './canvasHelpers/selection';
+} from '../canvasHelpers/selection';
 import {
   reorderItemsForLayer,
   sortItemsForClipboard,
-} from './canvasHelpers/layerOrdering';
-import { toPayload } from './canvasHelpers/payloadConversion';
+} from '../canvasHelpers/layerOrdering';
+import { toPayload } from '../canvasHelpers/payloadConversion';
 import {
   parseBoardItemStyle,
   resolveBoardItemStyle,
   serializeBoardItemStyle,
   type BoardItemStyle,
   type ProjectDefaultStyle,
-} from './itemStyles';
+} from '../items/itemStyles';
 import type {
   ClipboardSnapshot,
   ConnectorsUpdater,
   EditSessionState,
   ItemsUpdater,
   SegmentDraftState,
-} from './canvasTypes';
-import { buildSegmentGeometry } from './segmentData';
-import type { SegmentDraftTool } from './canvasTypes';
+} from '../types/canvas';
+import { buildSegmentGeometry } from '../utils/export/segmentData';
+import type { SegmentDraftTool } from '../types/canvas';
 import {
   createTableData,
   parseTableData,
   serializeTableData,
-} from './tableData';
+} from '../tableData/tableData';
 import {
   ITEM_CATEGORY,
   ITEM_CATEGORY_FOR_TYPE,
   ITEM_TYPE,
   type ActiveTool,
-} from './types';
-import type { AnchorHit, LayerAction } from './canvasHelpers/types';
+} from '../types/index';
+import type { AnchorHit, LayerAction } from '../canvasHelpers/types';
 
 function getNoteFileName(item: BoardItem): string | null {
   if (item.type !== ITEM_TYPE.note_paper || item.data_json === null) {

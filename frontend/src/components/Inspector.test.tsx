@@ -2,11 +2,11 @@ import type { ComponentProps } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { BoardItem } from './api';
+import type { BoardItem } from '../services/api';
 import { Inspector } from './Inspector';
-import { BACKGROUND_COLOR_OPTIONS, TEXT_COLOR_OPTIONS } from './itemStyles';
-import { createTableData, serializeTableData } from './tableData';
-import { ITEM_CATEGORY, ITEM_TYPE } from './types';
+import { BACKGROUND_COLOR_OPTIONS, TEXT_COLOR_OPTIONS } from '../items/itemStyles';
+import { createTableData, serializeTableData } from '../tableData/tableData';
+import { ITEM_CATEGORY, ITEM_TYPE } from '../types/index';
 
 const FIXTURE_TIMESTAMP = '2026-04-12T00:00:00+00:00';
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { renameProjectNote, updateProjectNote, type ProjectNote } from './api';
+import { renameProjectNote, updateProjectNote, type ProjectNote } from '../services/api';
 import { MarkdownPreview } from './markdownPreview';
 
 type Props = {

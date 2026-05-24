@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Page } from './api';
+import type { Page } from '../services/api';
 import { resolveProjectEntryPageId } from './workspaceNavigation';
 
 function buildPage(id: string, projectId = 'project-1'): Page {

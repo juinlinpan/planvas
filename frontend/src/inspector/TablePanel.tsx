@@ -1,4 +1,4 @@
-import type { BoardItem } from '../api';
+import type { BoardItem } from '../services/api';
 import {
   BACKGROUND_COLOR_OPTIONS,
   TEXT_COLOR_OPTIONS,
@@ -7,7 +7,7 @@ import {
   serializeBoardItemStyle,
   type BoardItemStyle,
   type ProjectDefaultStyle,
-} from '../itemStyles';
+} from '../items/itemStyles';
 import {
   DEFAULT_TABLE_LABEL_FONT_SIZE,
   TABLE_LABEL_FONT_SIZE_MAX,
@@ -19,9 +19,9 @@ import {
   type TableCellData,
   type TableChildLayoutDirection,
   type TableData,
-} from '../tableData';
-import { ITEM_TYPE } from '../types';
-import { ColorPaletteField, CommitNumberInput } from '../Inspector';
+} from '../tableData/tableData';
+import { ITEM_TYPE } from '../types/index';
+import { ColorPaletteField, CommitNumberInput } from '../components/Inspector';
 
 const TEXT_HORIZONTAL_ALIGN_OPTIONS = [
   { value: 'left', label: 'Left' },

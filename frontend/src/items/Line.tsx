@@ -1,5 +1,5 @@
-import { type BoardItem } from '../api';
-import { type ProjectDefaultStyle, resolveBoardItemStyle } from '../itemStyles';
+import { type BoardItem } from '../services/api';
+import { type ProjectDefaultStyle, resolveBoardItemStyle } from './itemStyles';
 
 type Props = {
   item: BoardItem;

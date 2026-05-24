@@ -1,24 +1,24 @@
-﻿import { type BoardItem } from './api';
+﻿import { type BoardItem } from '../services/api';
 import { useState } from 'react';
 
 import {
   resolveBoardItemStyle,
   type ColorOption,
   type ProjectDefaultStyle,
-} from './itemStyles';
-import { hasStoredSegmentData } from './segmentData';
+} from '../items/itemStyles';
+import { hasStoredSegmentData } from '../utils/export/segmentData';
 import {
   countFilledTableCells,
   getEffectiveTableCellChildLayoutDirection,
   parseTableData,
   type TableCellData,
-} from './tableData';
-import { ITEM_TYPE, ITEM_TYPE_LABEL } from './types';
-import { PositionSizeSection } from './inspector/PositionSizeSection';
-import { ContentSection } from './inspector/ContentSection';
-import { TextStylePanel } from './inspector/TextStylePanel';
-import { SegmentPanel } from './inspector/SegmentPanel';
-import { TablePanel } from './inspector/TablePanel';
+} from '../tableData/tableData';
+import { ITEM_TYPE, ITEM_TYPE_LABEL } from '../types/index';
+import { PositionSizeSection } from '../inspector/PositionSizeSection';
+import { ContentSection } from '../inspector/ContentSection';
+import { TextStylePanel } from '../inspector/TextStylePanel';
+import { SegmentPanel } from '../inspector/SegmentPanel';
+import { TablePanel } from '../inspector/TablePanel';
 
 type Props = {
   item: BoardItem | null;

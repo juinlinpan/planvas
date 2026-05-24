@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { readStoredBoolean } from './utils';
+import { readStoredBoolean } from '../../utils/index';
 import {
   type BoardItem,
   type ConnectorLink,
@@ -14,29 +14,29 @@ import {
   type Page,
   type PageBoardData,
   type ProjectNote,
-} from './api';
+} from '../../services/api';
 import {
   findFrameDropTarget,
   getFrameChildren,
   getFrameOverlapScore,
   isSmallItem,
-} from './canvasHelpers/frameLayout';
-import { findNearestConnectorAnchor } from './canvasHelpers/connectorAnchors';
+} from '../../canvasHelpers/frameLayout';
+import { findNearestConnectorAnchor } from '../../canvasHelpers/connectorAnchors';
 import {
   findTableCellDropTarget,
   relayoutTableItems,
-} from './canvasHelpers/tableLayout';
+} from '../../canvasHelpers/tableLayout';
 import {
   getPrimarySelectionId,
   getUniqueItemIds,
-} from './canvasHelpers/selection';
+} from '../../canvasHelpers/selection';
 import {
   getLayerBlockIds,
   sortItemsByLayer,
-} from './canvasHelpers/layerOrdering';
-import type { AnchorHit, TableCellHit } from './canvasHelpers/types';
-import { CANVAS_GRID_SIZE, CONNECTOR_SNAP_THRESHOLD } from './canvasConstants';
-import { snapPointToGrid } from './magnet';
+} from '../../canvasHelpers/layerOrdering';
+import type { AnchorHit, TableCellHit } from '../../canvasHelpers/types';
+import { CANVAS_GRID_SIZE, CONNECTOR_SNAP_THRESHOLD } from '../../constants/canvas';
+import { snapPointToGrid } from '../../utils/magnet';
 import type {
   ConnectorsUpdater,
   DragState,
@@ -50,14 +50,14 @@ import type {
   TableInsertPreviewState,
   MarqueeSelectionState,
   WaypointDragState,
-} from './canvasTypes';
+} from '../../types/canvas';
 
-import { useCanvasFrameAnimation } from './useCanvasFrameAnimation';
-import { useCanvasHistory } from './useCanvasHistory';
-import { useCanvasItemActions } from './useCanvasItemActions';
-import { useCanvasMouseHandlers } from './useCanvasMouseHandlers';
-import { Inspector } from './Inspector';
-import { type SegmentConnection } from './segmentData';
+import { useCanvasFrameAnimation } from '../../hooks/useCanvasFrameAnimation';
+import { useCanvasHistory } from '../../hooks/useCanvasHistory';
+import { useCanvasItemActions } from '../../hooks/useCanvasItemActions';
+import { useCanvasMouseHandlers } from '../../hooks/useCanvasMouseHandlers';
+import { Inspector } from '../Inspector';
+import { type SegmentConnection } from '../../utils/export/segmentData';
 import {
   createTableData,
   clearTableCells,
@@ -72,7 +72,7 @@ import {
   serializeTableData,
   TABLE_MAX_DIMENSION,
   updateTableCell,
-} from './tableData';
+} from '../../tableData/tableData';
 import {
   getDirectionalTableInsertDelta,
   getTableInsertDimensions,
@@ -83,34 +83,34 @@ import {
   TABLE_INSERT_PREVIEW_CELL_WIDTH,
   type TableInsertDockPosition,
   type TableInsertDirection,
-} from './tableInsertPreview';
-import { Toolbar } from './Toolbar';
+} from '../../tableData/tableInsertPreview';
+import { Toolbar } from '../Toolbar';
 
-import { ITEM_TYPE, type ActiveTool, type Viewport } from './types';
+import { ITEM_TYPE, type ActiveTool, type Viewport } from '../../types/index';
 import {
   CANVAS_BACKGROUND_STORAGE_KEY,
   DEFAULT_CANVAS_BACKGROUND_MODE,
   parseCanvasBackgroundMode,
   type CanvasBackgroundMode,
-} from './canvasBackground';
-import { type CanvasContextMenuState } from './canvasContextMenu';
+} from '../../utils/canvasBackground';
+import { type CanvasContextMenuState } from '../../canvasHelpers/canvasContextMenu';
 import {
   adjustResetZoomByStep,
   adjustZoomByStep,
   getResetZoom,
   zoomViewportAroundPoint,
-} from './viewport';
-import { parseProjectDefaultStyle } from './itemStyles';
-import { getMinimapLayout } from './minimap';
-import { syncMarkdownBackedItems } from './noteSync';
-import { useCanvasBoardLoader } from './useCanvasBoardLoader';
-import { useCanvasViewportPersistence } from './useCanvasViewportPersistence';
+} from '../../utils/viewport';
+import { parseProjectDefaultStyle } from '../../items/itemStyles';
+import { getMinimapLayout } from '../../utils/minimap';
+import { syncMarkdownBackedItems } from '../../services/noteSync';
+import { useCanvasBoardLoader } from '../../hooks/useCanvasBoardLoader';
+import { useCanvasViewportPersistence } from '../../hooks/useCanvasViewportPersistence';
 import { CanvasRibbon } from './CanvasRibbon';
 import { CanvasMinimap, MINIMAP_WIDTH, MINIMAP_HEIGHT } from './CanvasMinimap';
 import { CanvasContextMenuLayer } from './CanvasContextMenuLayer';
 import { CanvasItemLayer } from './CanvasItemLayer';
 import { CanvasTableInsertPreviews } from './CanvasTableInsertPreviews';
-import { useCanvasContextMenuActions } from './useCanvasContextMenuActions';
+import { useCanvasContextMenuActions } from '../../hooks/useCanvasContextMenuActions';
 
 type Props = {
   page: Page;
@@ -149,8 +149,8 @@ function readStoredNumber(key: string, fallbackValue: number): number {
   return Number.isFinite(storedValue) ? storedValue : fallbackValue;
 }
 
-import { useCanvasEditSession } from './useCanvasEditSession';
-import { useCanvasNoteDrop } from './useCanvasNoteDrop';
+import { useCanvasEditSession } from '../../hooks/useCanvasEditSession';
+import { useCanvasNoteDrop } from '../../hooks/useCanvasNoteDrop';
 
 export function Canvas({
   page,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { BoardItem } from './api';
+import type { BoardItem } from '../../services/api';
 import {
   buildSegmentGeometry,
   canTranslateSegmentItem,
@@ -9,7 +9,7 @@ import {
   normalizeSegmentDraft,
   updateSegmentEndpoint,
 } from './segmentData';
-import { ITEM_CATEGORY, ITEM_TYPE } from './types';
+import { ITEM_CATEGORY, ITEM_TYPE } from '../../types/index';
 
 const FIXTURE_TIMESTAMP = '2026-04-12T00:00:00+00:00';
 

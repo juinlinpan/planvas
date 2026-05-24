@@ -7,7 +7,7 @@ import {
   type BoardItem,
   type ConnectorLink,
   type Project,
-} from './api';
+} from '../../services/api';
 
 type JsonObject = Record<string, unknown>;
 

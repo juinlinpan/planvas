@@ -1,6 +1,6 @@
 import { type CSSProperties } from 'react';
-import { type BoardItem } from './api';
-import { ITEM_TYPE } from './types';
+import { type BoardItem } from '../services/api';
+import { ITEM_TYPE } from '../types/index';
 
 export type FontWeightValue = 'normal' | 'bold';
 export type FontStyleValue = 'normal' | 'italic';

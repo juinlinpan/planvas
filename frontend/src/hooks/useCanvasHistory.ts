@@ -6,8 +6,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import { replacePageBoardState } from './api';
-import type { BoardItem, ConnectorLink } from './api';
+import { replacePageBoardState } from '../services/api';
+import type { BoardItem, ConnectorLink } from '../services/api';
 import {
   areBoardSnapshotsEqual,
   cloneBoardSnapshot,
@@ -16,8 +16,8 @@ import {
   prepareRedoHistory,
   prepareUndoHistory,
   pushUndoHistory,
-} from './boardHistory';
-import { MAX_HISTORY_ENTRIES } from './canvasConstants';
+} from '../utils/boardHistory';
+import { MAX_HISTORY_ENTRIES } from '../constants/canvas';
 import type {
   ConnectorsUpdater,
   DragState,
@@ -26,7 +26,7 @@ import type {
   PanState,
   ResizeState,
   SegmentDraftState,
-} from './canvasTypes';
+} from '../types/canvas';
 
 interface UseCanvasHistoryParams {
   pageId: string;

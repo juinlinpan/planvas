@@ -1,21 +1,21 @@
 import { useMemo } from 'react';
-import type { BoardItem } from './api';
-import { BoardItemRenderer } from './items/BoardItemRenderer';
-import { SegmentShape } from './items/SegmentShape';
+import type { BoardItem } from '../../services/api';
+import { BoardItemRenderer } from '../../items/BoardItemRenderer';
+import { SegmentShape } from '../../items/SegmentShape';
 import {
   getFrameChildren,
   isFrame,
-} from './canvasHelpers/frameLayout';
+} from '../../canvasHelpers/frameLayout';
 import {
   isHiddenByCollapsedFrame,
-} from './canvasHelpers/selection';
-import { summarizeFrameChild } from './canvasHelpers/contentSummary';
-import { getItemConnectorAnchors } from './canvasHelpers/connectorAnchors';
-import { canTranslateSegmentItem, buildSegmentGeometry, type SegmentEndpoint } from './segmentData';
-import { ITEM_CATEGORY, ITEM_CATEGORY_FOR_TYPE, ITEM_TYPE } from './types';
-import type { AnchorHit, TableCellHit } from './canvasHelpers/types';
-import type { SegmentDraftState, ResizeEdge } from './canvasTypes';
-import type { ProjectDefaultStyle } from './itemStyles';
+} from '../../canvasHelpers/selection';
+import { summarizeFrameChild } from '../../canvasHelpers/contentSummary';
+import { getItemConnectorAnchors } from '../../canvasHelpers/connectorAnchors';
+import { canTranslateSegmentItem, buildSegmentGeometry, type SegmentEndpoint } from '../../utils/export/segmentData';
+import { ITEM_CATEGORY, ITEM_CATEGORY_FOR_TYPE, ITEM_TYPE } from '../../types/index';
+import type { AnchorHit, TableCellHit } from '../../canvasHelpers/types';
+import type { SegmentDraftState, ResizeEdge } from '../../types/canvas';
+import type { ProjectDefaultStyle } from '../../items/itemStyles';
 
 type CanvasItemLayerProps = {
   pageId: string;

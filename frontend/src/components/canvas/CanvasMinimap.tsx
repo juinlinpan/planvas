@@ -1,9 +1,9 @@
-import type { BoardItem } from './api';
-import type { ProjectDefaultStyle } from './itemStyles';
-import { resolveBoardItemStyle } from './itemStyles';
-import type { MinimapLayout } from './minimap';
-import { worldToMinimap } from './minimap';
-import { ITEM_TYPE } from './types';
+import type { BoardItem } from '../../services/api';
+import type { ProjectDefaultStyle } from '../../items/itemStyles';
+import { resolveBoardItemStyle } from '../../items/itemStyles';
+import type { MinimapLayout } from '../../utils/minimap';
+import { worldToMinimap } from '../../utils/minimap';
+import { ITEM_TYPE } from '../../types/index';
 
 export const MINIMAP_WIDTH = 190;
 export const MINIMAP_HEIGHT = 130;

@@ -1,5 +1,5 @@
 import type { BoardItem, ProjectNote } from './api';
-import { ITEM_TYPE } from './types';
+import { ITEM_TYPE } from '../types/index';
 
 function getNoteFileName(item: BoardItem): string | null {
   if (item.type !== ITEM_TYPE.note_paper || item.data_json === null) {

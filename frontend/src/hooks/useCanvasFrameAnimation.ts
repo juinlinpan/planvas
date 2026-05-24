@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getUniqueItemIds } from './canvasHelpers';
+import { getUniqueItemIds } from '../canvasHelpers/canvasHelpers';
 
 export function useCanvasFrameAnimation() {
   const [frameItemAnimations, setFrameItemAnimations] = useState<

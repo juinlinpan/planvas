@@ -1,4 +1,4 @@
-import { type Project } from './api';
+import { type Project } from '../services/api';
 
 const HERO_IMAGE_SRC = '/assets/home-whiteboard-hero.png';
 

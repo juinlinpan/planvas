@@ -1,4 +1,4 @@
-import type { BoardItem } from '../api';
+import type { BoardItem } from '../services/api';
 import {
   BACKGROUND_COLOR_OPTIONS,
   STROKE_COLOR_OPTIONS,
@@ -8,10 +8,10 @@ import {
   serializeBoardItemStyle,
   type BoardItemStyle,
   type ProjectDefaultStyle,
-} from '../itemStyles';
-import { countFilledTableCells, parseTableData } from '../tableData';
-import { ITEM_TYPE } from '../types';
-import { ColorPaletteField, CommitNumberInput } from '../Inspector';
+} from '../items/itemStyles';
+import { countFilledTableCells, parseTableData } from '../tableData/tableData';
+import { ITEM_TYPE } from '../types/index';
+import { ColorPaletteField, CommitNumberInput } from '../components/Inspector';
 
 const SEGMENT_TEXT_BACKGROUND_OPTIONS = [
   { name: 'Transparent', value: 'transparent' },

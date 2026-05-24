@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { CANVAS_GRID_SIZE } from './canvasConstants';
-import { ITEM_DEFAULT_SIZE, ITEM_MIN_SIZE, ITEM_TYPE } from './types';
+import { CANVAS_GRID_SIZE } from '../constants/canvas';
+import { ITEM_DEFAULT_SIZE, ITEM_MIN_SIZE, ITEM_TYPE } from './index';
 
 const GRID_ALIGNED_ITEM_TYPES = [
   ITEM_TYPE.line,

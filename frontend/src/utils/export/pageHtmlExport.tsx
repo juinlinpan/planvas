@@ -1,7 +1,7 @@
 import { type CSSProperties, type ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 
-import type { BoardItem, PageBoardData } from './api';
+import type { BoardItem, PageBoardData } from '../../services/api';
 import {
   getFrameChildren,
   getMarkdownH1,
@@ -11,11 +11,11 @@ import {
   normalizeConnectorArrowsToSegments,
   sortItemsByLayer,
   summarizeFrameChild,
-} from './canvasHelpers';
-import { BoardItemRenderer } from './items/BoardItemRenderer';
-import { MarkdownPreview } from './markdownPreview';
+} from '../../canvasHelpers/canvasHelpers';
+import { BoardItemRenderer } from '../../items/BoardItemRenderer';
+import { MarkdownPreview } from '../../components/markdownPreview';
 import { getPagePngExportBounds } from './pagePngExport';
-import { ITEM_TYPE } from './types';
+import { ITEM_TYPE } from '../../types/index';
 
 const HTML_MIME_TYPE = 'text/html;charset=utf-8';
 

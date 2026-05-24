@@ -1,4 +1,4 @@
-import type { Page } from './api';
+import type { Page } from '../services/api';
 
 type ResolveProjectEntryPageIdArgs = {
   preferredPageId: string | null;

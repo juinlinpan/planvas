@@ -1,23 +1,23 @@
 import type React from 'react';
 import type { MutableRefObject, RefObject } from 'react';
-import type { BoardItem } from './api';
+import type { BoardItem } from '../services/api';
 import {
   clampItemSize,
   isFrame,
   relayoutFrameItems,
   getFrameChildren,
-} from './canvasHelpers/frameLayout';
-import { updateOriginalSize } from './canvasHelpers/core';
-import { relayoutTableItems } from './canvasHelpers/tableLayout';
+} from '../canvasHelpers/frameLayout';
+import { updateOriginalSize } from '../canvasHelpers/core';
+import { relayoutTableItems } from '../canvasHelpers/tableLayout';
 import {
   persistItems,
   syncConnectorAnchorsForItems,
   syncSegmentConnectionsForItems,
-} from './canvasSyncHelpers';
-import { magnetResizeRect } from './magnet';
-import { CANVAS_GRID_SIZE, MAGNET_TOLERANCE } from './canvasConstants';
-import { ITEM_TYPE, type Viewport } from './types';
-import type { ConnectorsUpdater, ItemsUpdater, ResizeEdge, ResizeState } from './canvasTypes';
+} from '../canvasHelpers/canvasSyncHelpers';
+import { magnetResizeRect } from '../utils/magnet';
+import { CANVAS_GRID_SIZE, MAGNET_TOLERANCE } from '../constants/canvas';
+import { ITEM_TYPE, type Viewport } from '../types/index';
+import type { ConnectorsUpdater, ItemsUpdater, ResizeEdge, ResizeState } from '../types/canvas';
 
 export type UseCanvasResizeParams = {
   resizeRef: MutableRefObject<ResizeState | null>;

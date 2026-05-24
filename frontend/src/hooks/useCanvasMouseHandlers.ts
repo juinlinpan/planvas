@@ -1,11 +1,11 @@
 import type React from 'react';
 import type { MutableRefObject, RefObject } from 'react';
-import type { BoardItem, ConnectorLink } from './api';
+import type { BoardItem, ConnectorLink } from '../services/api';
 import {
   applyAndClearOriginalSize,
   getOriginalSize,
   storeOriginalSize,
-} from './canvasHelpers/core';
+} from '../canvasHelpers/core';
 import {
   clampItemToFrame,
   findFrameDropTarget,
@@ -17,39 +17,39 @@ import {
   isItemFullyOutsideFrame,
   isSmallItem,
   relayoutFrameItems,
-} from './canvasHelpers/frameLayout';
+} from '../canvasHelpers/frameLayout';
 import {
   detachDraggedSegments,
   getDraggableSelectionItemIds,
   getSelectionMagnetBounds,
   getUniqueItemIds,
   isInlineEditable,
-} from './canvasHelpers/selection';
+} from '../canvasHelpers/selection';
 import {
   getAnchorPoint,
   isAnchor,
-} from './canvasHelpers/connectorAnchors';
+} from '../canvasHelpers/connectorAnchors';
 import {
   computeCellChildLayout,
   findTableCellDropTarget,
   getTableCellBounds,
   relayoutTableItems,
-} from './canvasHelpers/tableLayout';
-import { toPayload } from './canvasHelpers/payloadConversion';
-import type { AnchorHit, TableCellHit } from './canvasHelpers/types';
+} from '../canvasHelpers/tableLayout';
+import { toPayload } from '../canvasHelpers/payloadConversion';
+import type { AnchorHit, TableCellHit } from '../canvasHelpers/types';
 import {
   CANVAS_GRID_SIZE,
   MIN_ZOOM,
   MAX_ZOOM,
   MAGNET_TOLERANCE,
-} from './canvasConstants';
-import { deleteConnector, replacePageBoardState, updateBoardItem } from './api';
+} from '../constants/canvas';
+import { deleteConnector, replacePageBoardState, updateBoardItem } from '../services/api';
 import {
   persistItems,
   syncConnectorAnchorsForItems,
   syncSegmentConnectionsForItems,
-} from './canvasSyncHelpers';
-import type { BoardSnapshot } from './boardHistory';
+} from '../canvasHelpers/canvasSyncHelpers';
+import type { BoardSnapshot } from '../utils/boardHistory';
 import type {
   ConnectorsUpdater,
   DragState,
@@ -64,7 +64,7 @@ import type {
   TableInsertPreviewState,
   MarqueeSelectionState,
   WaypointDragState,
-} from './canvasTypes';
+} from '../types/canvas';
 import {
   buildSegmentGeometry,
   canTranslateSegmentItem,
@@ -74,11 +74,11 @@ import {
   hasStoredSegmentData,
   type Point,
   type SegmentEndpoint,
-} from './segmentData';
+} from '../utils/export/segmentData';
 import {
   magnetMoveRect,
   snapValueToGrid,
-} from './magnet';
+} from '../utils/magnet';
 import {
   findCellByChildItemId,
   getEffectiveTableCellChildLayoutDirection,
@@ -86,15 +86,15 @@ import {
   serializeTableData,
   updateTableCell,
   getRootCellAt,
-} from './tableData';
+} from '../tableData/tableData';
 import {
   ITEM_DEFAULT_SIZE,
   ITEM_TYPE,
   type ActiveTool,
   type Viewport,
-} from './types';
-import { zoomViewportAroundPoint } from './viewport';
-import { isScrollableWheelTarget } from './canvasHelpers/scrollTarget';
+} from '../types/index';
+import { zoomViewportAroundPoint } from '../utils/viewport';
+import { isScrollableWheelTarget } from '../canvasHelpers/scrollTarget';
 import { useCanvasPan } from './useCanvasPan';
 import { useCanvasMarquee } from './useCanvasMarquee';
 import { useCanvasResize } from './useCanvasResize';

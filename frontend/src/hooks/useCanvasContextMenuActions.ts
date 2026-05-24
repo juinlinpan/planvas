@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { CanvasContextMenuState } from './canvasContextMenu';
+import type { CanvasContextMenuState } from '../canvasHelpers/canvasContextMenu';
 
 type UseCanvasContextMenuActionsParams = {
   setContextMenu: (state: CanvasContextMenuState | null) => void;

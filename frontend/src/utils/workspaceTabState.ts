@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import type { ProjectNote } from './api';
+import type { ProjectNote } from '../services/api';
 
 export type WorkspaceTab =
   | { kind: 'page'; id: string }

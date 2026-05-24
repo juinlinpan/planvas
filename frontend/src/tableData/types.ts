@@ -1,8 +1,8 @@
-import { ITEM_MIN_SIZE, ITEM_TYPE } from '../types';
+import { ITEM_MIN_SIZE, ITEM_TYPE } from '../types/index';
 import {
   type TextHorizontalAlign,
   type TextVerticalAlign,
-} from '../itemStyles';
+} from '../items/itemStyles';
 
 export const DEFAULT_TABLE_ROWS = 3;
 export const DEFAULT_TABLE_COLS = 3;

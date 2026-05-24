@@ -4,10 +4,10 @@ import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { BoardItem } from './api';
+import type { BoardItem } from '../services/api';
 import { Inspector } from './Inspector';
-import { serializeBoardItemStyle } from './itemStyles';
-import { ITEM_CATEGORY, ITEM_TYPE } from './types';
+import { serializeBoardItemStyle } from '../items/itemStyles';
+import { ITEM_CATEGORY, ITEM_TYPE } from '../types/index';
 
 const FIXTURE_TIMESTAMP = '2026-04-12T00:00:00+00:00';
 

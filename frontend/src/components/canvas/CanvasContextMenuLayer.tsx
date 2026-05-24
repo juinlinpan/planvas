@@ -6,7 +6,7 @@ import {
   isCanvasContextMenuActionDisabled,
   type CanvasContextMenuActionKey,
   type CanvasContextMenuState,
-} from './canvasContextMenu';
+} from '../../canvasHelpers/canvasContextMenu';
 
 const CONTEXT_MENU_LABELS: Record<CanvasContextMenuActionKey, string> = {
   cut: '剪下',

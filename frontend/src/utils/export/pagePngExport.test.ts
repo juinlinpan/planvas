@@ -10,7 +10,7 @@ vi.mock('html2canvas', () => ({
   default: html2canvasMock,
 }));
 
-import type { PageBoardData } from './api';
+import type { PageBoardData } from '../../services/api';
 import { exportPageAsPng, getPagePngExportBounds } from './pagePngExport';
 
 describe('pagePngExport', () => {

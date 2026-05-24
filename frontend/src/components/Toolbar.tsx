@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   getTableInsertAnchorPoint,
   type TableInsertDockPosition,
-} from './tableInsertPreview';
-import { type ActiveTool } from './types';
+} from '../tableData/tableInsertPreview';
+import { type ActiveTool } from '../types/index';
 
 type ToolDef = {
   id: ActiveTool;

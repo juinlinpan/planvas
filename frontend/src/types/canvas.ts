@@ -1,8 +1,8 @@
-import type { BoardItem, BoardItemPayload, ConnectorLink } from './api';
-import type { BoardSnapshot } from './boardHistory';
-import type { Point, SegmentConnection, SegmentEndpoint } from './segmentData';
-import type { TableInsertDirection } from './tableInsertPreview';
-import type { ActiveTool } from './types';
+import type { BoardItem, BoardItemPayload, ConnectorLink } from '../services/api';
+import type { BoardSnapshot } from '../utils/boardHistory';
+import type { Point, SegmentConnection, SegmentEndpoint } from '../utils/export/segmentData';
+import type { TableInsertDirection } from '../tableData/tableInsertPreview';
+import type { ActiveTool } from './index';
 
 export type DragState = {
   itemId: string;

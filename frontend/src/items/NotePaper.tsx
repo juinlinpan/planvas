@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react';
-import { type BoardItem } from '../api';
-import { getFirstNonEmptyLine, getMarkdownH1 } from '../canvasHelpers';
+import { type BoardItem } from '../services/api';
+import { getFirstNonEmptyLine, getMarkdownH1 } from '../canvasHelpers/canvasHelpers';
 import {
   getBoardItemTypographyStyle,
   type ProjectDefaultStyle,
   resolveBoardItemStyle,
-} from '../itemStyles';
-import { MarkdownPreview } from '../markdownPreview';
+} from './itemStyles';
+import { MarkdownPreview } from '../components/markdownPreview';
 
 type NoteDisplayMode = 'expanded' | 'title';
 

@@ -1,5 +1,5 @@
-import { type BoardItem, type ConnectorLink } from './api';
-import { ITEM_TYPE, ITEM_CATEGORY_FOR_TYPE, ITEM_DEFAULT_SIZE } from './types';
+import { type BoardItem, type ConnectorLink } from '../../services/api';
+import { ITEM_TYPE, ITEM_CATEGORY_FOR_TYPE, ITEM_DEFAULT_SIZE } from '../../types/index';
 import { buildSegmentGeometry } from './segmentData';
 
 /**
