@@ -664,3 +664,26 @@ Rules for each split:
 9. `useCanvasMouseHandlers.ts` module split（section 23）— **大部分完成**，剩 `useCanvasItemDrag.ts` 提取
 10. `Canvas.tsx` module split（section 24）
 11. `tableData/core.ts` module split（section 25）
+12. Centralized Autosave and Focus Refresh Optimization
+
+---
+
+## Centralized Autosave and Focus Refresh Optimization
+
+- [x] Optimize window focus/visibility note refresh:
+  - [x] Modify `refreshCurrentProjectFromDisk` in `useWorkspaceData.ts` to call `refreshProjectNotes` instead of `loadProjectSidebarData`.
+  - [x] Verify that page cache is preserved and no canvas remount (flicker) occurs on tab focus.
+- [x] Implement central save mechanism in `Canvas.tsx`:
+  - [x] Add `autosaveEnabled` state initialized from `localStorage` (defaulting to `true`).
+  - [x] Define `saveCurrentBoardState` function calling `replacePageBoardState`.
+  - [x] Setup debounced timer (`itemSaveTimer` / `ITEM_SAVE_DELAY`) to trigger `saveCurrentBoardState` when changes are made and autosave is active.
+  - [x] Setup cleanup handler to flush pending saves on unmount.
+  - [x] Add `Ctrl+S` / `Cmd+S` keyboard shortcuts.
+- [x] Add autosave toggle button in `CanvasRibbon.tsx`:
+  - [x] Pass `autosaveEnabled` and `onToggleAutosave` from `Canvas` to `CanvasRibbon`.
+  - [x] Add button with floppy/cloud icon and dynamic title next to the Magnet toggle.
+- [x] Adapt hooks and helpers to use central save:
+  - [x] Modify `canvasSyncHelpers.ts` to update local React states in-memory but NOT issue parallel `PATCH`/`PUT` requests.
+  - [x] Adapt `useCanvasItemActions.ts` (e.g. `handleDeleteItems` and `handleItemUpdate`) to delegate persistence to the central Canvas scheduler.
+  - [x] Adapt `useCanvasMouseHandlers.ts` drag-end connector deletion to run as part of the next board state write.
+

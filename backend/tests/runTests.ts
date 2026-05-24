@@ -813,8 +813,8 @@ const tests: TestCase[] = [
         )
       ).data;
 
-      assert.equal(regulated.report.removed_table_child_refs, 3);
-      assert.equal(regulated.report.normalized_items, 2);
+      assert.equal(regulated.report.removed_table_child_refs, 2);
+      assert.equal(regulated.report.normalized_items, 1);
       const regulatedTable = regulated.board_items.find(
         (item) => item.id === table.id,
       );

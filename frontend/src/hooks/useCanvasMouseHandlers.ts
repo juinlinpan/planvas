@@ -23,7 +23,6 @@ import {
   getDraggableSelectionItemIds,
   getSelectionMagnetBounds,
   getUniqueItemIds,
-  isInlineEditable,
 } from '../canvasHelpers/selection';
 import {
   getAnchorPoint,
@@ -35,7 +34,7 @@ import {
   getTableCellBounds,
   relayoutTableItems,
 } from '../canvasHelpers/tableLayout';
-import { toPayload } from '../canvasHelpers/payloadConversion';
+
 import type { AnchorHit, TableCellHit } from '../canvasHelpers/types';
 import {
   CANVAS_GRID_SIZE,
@@ -43,9 +42,7 @@ import {
   MAX_ZOOM,
   MAGNET_TOLERANCE,
 } from '../constants/canvas';
-import { deleteConnector, replacePageBoardState, updateBoardItem } from '../services/api';
 import {
-  persistItems,
   syncConnectorAnchorsForItems,
   syncSegmentConnectionsForItems,
 } from '../canvasHelpers/canvasSyncHelpers';
@@ -102,8 +99,6 @@ import { useCanvasSegmentDrag } from './useCanvasSegmentDrag';
 import { useCanvasTableInsert } from './useCanvasTableInsert';
 
 export type UseCanvasMouseHandlersParams = {
-  pageId: string;
-
   // Current state values (re-captured every render)
   magnetEnabled: boolean;
   activeTool: ActiveTool;
@@ -136,8 +131,9 @@ export type UseCanvasMouseHandlersParams = {
   scheduleViewportSave: (vp: Viewport) => void;
 
   // Item state setters
-  setItemsAndSync: (updater: ItemsUpdater) => void;
-  setConnectorsAndSync: (updater: ConnectorsUpdater) => void;
+  setItemsAndSync: (updater: ItemsUpdater, silent?: boolean) => void;
+  setConnectorsAndSync: (updater: ConnectorsUpdater, silent?: boolean) => void;
+  triggerSave: (immediate?: boolean) => void;
 
   // UI state setters
   setAnchorIndicatorItems: (items: BoardItem[]) => void;
@@ -172,8 +168,8 @@ export type UseCanvasMouseHandlersParams = {
     width: number;
     height: number;
     dataJson?: string | null;
-  }) => Promise<void>;
-  handleCreateSegmentItem: (draft: SegmentDraftState) => Promise<void>;
+  }) => void;
+  handleCreateSegmentItem: (draft: SegmentDraftState) => void;
   triggerFrameItemAnimation: (
     itemIds: string[],
     type: 'ingest' | 'eject',
@@ -189,7 +185,6 @@ export type UseCanvasMouseHandlersParams = {
 
 export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
   const {
-    pageId,
     magnetEnabled,
     activeTool,
     segmentDraft,
@@ -235,6 +230,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     startSegmentDraft,
     onOpenNote,
     onDoubleClickForEdit,
+    triggerSave,
   } = params;
 
   const { startViewportPan, handlePanMove, handlePanEnd } = useCanvasPan({
@@ -351,6 +347,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     pushUndoSnapshot(snapshotBeforeToggle);
     setItemsAndSync((current) =>
       current.map((item) => (item.id === frameId ? updatedFrame : item)),
+      true,
     );
 
     if (updatedFrame.is_collapsed && selectedItem?.parent_item_id === frameId) {
@@ -358,9 +355,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
       setEditingId(null);
     }
 
-    void updateBoardItem(frameId, toPayload(updatedFrame)).catch((err) => {
-      console.error('[Canvas] Failed to toggle frame collapse', err);
-    });
+    triggerSave(true);
   }
 
   function handleCanvasMouseDown(e: React.MouseEvent) {
@@ -749,10 +744,13 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     }
 
     if (handleSegmentDragEnd(e, magnetEnabled)) {
+      triggerSave(true);
       return;
     }
 
-    handleResizeEnd();
+    if (handleResizeEnd()) {
+      triggerSave(true);
+    }
 
     const drag = dragRef.current;
     if (drag) {
@@ -1223,27 +1221,18 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
       }
 
       if (nextItems !== itemsRef.current) {
-        setItemsAndSync(nextItems);
+        setItemsAndSync(nextItems, true);
       }
 
-      if (drag.detachedConnectorIds.length > 0) {
-        void Promise.all(
-          drag.detachedConnectorIds.map((connectorId) =>
-            deleteConnector(connectorId),
-          ),
-        ).catch((err) => {
-          console.error('[Canvas] Failed to delete detached connectors', err);
-        });
-      }
       syncConnectorAnchorsForItems(
         [...changedIds],
         itemsRef,
-        setConnectorsAndSync,
+        (updater) => setConnectorsAndSync(updater, true),
       );
       syncSegmentConnectionsForItems(
         [...changedIds],
         itemsRef,
-        setItemsAndSync,
+        (updater) => setItemsAndSync(updater, true),
       );
       triggerFrameItemAnimation(ingestedItemIds, 'ingest');
       triggerFrameItemAnimation(ejectedItemIds, 'eject');
@@ -1377,22 +1366,14 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
             });
           }
 
-          setItemsAndSync(nextItems);
-
-          // Persist the table absorption as one board-state write.
-          void replacePageBoardState(pageId, {
-            board_items: nextItems,
-            connector_links: connectorsRef.current,
-          }).catch((err) =>
-            console.error('[Canvas] Failed to update items after absorb', err),
-          );
+          setItemsAndSync(nextItems, true);
         }
       } else {
         // Normal persistence for moves not resulting in absorption
-        persistItems(nextItems.filter((item) => changedIds.has(item.id)));
       }
       // ─────────────────────────────────────────────────────────────────
 
+      triggerSave(true);
       recordHistoryCheckpoint(drag.snapshot);
     }
 

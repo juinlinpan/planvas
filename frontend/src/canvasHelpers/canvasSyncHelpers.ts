@@ -2,15 +2,11 @@ import type { MutableRefObject } from 'react';
 import {
   type BoardItem,
   type ConnectorLink,
-  updateBoardItem,
-  updateConnector,
 } from '../services/api';
 import {
   getAutoAnchors,
   getAnchorPoint,
   isAnchor,
-  toConnectorPayload,
-  toPayload,
 } from './canvasHelpers';
 import type { ConnectorsUpdater, ItemsUpdater } from '../types/canvas';
 import {
@@ -25,16 +21,8 @@ import { ITEM_TYPE } from '../types/index';
 /**
  * Persist a batch of items to the backend. Fire-and-forget.
  */
-export function persistItems(items: BoardItem[]): void {
-  if (items.length === 0) {
-    return;
-  }
-
-  void Promise.all(
-    items.map((item) => updateBoardItem(item.id, toPayload(item))),
-  ).catch((err) => {
-    console.error('[Canvas] Failed to persist items', err);
-  });
+export function persistItems(_items: BoardItem[]): void {
+  // Centralized autosave handles this, so this is a no-op
 }
 
 /**
@@ -96,14 +84,6 @@ export function syncConnectorAnchorsForItems(
   if (connectorUpdates.length === 0) {
     return;
   }
-
-  void Promise.all(
-    connectorUpdates.map((connector) =>
-      updateConnector(connector.id, toConnectorPayload(connector)),
-    ),
-  ).catch((err) => {
-    console.error('[Canvas] Failed to sync connector anchors', err);
-  });
 }
 
 /**
@@ -124,14 +104,6 @@ export function syncSegmentConnectionsForItems(
   }
 
   setItemsAndSync(result.items);
-
-  void Promise.all(
-    result.updatedSegments.map((item) =>
-      updateBoardItem(item.id, toPayload(item)),
-    ),
-  ).catch((err) => {
-    console.error('[Canvas] Failed to sync segment connections', err);
-  });
 }
 
 export function syncSegmentConnectionsInItems(

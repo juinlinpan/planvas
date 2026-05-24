@@ -341,11 +341,11 @@ export function useWorkspaceData({
     }
 
     try {
-      await loadProjectSidebarData(selectedProjectId, selectedPageIdRef.current);
+      await refreshProjectNotes(selectedProjectId);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     }
-  }, [loadProjectSidebarData, selectedProjectId]);
+  }, [refreshProjectNotes, selectedProjectId]);
 
   // Initial load
   useEffect(() => {

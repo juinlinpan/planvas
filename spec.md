@@ -658,18 +658,18 @@ Log 儲存路徑：
 
 - App 啟動應在 5 秒以內完成初始載入
 - 300 個白板物件的 Page 不應有明顯卡頓
-- 所有操作應即時同步儲存至 Planvas file storage
+- 所有操作在啟用自動儲存時應自動防抖存檔至 Planvas file storage，或支援手動儲存存檔
 - 儲存操作不應阻塞 UI 渲染
 - Backend must log slow HTTP requests, event loop lag, uncaught exceptions, and unhandled promise rejections to `<backend_root>/logs/app.log` so local performance stalls and crashes can be diagnosed after the fact.
 - Frontend write paths that update multiple board items as one user action should prefer one `PUT /pages/{page_id}/board-state` persistence call over parallel per-item `PATCH /board-items/{id}` calls, because each per-item write rewrites the Page XML files.
 - Creating board items should update the canvas optimistically before the backend persistence round trip completes. If persistence fails, the temporary item is removed and the error is logged.
-- Autosave debounce for item and viewport updates may be second-level rather than sub-second to reduce write pressure during continuous editing.
+- Autosave can be toggled on/off via a dedicated button next to `magnet` in the Canvas Ribbon. The autosave preference is persisted in `localStorage`. When enabled, item and viewport updates are debounced and saved in a single bulk write rather than high-frequency individual requests.
 - The frontend should keep a per-Page in-memory board cache after the first successful `GET /pages/{page_id}/board-data`; switching back to a cached Page should restore from memory instead of re-fetching board data unless the Page is explicitly refreshed or invalidated.
 - Canvas item, connector, and viewport state changes must update the per-Page in-memory cache immediately so Page switching preserves the latest local working state while debounced persistence is still pending.
 - Pending viewport autosave must flush when the Canvas unmounts for Page switches or view changes, rather than only canceling the debounce timer.
-- Markdown note editing should autosave about every 5 seconds, flush immediately when the browser window/tab is left, and flush when leaving the markdown editor view. Returning to a Page should not remount or save the Page just because markdown notes were refreshed.
+- Markdown note editing should autosave about every 5 seconds, flush immediately when the browser window/tab is left, and flush when leaving the markdown editor view. Returning to a Page or focusing the window should only refresh project notes and update their visible content in memory; it must not clear the page board cache, reload the page list, or remount the active Page.
 - The backend exposes `POST /pages/{page_id}/regulate` as a schema-aware maintenance endpoint. It rereads the current Page XML, normalizes existing `sticky_note` objects to the standalone `sticky_item` / `sticky_object` schema, clears stale sticky containment, removes stale table cell child references, removes connector links pointing to missing items, normalizes item category / table parent references according to the current schema, and rewrites the Page as well-formed Page XML v2.
-- The canvas header exposes a refresh-style regulate action beside `magnet`; clicking it calls the regulate endpoint for the current Page and reloads the returned board data.
+- The canvas header exposes a refresh-style regulate action beside the autosave and `magnet` controls; clicking it calls the regulate endpoint for the current Page and reloads the returned board data.
 - Any future Page XML schema change must update the regulate function in the same change so maintenance repair behavior stays aligned with the canonical schema.
 
 ## 12. MVP 範圍

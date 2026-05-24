@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   type CanvasBackgroundMode,
 } from '../../utils/canvasBackground';
-import { adjustZoomByStep, adjustResetZoomByStep, getDisplayZoom } from '../../utils/viewport';
+import { getDisplayZoom } from '../../utils/viewport';
 import type { Viewport } from '../../types/index';
 
 type UtilityMenuId = 'file' | 'edit' | null;
@@ -19,6 +19,10 @@ export type CanvasRibbonProps = {
   onRedo: () => void;
   magnetEnabled: boolean;
   onToggleMagnet: () => void;
+  autosaveEnabled: boolean;
+  onToggleAutosave: () => void;
+  saveStatus: 'saved' | 'unsaved' | 'saving';
+  onSaveManual: () => void;
   isRegulatingPage: boolean;
   onRegulatePage: () => void;
   viewport: Viewport;
@@ -48,6 +52,10 @@ export function CanvasRibbon({
   onRedo,
   magnetEnabled,
   onToggleMagnet,
+  autosaveEnabled,
+  onToggleAutosave,
+  saveStatus,
+  onSaveManual,
   isRegulatingPage,
   onRegulatePage,
   viewport,
@@ -123,6 +131,34 @@ export function CanvasRibbon({
               role="menu"
               aria-label="File menu"
             >
+              <button
+                type="button"
+                className="toolbar-dropdown-item"
+                role="menuitem"
+                disabled={saveStatus === 'saving'}
+                onClick={() => {
+                  onSaveManual();
+                  setUtilityMenuOpen(null);
+                }}
+              >
+                <span>儲存 (Ctrl+S)</span>
+                <span
+                  style={{
+                    marginLeft: 'auto',
+                    fontSize: '0.7rem',
+                    color: saveStatus === 'unsaved' ? '#d97706' : '#94a3b8',
+                    fontWeight: saveStatus === 'unsaved' ? 'bold' : 'normal',
+                  }}
+                >
+                  {saveStatus === 'saving'
+                    ? '儲存中...'
+                    : saveStatus === 'unsaved'
+                      ? '未儲存'
+                      : '已儲存'}
+                </span>
+              </button>
+              <div className="toolbar-dropdown-divider" />
+
               <div
                 className="toolbar-dropdown-item-submenu"
                 onMouseEnter={() => {
@@ -362,6 +398,34 @@ export function CanvasRibbon({
           </svg>
           <span>磁鐵</span>
         </button>
+
+        {/* Autosave toggle button */}
+        <button
+          type="button"
+          className={`canvas-rbn-ctrl-btn ${autosaveEnabled ? 'is-active' : ''}`}
+          aria-pressed={autosaveEnabled}
+          title={'Auto-save: ' + (autosaveEnabled ? 'on' : 'off')}
+          onClick={onToggleAutosave}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 2v8" />
+            <path d="m17 5-5-5-5 5" />
+            <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+          </svg>
+          <span>自動儲存</span>
+        </button>
+
+
 
         <button
           type="button"

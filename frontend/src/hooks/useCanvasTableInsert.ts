@@ -31,7 +31,7 @@ export type UseCanvasTableInsertParams = {
     width: number;
     height: number;
     dataJson?: string | null;
-  }) => Promise<void>;
+  }) => void;
 };
 
 export function useCanvasTableInsert({

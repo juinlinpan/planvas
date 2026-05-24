@@ -35,7 +35,7 @@ import {
   sortItemsByLayer,
 } from '../../canvasHelpers/layerOrdering';
 import type { AnchorHit, TableCellHit } from '../../canvasHelpers/types';
-import { CANVAS_GRID_SIZE, CONNECTOR_SNAP_THRESHOLD } from '../../constants/canvas';
+import { CANVAS_GRID_SIZE, CONNECTOR_SNAP_THRESHOLD, ITEM_SAVE_DELAY } from '../../constants/canvas';
 import { snapPointToGrid } from '../../utils/magnet';
 import type {
   ConnectorsUpdater,
@@ -134,6 +134,7 @@ type TableInspectorSelection = {
 
 const INSPECTOR_COLLAPSED_STORAGE_KEY = 'whiteboard.canvasInspectorCollapsed';
 const RESET_ZOOM_STORAGE_KEY = 'whiteboard.resetZoomTarget';
+const AUTOSAVE_ENABLED_STORAGE_KEY = 'whiteboard.autosaveEnabled';
 
 function readStoredNumber(key: string, fallbackValue: number): number {
   if (typeof window === 'undefined') {
@@ -196,6 +197,22 @@ export function Canvas({
     },
   );
   const [magnetEnabled, setMagnetEnabled] = useState(true);
+  const [autosaveEnabled, setAutosaveEnabled] = useState(() =>
+    readStoredBoolean(AUTOSAVE_ENABLED_STORAGE_KEY, true),
+  );
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'unsaved' | 'saving'>('saved');
+
+  const autosaveEnabledRef = useRef(autosaveEnabled);
+  useEffect(() => {
+    autosaveEnabledRef.current = autosaveEnabled;
+  }, [autosaveEnabled]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    window.localStorage.setItem(AUTOSAVE_ENABLED_STORAGE_KEY, String(autosaveEnabled));
+  }, [autosaveEnabled]);
   const [resetZoomTarget, setResetZoomTarget] = useState(() =>
     getResetZoom(readStoredNumber(RESET_ZOOM_STORAGE_KEY, getResetZoom())),
   );
@@ -285,6 +302,92 @@ export function Canvas({
     [onBoardDataCacheChange, page],
   );
 
+  const saveCurrentBoardState = useCallback(
+    async (silent = false) => {
+      if (itemSaveTimer.current !== null) {
+        clearTimeout(itemSaveTimer.current);
+        itemSaveTimer.current = null;
+      }
+      if (!silent) {
+        setSaveStatus('saving');
+      }
+      try {
+        const persisted = await replacePageBoardState(page.id, {
+          board_items: itemsRef.current,
+          connector_links: connectorsRef.current,
+        });
+        onBoardDataCacheChange?.(persisted);
+        setSaveStatus('saved');
+        const hasNotePaper = itemsRef.current.some((item) => item.type === ITEM_TYPE.note_paper);
+        if (hasNotePaper) {
+          onProjectNotesChanged?.();
+        }
+      } catch (err) {
+        console.error('[Canvas] Failed to save board state', err);
+        setSaveStatus('unsaved');
+      }
+    },
+    [page.id, onBoardDataCacheChange, onProjectNotesChanged],
+  );
+
+  const triggerSave = useCallback(
+    (immediate = false) => {
+      if (!autosaveEnabledRef.current) {
+        setSaveStatus('unsaved');
+      }
+      if (itemSaveTimer.current !== null) {
+        clearTimeout(itemSaveTimer.current);
+        itemSaveTimer.current = null;
+      }
+
+      if (immediate) {
+        void saveCurrentBoardState(autosaveEnabledRef.current);
+      } else if (autosaveEnabledRef.current) {
+        itemSaveTimer.current = setTimeout(() => {
+          itemSaveTimer.current = null;
+          void saveCurrentBoardState(true);
+        }, ITEM_SAVE_DELAY);
+      }
+    },
+    [saveCurrentBoardState],
+  );
+
+  const flushPendingItemSave = useCallback(() => {
+    if (itemSaveTimer.current !== null) {
+      clearTimeout(itemSaveTimer.current);
+      itemSaveTimer.current = null;
+      void saveCurrentBoardState(true);
+    }
+  }, [saveCurrentBoardState]);
+
+  const saveStatusRef = useRef(saveStatus);
+  useLayoutEffect(() => {
+    saveStatusRef.current = saveStatus;
+  }, [saveStatus]);
+
+  const handleToggleAutosave = useCallback(() => {
+    setAutosaveEnabled((current) => {
+      const next = !current;
+      if (next) {
+        if (saveStatusRef.current === 'unsaved') {
+          void saveCurrentBoardState(true);
+        }
+      }
+      return next;
+    });
+  }, [saveCurrentBoardState]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        void saveCurrentBoardState();
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [saveCurrentBoardState]);
+
   useLayoutEffect(() => {
     viewportRef.current = viewport;
     itemsRef.current = items;
@@ -373,14 +476,17 @@ export function Canvas({
   }, [activeFrameDropTargetId, activeTableDropTarget, items]);
 
   const setItemsAndSync = useCallback(
-    (updater: ItemsUpdater) => {
+    (updater: ItemsUpdater, silent = false) => {
       const nextItems =
         typeof updater === 'function' ? updater(itemsRef.current) : updater;
       itemsRef.current = nextItems;
       setItems(nextItems);
       cacheBoardData(nextItems);
+      if (!silent) {
+        triggerSave(false);
+      }
     },
-    [cacheBoardData],
+    [cacheBoardData, triggerSave],
   );
 
   useEffect(() => {
@@ -409,7 +515,7 @@ export function Canvas({
   );
 
   const setConnectorsAndSync = useCallback(
-    (updater: ConnectorsUpdater) => {
+    (updater: ConnectorsUpdater, silent = false) => {
       const nextConnectors =
         typeof updater === 'function'
           ? updater(connectorsRef.current)
@@ -417,8 +523,11 @@ export function Canvas({
       connectorsRef.current = nextConnectors;
       setConnectors(nextConnectors);
       cacheBoardData(undefined, nextConnectors);
+      if (!silent) {
+        triggerSave(false);
+      }
     },
-    [cacheBoardData],
+    [cacheBoardData, triggerSave],
   );
 
   const setSelection = useCallback((nextSelectedIds: string[]) => {
@@ -549,19 +658,17 @@ export function Canvas({
     handleLayerChange,
     handleItemUpdate,
     handleTransformToNote,
-    flushPendingItemSave,
   } = useCanvasItemActions({
     pageId: page.id,
     itemsRef,
     connectorsRef,
     selectedIdsRef,
-    itemSaveTimerRef: itemSaveTimer,
+    triggerSave,
     editSessionRef,
     editingId,
     primarySelectedId,
     captureBoardSnapshot,
     pushUndoSnapshot,
-    recordHistoryCheckpoint,
     setItemsAndSync,
     setConnectorsAndSync,
     setSelection,
@@ -1133,13 +1240,13 @@ export function Canvas({
     setContextMenu,
     hasClipboardData,
     selectedIdsRef,
-    handlePasteSelection,
+    handlePasteSelection: () => { void handlePasteSelection(); },
     handleCopySelection,
-    handleCutSelection,
+    handleCutSelection: () => { void handleCutSelection(); },
     handleDeleteSelectedTableCells,
-    handleDeleteSelection,
+    handleDeleteSelection: () => { void handleDeleteSelection(); },
     getPrimarySelectionId,
-    handleTransformToNote,
+    handleTransformToNote: (itemId: string) => { void handleTransformToNote(itemId); },
     handleLayerChange,
   });
 
@@ -1228,7 +1335,6 @@ export function Canvas({
     handleMouseUp,
     handleItemDoubleClick,
   } = useCanvasMouseHandlers({
-    pageId: page.id,
     magnetEnabled,
     activeTool,
     segmentDraft,
@@ -1274,6 +1380,7 @@ export function Canvas({
     startSegmentDraft,
     onOpenNote,
     onDoubleClickForEdit: handleDoubleClickForEdit,
+    triggerSave,
   });
 
   const { handleDragOver, handleDrop } = useCanvasNoteDrop({
@@ -1288,6 +1395,7 @@ export function Canvas({
     setSelection,
     setEditingId,
     onProjectNotesChanged,
+    triggerSave,
   });
 
   const cursorClass = isPasting
@@ -1318,6 +1426,10 @@ export function Canvas({
         onTableToolClick={handleToolbarTableClick}
       />
       <CanvasRibbon
+        autosaveEnabled={autosaveEnabled}
+        onToggleAutosave={handleToggleAutosave}
+        saveStatus={saveStatus}
+        onSaveManual={() => void saveCurrentBoardState()}
         importExportDisabled={importExportDisabled}
         onImportPage={onImportPage}
         onImportFromProject={onImportFromProject}
@@ -1325,8 +1437,8 @@ export function Canvas({
         canUndo={canUndo}
         canRedo={canRedo}
         isHistorySyncing={isHistorySyncing}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
+        onUndo={() => { void handleUndo(); }}
+        onRedo={() => { void handleRedo(); }}
         magnetEnabled={magnetEnabled}
         onToggleMagnet={() => setMagnetEnabled((v) => !v)}
         isRegulatingPage={isRegulatingPage}

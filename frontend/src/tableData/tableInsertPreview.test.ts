@@ -40,13 +40,13 @@ describe('tableInsertPreview', () => {
   });
 
   it('clamps the created table size to the table minimum', () => {
-    expect(getTableInsertItemSize(1, 1)).toEqual({ width: 48, height: 48 });
+    expect(getTableInsertItemSize(1, 1)).toEqual({ width: 120, height: 72 });
   });
 
   it('scales the created table size with the chosen grid', () => {
     expect(getTableInsertItemSize(6, 4)).toEqual({
-      width: 288,
-      height: 192,
+      width: 720,
+      height: 288,
     });
   });
 

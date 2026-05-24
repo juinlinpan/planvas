@@ -1,8 +1,9 @@
 import { useCallback, type DragEvent as ReactDragEvent } from 'react';
 import type { BoardItem, BoardItemPayload, ProjectNote } from '../services/api';
-import { createBoardItem } from '../services/api';
+import { generateUUID } from './useCanvasItemActions';
 import { ITEM_CATEGORY, ITEM_TYPE } from '../types/index';
 import type { Point } from '../utils/export/segmentData';
+import type { BoardSnapshot } from '../utils/boardHistory';
 
 export function resolveSidebarNoteDragFile(
   projectNotes: ProjectNote[],
@@ -23,23 +24,7 @@ export function resolveSidebarNoteDragFile(
     : null;
 }
 
-function createOptimisticId(): string {
-  return `optimistic-${globalThis.crypto?.randomUUID?.() ?? Date.now().toString(36)}`;
-}
-
-function createOptimisticItem(
-  payload: BoardItemPayload,
-  contentOverride?: string | null,
-): BoardItem {
-  const timestamp = new Date().toISOString();
-  return {
-    ...payload,
-    id: createOptimisticId(),
-    content: contentOverride !== undefined ? contentOverride : payload.content,
-    created_at: timestamp,
-    updated_at: timestamp,
-  };
-}
+// Removed createOptimisticItem in favor of client-side generateUUID
 
 export type UseCanvasNoteDropParams = {
   pageId: string;
@@ -47,12 +32,13 @@ export type UseCanvasNoteDropParams = {
   draggedProjectNoteFile: string | null;
   items: BoardItem[];
   screenToWorld: (x: number, y: number) => Point;
-  captureBoardSnapshot: () => any;
-  pushUndoSnapshot: (snapshot: any) => void;
-  setItemsAndSync: (updater: (current: BoardItem[]) => BoardItem[]) => void;
+  captureBoardSnapshot: () => BoardSnapshot;
+  pushUndoSnapshot: (snapshot: BoardSnapshot) => void;
+  setItemsAndSync: (updater: (current: BoardItem[]) => BoardItem[], silent?: boolean) => void;
   setSelection: (ids: string[]) => void;
   setEditingId: (id: string | null) => void;
   onProjectNotesChanged?: () => void;
+  triggerSave?: (immediate?: boolean) => void;
 };
 
 export function useCanvasNoteDrop({
@@ -67,6 +53,7 @@ export function useCanvasNoteDrop({
   setSelection,
   setEditingId,
   onProjectNotesChanged,
+  triggerSave,
 }: UseCanvasNoteDropParams) {
   const getSidebarNoteDragFile = useCallback(
     (event: ReactDragEvent) => {
@@ -128,30 +115,20 @@ export function useCanvasNoteDrop({
           noteFileManaged: false,
         }),
       };
-      const optimisticItem = createOptimisticItem(payload, note.content);
+      const newItem: BoardItem = {
+        ...payload,
+        id: generateUUID(),
+        content: note.content !== undefined ? note.content : payload.content,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
 
-      setItemsAndSync((current) => [...current, optimisticItem]);
-      setSelection([optimisticItem.id]);
+      pushUndoSnapshot(snapshotBeforeCreate);
+      setItemsAndSync((current) => [...current, newItem], true);
+      setSelection([newItem.id]);
       setEditingId(null);
-
-      void createBoardItem(payload)
-        .then((created) => {
-          pushUndoSnapshot(snapshotBeforeCreate);
-          setItemsAndSync((current) =>
-            current.map((item) =>
-              item.id === optimisticItem.id ? created : item,
-            ),
-          );
-          setSelection([created.id]);
-          onProjectNotesChanged?.();
-        })
-        .catch((err) => {
-          setItemsAndSync((current) =>
-            current.filter((item) => item.id !== optimisticItem.id),
-          );
-          setSelection([]);
-          console.error('[Canvas] Failed to place project note', err);
-        });
+      onProjectNotesChanged?.();
+      triggerSave?.(true);
     },
     [
       getSidebarNoteDragFile,
@@ -165,6 +142,7 @@ export function useCanvasNoteDrop({
       setEditingId,
       pushUndoSnapshot,
       onProjectNotesChanged,
+      triggerSave,
     ],
   );
 

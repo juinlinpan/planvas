@@ -49,7 +49,7 @@ export type UseCanvasSegmentDragParams = {
   screenToWorld: (x: number, y: number) => Point;
   captureBoardSnapshot: () => any;
   recordHistoryCheckpoint: (snapshot: any) => void;
-  handleCreateSegmentItem: (draft: SegmentDraftState) => Promise<void>;
+  handleCreateSegmentItem: (draft: SegmentDraftState) => void;
 };
 
 export function useCanvasSegmentDrag({
