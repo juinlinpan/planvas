@@ -1,6 +1,6 @@
 # Backend Service
 
-TypeScript + Node.js local API service for Whiteboard Planner.
+TypeScript + Node.js local API service for Planvas.
 
 The local web launcher and Tauri desktop shell both use this service as the
 local API. The near-term desktop packaging path is to launch the same Node

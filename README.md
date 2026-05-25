@@ -1,4 +1,4 @@
-# Whiteboard Planner
+# Planvas
 
 Local-first whiteboard planning app built with React, TypeScript, Node.js, and file-based project storage.
 

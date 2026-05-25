@@ -1,4 +1,4 @@
-# Whiteboard Planner Todo List
+# Planvas Todo List
 
 ## Desktop Runtime Notes
 

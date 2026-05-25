@@ -1,4 +1,4 @@
-# Whiteboard Planning App Spec
+# Planvas App Spec
 
 ## Desktop Runtime Update Notes
 

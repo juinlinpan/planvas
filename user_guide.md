@@ -1,4 +1,4 @@
-# Whiteboard Planner — User Guide
+# Planvas User Guide
 
 ## 系統需求
 
