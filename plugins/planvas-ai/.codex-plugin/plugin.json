@@ -1,6 +1,6 @@
 {
   "name": "planvas-ai",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "AI collaboration package for local Planvas whiteboard projects.",
   "author": {
     "name": "Planvas"

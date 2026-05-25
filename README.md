@@ -205,9 +205,9 @@ npm run typecheck
 npm run test --workspace frontend
 npm run test --workspace backend
 npm run build
-git tag v0.1.3
-git push origin desktop-tauri-local
-git push origin v0.1.3
+git tag v0.1.4
+git push origin main
+git push origin v0.1.4
 ```
 
 The release workflow creates a GitHub Release for the tag and uploads the NSIS
