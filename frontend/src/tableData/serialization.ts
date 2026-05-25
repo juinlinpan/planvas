@@ -22,7 +22,18 @@ import {
 // ── Serialize ─────────────────────────────────────────────────────────────
 
 export function serializeTableData(data: TableData): string {
-  return JSON.stringify(data);
+  return JSON.stringify(normalizePivotGridTableData(data));
+}
+
+export function normalizePivotGridTableData(data: TableData): TableData {
+  const {
+    colDividerPositions: _colDividerPositions,
+    rowDividerPositions: _rowDividerPositions,
+    colDividerBreaks: _colDividerBreaks,
+    rowDividerBreaks: _rowDividerBreaks,
+    ...rest
+  } = data;
+  return rest;
 }
 
 // ── Parse (handles both old string[][] and new format) ─────────────────────
@@ -121,8 +132,6 @@ function parseNewFormat(parsed: Record<string, unknown>): TableData {
     colWidths,
     rowHeights,
     cells,
-    ...parseDividerPositions(parsed),
-    ...parseDividerBreaks(parsed),
     childLayoutDirection: sanitizeTableChildLayoutDirection(
       parsed['childLayoutDirection'],
     ),
@@ -130,65 +139,6 @@ function parseNewFormat(parsed: Record<string, unknown>): TableData {
       parsed['childLayoutUpdatedAt'],
     ),
   };
-}
-
-function parseDividerPositions(
-  parsed: Record<string, unknown>,
-): Pick<TableData, 'colDividerPositions' | 'rowDividerPositions'> {
-  const result: Pick<TableData, 'colDividerPositions' | 'rowDividerPositions'> =
-    {};
-  if (
-    parsed['colDividerPositions'] &&
-    typeof parsed['colDividerPositions'] === 'object'
-  ) {
-    const raw = parsed['colDividerPositions'] as Record<string, unknown>;
-    const cleaned: Record<string, number> = {};
-    for (const [k, v] of Object.entries(raw)) {
-      if (typeof v === 'number' && isFinite(v)) cleaned[k] = v;
-    }
-    if (Object.keys(cleaned).length > 0) result.colDividerPositions = cleaned;
-  }
-  if (
-    parsed['rowDividerPositions'] &&
-    typeof parsed['rowDividerPositions'] === 'object'
-  ) {
-    const raw = parsed['rowDividerPositions'] as Record<string, unknown>;
-    const cleaned: Record<string, number> = {};
-    for (const [k, v] of Object.entries(raw)) {
-      if (typeof v === 'number' && isFinite(v)) cleaned[k] = v;
-    }
-    if (Object.keys(cleaned).length > 0) result.rowDividerPositions = cleaned;
-  }
-  return result;
-}
-
-function parseDividerBreaks(
-  parsed: Record<string, unknown>,
-): Pick<TableData, 'colDividerBreaks' | 'rowDividerBreaks'> {
-  const result: Pick<TableData, 'colDividerBreaks' | 'rowDividerBreaks'> = {};
-  if (
-    parsed['colDividerBreaks'] &&
-    typeof parsed['colDividerBreaks'] === 'object'
-  ) {
-    const raw = parsed['colDividerBreaks'] as Record<string, unknown>;
-    const cleaned: Record<string, true> = {};
-    for (const [k, v] of Object.entries(raw)) {
-      if (v === true) cleaned[k] = true;
-    }
-    if (Object.keys(cleaned).length > 0) result.colDividerBreaks = cleaned;
-  }
-  if (
-    parsed['rowDividerBreaks'] &&
-    typeof parsed['rowDividerBreaks'] === 'object'
-  ) {
-    const raw = parsed['rowDividerBreaks'] as Record<string, unknown>;
-    const cleaned: Record<string, true> = {};
-    for (const [k, v] of Object.entries(raw)) {
-      if (v === true) cleaned[k] = true;
-    }
-    if (Object.keys(cleaned).length > 0) result.rowDividerBreaks = cleaned;
-  }
-  return result;
 }
 
 function parseOldFormat(parsed: Record<string, unknown>): TableData {

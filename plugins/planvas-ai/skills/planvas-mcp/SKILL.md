@@ -35,7 +35,7 @@ Load only the reference needed for the task:
 ## Planvas Model Rules
 
 - Projects are local directories with a `.pv_project/` data folder.
-- Pages are stored as paired Page XML v2 files: `<page>.semantic.xml` and `<page>.presentation.xml`.
+- Pages are stored as paired release-versioned Page XML files: `<page>.semantic.xml` and `<page>.presentation.xml`.
 - Markdown notes live directly under `.pv_project/*.md`.
 - `note_paper` content is shared markdown-file-backed content. Page data stores a note file reference, not the markdown body.
 - A single `.md` note can be placed multiple times on one or more pages.

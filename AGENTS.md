@@ -14,10 +14,12 @@
 - `.pv_project` is a directory, not a file.
 - Project metadata lives at `<project_dir>/.pv_project/metadata.json`.
 - Page XML files live under `<project_dir>/.pv_project/`.
-- Each Page is stored as two Page XML v2 files: `<page_name>.semantic.xml` and `<page_name>.presentation.xml`.
-- Page XML v2 `semantic` files describe board objects, frame containment, table cell containment, and canonical links.
-- Page XML v2 `presentation` files describe geometry, z-order, colors, patterns, shape styling, and connector routing.
-- AI and automation workflows should read only the Page XML v2 `semantic` file plus referenced markdown files unless they need visual layout details.
+- Each Page is stored as two release-versioned Page XML files: `<page_name>.semantic.xml` and `<page_name>.presentation.xml`.
+- Page XML root `schema_version` values must follow the Planvas release version from now on.
+- Page XML `semantic` files describe board objects, frame containment, table cell containment, and canonical links.
+- Page XML table semantics use a pivot-grid model: the `<table>` element declares total grid dimensions via `rows="R"` and `cols="C"` attributes; there is no pinned header row/column and no `<pivot_rows>/<pivot_columns>` registry. Each cell records covered grid rows and columns as space-separated 0-based integers in `row_refs` and `column_refs` (e.g., a merged cell spanning rows 1–2, cols 0–1 writes `row_refs="1 2" column_refs="0 1"`).
+- Page XML `presentation` files describe geometry, z-order, colors, patterns, shape styling, and connector routing.
+- AI and automation workflows should read only the Page XML `semantic` file plus referenced markdown files unless they need visual layout details.
 - Markdown note files live under `<project_dir>/.pv_project/` and are treated as `note_paper` notes.
 - `note_paper` body text is stored in `.md` files; Page XML stores a reference to the markdown file instead of the note body.
 - The workspace left sidebar has a Notes box listing `.pv_project/*.md` project notes.

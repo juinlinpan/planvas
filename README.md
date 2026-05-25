@@ -206,9 +206,9 @@ npm run typecheck
 npm run test --workspace frontend
 npm run test --workspace backend
 npm run build
-git tag v0.1.1
+git tag v0.1.3
 git push origin desktop-tauri-local
-git push origin v0.1.1
+git push origin v0.1.3
 ```
 
 The release workflow creates a GitHub Release for the tag and uploads the NSIS
@@ -296,12 +296,22 @@ files under it. Their paths are tracked in `project.json`.
 are derived from the sibling Page XML files, Project notes are derived from
 `.pv_project/*.md`, and each Page XML root stores that Page's viewport fields.
 
-Page XML uses the v2 Planvas layout. Each page is stored as a semantic XML file
-and a presentation XML file. The semantic file stores board objects, frame
+Page XML uses the release-versioned Planvas layout. Each page is stored as a
+semantic XML file and a presentation XML file. The semantic file stores board objects, frame
 containment, table cell containment, markdown note references, canonical links,
 and derived object connection indexes. AI and automation should read this file
 plus referenced markdown files. The presentation file stores geometry, z-order,
 collapsed state, styles, and visual routing data needed to restore the canvas.
+From v0.1.3 onward, each Page XML root `schema_version` follows the Planvas
+release version. Opening a legacy `schema_version="2"` page rewrites it to the
+current release schema.
+Tables are written as pivot grids in the semantic file: the first row defines
+the column axis, the first column defines the row axis, and each cell records
+the pivot row / column refs it covers. This keeps merged Gantt-style cells
+readable to AI tools even when visual divider lines are not aligned.
+Per-segment divider offsets are not persisted for pivot-grid tables; cell
+borders must align to the pivot axes so every cell belongs to a clear set of
+rows and columns.
 
 Markdown files placed directly in `.pv_project/` are treated as `note_paper`
 notes. Creating or editing a `note_paper` still uses the normal app UI and API,

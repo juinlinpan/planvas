@@ -82,13 +82,25 @@ note files are not deleted by Page item deletion. If a placement renames its
 `data_json.noteFile`, the repository moves the backing file and updates all
 Page placements that referenced the previous filename.
 
-Page XML is written in the Planvas v2 layout. The repository keeps the HTTP API
-shape stable, but persists each page as two sibling files:
+Page XML is written in the release-versioned Planvas layout. The repository
+keeps the HTTP API shape stable, but persists each page as two sibling files:
 `<page_name>.semantic.xml` and `<page_name>.presentation.xml`. The semantic file
 stores board object content, frame containment, table cell containment, markdown
 note references, canonical links, and generated per-object `connections`
 indexes. The presentation file stores item geometry, z-order, collapsed state,
 styling, and other canvas rendering details.
+From v0.1.3 onward, Page XML root `schema_version` values follow the Planvas
+release version. When the backend opens a legacy `schema_version="2"` Page, it
+parses the old XML and rewrites the semantic and presentation siblings with the
+current release schema.
+Table semantic XML uses a pivot-grid model: the first row is the column axis,
+the first column is the row axis, and each cell includes the covered pivot row
+and column refs. Merged cells still keep `row_span` / `col_span`, but AI tools
+can rely on the explicit pivot refs instead of inferring meaning from visual
+grid-line alignment.
+The backend strips per-segment table divider offsets before writing Page XML,
+because a cell boundary that does not align to the pivot axes cannot be mapped
+to a stable semantic cell.
 
 `metadata.json` no longer stores page lists, note lists, or page viewport
 fields. The backend derives Pages from the sibling XML files, derives Project

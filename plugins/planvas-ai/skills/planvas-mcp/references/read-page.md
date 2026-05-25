@@ -33,7 +33,7 @@ For ticket/story updates, semantic XML plus referenced markdown notes is normall
 ## Semantic Root
 
 ```xml
-<page_semantic schema_version="2"
+<page_semantic schema_version="0.1.3"
                id="PAGE_UUID"
                project_id="PROJECT_UUID"
                name="Page Name"
@@ -126,9 +126,17 @@ Frames contain `small_object` children only.
   <content />
   <content_format />
   <data_json>{"rows":2,"cols":2}</data_json>
-  <table rows="2" cols="2">
+  <table rows="2" cols="2" semantic_model="pivot_grid" pivot_row="0" pivot_column="0">
+    <pivot_rows>
+      <pivot_row id="row-0" index="0" header_cell="cell-0-0" />
+      <pivot_row id="row-1" index="1" header_cell="cell-1-0" />
+    </pivot_rows>
+    <pivot_columns>
+      <pivot_column id="col-0" index="0" header_cell="cell-0-0" />
+      <pivot_column id="col-1" index="1" header_cell="cell-0-1" />
+    </pivot_columns>
     <row id="row-0" index="0">
-      <cell id="cell-0-0" row="0" column="0" row_span="1" col_span="1">
+      <cell id="cell-0-0" row="0" column="0" row_span="1" col_span="1" row_refs="row-0" column_refs="col-0">
         <text>Todo</text>
         <contains>
           <item ref="TEXT_UUID" />
@@ -139,7 +147,12 @@ Frames contain `small_object` children only.
 </object>
 ```
 
-Table cells may contain `small_object` children.
+Table cells may contain `small_object` children. Tables use pivot-grid
+semantics: the first row is the column axis and the first column is the row
+axis. A merged cell lists every covered pivot row and column in `row_refs` and
+`column_refs`, so reason over those refs instead of visual divider alignment.
+If a visual table had local divider offsets, persistence normalizes them away
+because semantic cells must align to the pivot row / column axes.
 
 ## Links and Relationships
 

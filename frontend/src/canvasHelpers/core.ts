@@ -304,7 +304,7 @@ export function findTableCellDropTarget(
 
     // Find column index using effective edge positions
     // Two-pass: first find approximate row, then use it for accurate column lookup,
-    // then refine row using the found column (handles per-segment divider overrides).
+    // then refine row using the found column.
     let col = -1;
     let row = -1;
 

@@ -190,12 +190,12 @@ describe('tableData merge and split semantics', () => {
     const groups = computeColSegmentGroups(split).filter(
       (group) => group.boundaryIndex === 0,
     );
-    expect(groups.map((group) => group.segments)).toEqual([[0], [1], [2]]);
-    expect(split.colDividerBreaks?.['c0r0']).toBe(true);
-    expect(split.colDividerBreaks?.['c0r1']).toBe(true);
+    expect(groups.map((group) => group.segments)).toEqual([[0, 1, 2]]);
+    expect(split.colDividerPositions).toBeUndefined();
+    expect(split.colDividerBreaks).toBeUndefined();
   });
 
-  it('rebuilds a split divider from the merged cell bounds instead of the original column edge', () => {
+  it('keeps split dividers aligned to the global pivot column edge', () => {
     const data = createTableData(1, 3);
     data.colWidths = [0.2, 0.5, 0.3];
 
@@ -205,12 +205,11 @@ describe('tableData merge and split semantics', () => {
     ]);
     const split = splitCellVertical(merged, merged.cells[0]?.[0]?.id!);
 
-    expect(split.colDividerPositions?.['c0r0']).toBeCloseTo(0.35, 5);
-    expect(getEffectiveColEdge(split, 1, 0)).toBeCloseTo(0.35, 5);
-    expect(getEffectiveColEdge(split, 1, 0)).not.toBeCloseTo(0.2, 5);
+    expect(split.colDividerPositions).toBeUndefined();
+    expect(getEffectiveColEdge(split, 1, 0)).toBeCloseTo(0.2, 5);
   });
 
-  it('keeps a horizontal split isolated from the original left and right row segments', () => {
+  it('keeps a horizontal split aligned to the global pivot row edge', () => {
     const data = createTableData(2, 3);
     const originalId = data.cells[0]?.[1]?.id;
 
@@ -230,9 +229,9 @@ describe('tableData merge and split semantics', () => {
     const groups = computeRowSegmentGroups(split).filter(
       (group) => group.boundaryIndex === 0,
     );
-    expect(groups.map((group) => group.segments)).toEqual([[0], [1], [2]]);
-    expect(split.rowDividerBreaks?.['r0c0']).toBe(true);
-    expect(split.rowDividerBreaks?.['r0c1']).toBe(true);
+    expect(groups.map((group) => group.segments)).toEqual([[0, 1, 2]]);
+    expect(split.rowDividerPositions).toBeUndefined();
+    expect(split.rowDividerBreaks).toBeUndefined();
     expect(getEffectiveRowEdge(split, 1, 1)).toBeCloseTo(0.5, 5);
   });
 
@@ -539,7 +538,7 @@ describe('tableData merge and split semantics', () => {
     expect(distributed.colWidths[3]).toBeCloseTo(0.3);
   });
 
-  it('distributes selected row heights and rewrites row divider overrides', () => {
+  it('distributes selected row heights on the global pivot rows', () => {
     const data = {
       ...createTableData(3, 2),
       rowHeights: [0.2, 0.5, 0.3],
@@ -559,8 +558,7 @@ describe('tableData merge and split semantics', () => {
     expect(distributed.rowHeights[0]).toBeCloseTo(1 / 3);
     expect(distributed.rowHeights[1]).toBeCloseTo(1 / 3);
     expect(distributed.rowHeights[2]).toBeCloseTo(1 / 3);
-    expect(distributed.rowDividerPositions?.['r0c0']).toBeCloseTo(1 / 3);
-    expect(distributed.rowDividerPositions?.['r1c0']).toBeCloseTo(2 / 3);
+    expect(distributed.rowDividerPositions).toBeUndefined();
   });
 
   it('defaults table cell child layout to vertical', () => {
@@ -627,8 +625,9 @@ describe('tableData merge and split semantics', () => {
 
     const next = resizeColGroup(data, group, 0.05, 0.2);
 
-    expect(next.colDividerPositions?.['c0r0']).toBeCloseTo(0.2, 5);
-    expect(next.colDividerPositions?.['c0r1']).toBeCloseTo(0.2, 5);
+    expect(next.colDividerPositions).toBeUndefined();
+    expect(next.colWidths[0]).toBeCloseTo(0.2, 5);
+    expect(getEffectiveColEdge(next, 1, 0)).toBeCloseTo(0.2, 5);
   });
 
   it('keeps resized row groups above the requested minimum fraction', () => {
@@ -637,7 +636,8 @@ describe('tableData merge and split semantics', () => {
 
     const next = resizeRowGroup(data, group, 0.05, 0.25);
 
-    expect(next.rowDividerPositions?.['r0c0']).toBeCloseTo(0.25, 5);
-    expect(next.rowDividerPositions?.['r0c1']).toBeCloseTo(0.25, 5);
+    expect(next.rowDividerPositions).toBeUndefined();
+    expect(next.rowHeights[0]).toBeCloseTo(0.25, 5);
+    expect(getEffectiveRowEdge(next, 1, 0)).toBeCloseTo(0.25, 5);
   });
 });

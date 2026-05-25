@@ -7,11 +7,7 @@ import {
   type TableData,
   type CellPosition,
 } from './types';
-import {
-  getEffectiveColEdge,
-  getEffectiveRowEdge,
-  getRootCellAt,
-} from './core';
+import { getRootCellAt } from './core';
 import {
   deleteCol,
   deleteRow,
@@ -405,35 +401,9 @@ export function mergeCells(
     }),
   );
 
-  // Clean up divider position overrides for boundaries now internal to the merged cell
-  let nextColPos = data.colDividerPositions
-    ? { ...data.colDividerPositions }
-    : undefined;
-  let nextRowPos = data.rowDividerPositions
-    ? { ...data.rowDividerPositions }
-    : undefined;
-  if (nextColPos) {
-    for (let b = minCol; b < maxCol; b++) {
-      for (let r = minRow; r <= maxRow; r++) {
-        delete nextColPos[`c${b}r${r}`];
-      }
-    }
-    if (Object.keys(nextColPos).length === 0) nextColPos = undefined;
-  }
-  if (nextRowPos) {
-    for (let b = minRow; b < maxRow; b++) {
-      for (let c = minCol; c <= maxCol; c++) {
-        delete nextRowPos[`r${b}c${c}`];
-      }
-    }
-    if (Object.keys(nextRowPos).length === 0) nextRowPos = undefined;
-  }
-
   return {
     ...data,
     cells: nextCells,
-    colDividerPositions: nextColPos,
-    rowDividerPositions: nextRowPos,
   };
 }
 
@@ -468,37 +438,6 @@ function findCellById(
   return null;
 }
 
-function withDividerBreak(
-  breaks: Record<string, true> | undefined,
-  key: string,
-): Record<string, true> {
-  return { ...(breaks ?? {}), [key]: true };
-}
-
-function getColumnSplitPosition(
-  data: TableData,
-  row: number,
-  col: number,
-  colSpan: number,
-  splitLeftSpan: number,
-): number {
-  const left = getEffectiveColEdge(data, col, row);
-  const right = getEffectiveColEdge(data, col + colSpan, row);
-  return left + (right - left) * (splitLeftSpan / colSpan);
-}
-
-function getRowSplitPosition(
-  data: TableData,
-  row: number,
-  col: number,
-  rowSpan: number,
-  splitTopSpan: number,
-): number {
-  const top = getEffectiveRowEdge(data, row, col);
-  const bottom = getEffectiveRowEdge(data, row + rowSpan, col);
-  return top + (bottom - top) * (splitTopSpan / rowSpan);
-}
-
 export function splitCellHorizontal(
   data: TableData,
   cellId: string,
@@ -507,14 +446,6 @@ export function splitCellHorizontal(
   if (!found || found.cell.rowSpan <= 1) return data;
   const { cell: target, row, col } = found;
   const half = Math.floor(target.rowSpan / 2);
-  const splitBoundaryIndex = row + half - 1;
-  const splitPosition = getRowSplitPosition(
-    data,
-    row,
-    col,
-    target.rowSpan,
-    half,
-  );
   const topCell: TableCellData = { ...target, id: makeCellId(), rowSpan: half };
   const bottomCell: TableCellData = {
     ...target,
@@ -530,28 +461,9 @@ export function splitCellHorizontal(
       return cell;
     }),
   );
-  const nextRowPositions = { ...(data.rowDividerPositions ?? {}) };
-  for (let c = col; c < col + target.colSpan; c += 1) {
-    nextRowPositions[`r${splitBoundaryIndex}c${c}`] = splitPosition;
-  }
-  let nextRowBreaks = data.rowDividerBreaks;
-  if (col > 0) {
-    nextRowBreaks = withDividerBreak(
-      nextRowBreaks,
-      `r${splitBoundaryIndex}c${col - 1}`,
-    );
-  }
-  if (col + target.colSpan < data.cols) {
-    nextRowBreaks = withDividerBreak(
-      nextRowBreaks,
-      `r${splitBoundaryIndex}c${col + target.colSpan - 1}`,
-    );
-  }
   return {
     ...data,
     cells: nextCells,
-    rowDividerPositions: nextRowPositions,
-    rowDividerBreaks: nextRowBreaks,
   };
 }
 
@@ -560,14 +472,6 @@ export function splitCellVertical(data: TableData, cellId: string): TableData {
   if (!found || found.cell.colSpan <= 1) return data;
   const { cell: target, row, col } = found;
   const half = Math.floor(target.colSpan / 2);
-  const splitBoundaryIndex = col + half - 1;
-  const splitPosition = getColumnSplitPosition(
-    data,
-    row,
-    col,
-    target.colSpan,
-    half,
-  );
   const leftCell: TableCellData = {
     ...target,
     id: makeCellId(),
@@ -587,28 +491,9 @@ export function splitCellVertical(data: TableData, cellId: string): TableData {
       return cell;
     }),
   );
-  const nextColPositions = { ...(data.colDividerPositions ?? {}) };
-  for (let r = row; r < row + target.rowSpan; r += 1) {
-    nextColPositions[`c${splitBoundaryIndex}r${r}`] = splitPosition;
-  }
-  let nextColBreaks = data.colDividerBreaks;
-  if (row > 0) {
-    nextColBreaks = withDividerBreak(
-      nextColBreaks,
-      `c${splitBoundaryIndex}r${row - 1}`,
-    );
-  }
-  if (row + target.rowSpan < data.rows) {
-    nextColBreaks = withDividerBreak(
-      nextColBreaks,
-      `c${splitBoundaryIndex}r${row + target.rowSpan - 1}`,
-    );
-  }
   return {
     ...data,
     cells: nextCells,
-    colDividerPositions: nextColPositions,
-    colDividerBreaks: nextColBreaks,
   };
 }
 

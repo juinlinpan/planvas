@@ -92,7 +92,7 @@ export function getCumulativeRowPositions(rowHeights: number[]): number[] {
   return result;
 }
 
-// ── Effective edge positions (supports per-segment overrides) ───────────
+// Effective edge positions come only from the global pivot grid.
 
 /**
  * Get the effective x-position of column edge `edgeIndex` at a given row.
@@ -102,14 +102,10 @@ export function getCumulativeRowPositions(rowHeights: number[]): number[] {
 export function getEffectiveColEdge(
   data: TableData,
   edgeIndex: number,
-  row: number,
+  _row: number,
 ): number {
   if (edgeIndex <= 0) return 0;
   if (edgeIndex >= data.cols) return 1;
-  const bIdx = edgeIndex - 1; // boundary index
-  const key = `c${bIdx}r${row}`;
-  const override = data.colDividerPositions?.[key];
-  if (override !== undefined) return override;
   const cum = getCumulativeColPositions(data.colWidths);
   return cum[edgeIndex] ?? 0;
 }
@@ -120,14 +116,10 @@ export function getEffectiveColEdge(
 export function getEffectiveRowEdge(
   data: TableData,
   edgeIndex: number,
-  col: number,
+  _col: number,
 ): number {
   if (edgeIndex <= 0) return 0;
   if (edgeIndex >= data.rows) return 1;
-  const bIdx = edgeIndex - 1; // boundary index
-  const key = `r${bIdx}c${col}`;
-  const override = data.rowDividerPositions?.[key];
-  if (override !== undefined) return override;
   const cum = getCumulativeRowPositions(data.rowHeights);
   return cum[edgeIndex] ?? 0;
 }

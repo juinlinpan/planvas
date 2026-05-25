@@ -6,8 +6,8 @@ import {
   getCumulativeColPositions,
   getCumulativeRowPositions,
 } from './core';
+import { normalizeFractions } from './cellOps';
 
-const POS_EPSILON = 0.0001;
 const MIN_FRAC = 0.04;
 
 export function computeColSegmentGroups(data: TableData): SegmentGroup[] {
@@ -21,8 +21,7 @@ export function computeColSegmentGroups(data: TableData): SegmentGroup[] {
       const rootRight = getRootCellAt(data, r, b + 1);
       if (rootLeft && rootRight && rootLeft.cell.id === rootRight.cell.id)
         continue;
-      const key = `c${b}r${r}`;
-      const pos = data.colDividerPositions?.[key] ?? defaultCum[b + 1] ?? 0;
+      const pos = defaultCum[b + 1] ?? 0;
       segs.push({ row: r, pos });
     }
     if (segs.length === 0) continue;
@@ -45,13 +44,7 @@ export function computeColSegmentGroups(data: TableData): SegmentGroup[] {
           (rightAbove &&
             rightBelow &&
             rightAbove.cell.id === rightBelow.cell.id);
-        const hasExplicitBreak =
-          data.colDividerBreaks?.[`c${b}r${prevR}`] === true;
-
-        if (
-          structurallyConnected ||
-          (!hasExplicitBreak && Math.abs(pos - groupPos) < POS_EPSILON)
-        ) {
+        if (structurallyConnected || pos === groupPos) {
           group.push(r);
           continue;
         }
@@ -91,8 +84,7 @@ export function computeRowSegmentGroups(data: TableData): SegmentGroup[] {
       const rootBottom = getRootCellAt(data, b + 1, c);
       if (rootTop && rootBottom && rootTop.cell.id === rootBottom.cell.id)
         continue;
-      const key = `r${b}c${c}`;
-      const pos = data.rowDividerPositions?.[key] ?? defaultCum[b + 1] ?? 0;
+      const pos = defaultCum[b + 1] ?? 0;
       segs.push({ col: c, pos });
     }
     if (segs.length === 0) continue;
@@ -115,13 +107,7 @@ export function computeRowSegmentGroups(data: TableData): SegmentGroup[] {
           (bottomLeft &&
             bottomRight &&
             bottomLeft.cell.id === bottomRight.cell.id);
-        const hasExplicitBreak =
-          data.rowDividerBreaks?.[`r${b}c${prevC}`] === true;
-
-        if (
-          structurallyConnected ||
-          (!hasExplicitBreak && Math.abs(pos - groupPos) < POS_EPSILON)
-        ) {
+        if (structurallyConnected || pos === groupPos) {
           group.push(c);
           continue;
         }
@@ -157,21 +143,15 @@ export function resizeColGroup(
   minFraction = MIN_FRAC,
 ): TableData {
   const b = group.boundaryIndex;
-  let minPos = 0 + minFraction;
-  let maxPos = 1 - minFraction;
-  for (const r of group.segments) {
-    const leftPos = getEffectiveColEdge(data, b, r);
-    const rightPos = getEffectiveColEdge(data, b + 2, r);
-    minPos = Math.max(minPos, leftPos + minFraction);
-    maxPos = Math.min(maxPos, rightPos - minFraction);
-  }
+  const leftPos = getEffectiveColEdge(data, b, 0);
+  const rightPos = getEffectiveColEdge(data, b + 2, 0);
+  const minPos = leftPos + minFraction;
+  const maxPos = rightPos - minFraction;
   const clamped = Math.max(minPos, Math.min(maxPos, newPosition));
-
-  const nextPositions = { ...(data.colDividerPositions ?? {}) };
-  for (const r of group.segments) {
-    nextPositions[`c${b}r${r}`] = clamped;
-  }
-  return { ...data, colDividerPositions: nextPositions };
+  const nextColWidths = [...data.colWidths];
+  nextColWidths[b] = clamped - leftPos;
+  nextColWidths[b + 1] = rightPos - clamped;
+  return { ...data, colWidths: normalizeFractions(nextColWidths) };
 }
 
 export function resizeRowGroup(
@@ -181,19 +161,13 @@ export function resizeRowGroup(
   minFraction = MIN_FRAC,
 ): TableData {
   const b = group.boundaryIndex;
-  let minPos = 0 + minFraction;
-  let maxPos = 1 - minFraction;
-  for (const c of group.segments) {
-    const topPos = getEffectiveRowEdge(data, b, c);
-    const bottomPos = getEffectiveRowEdge(data, b + 2, c);
-    minPos = Math.max(minPos, topPos + minFraction);
-    maxPos = Math.min(maxPos, bottomPos - minFraction);
-  }
+  const topPos = getEffectiveRowEdge(data, b, 0);
+  const bottomPos = getEffectiveRowEdge(data, b + 2, 0);
+  const minPos = topPos + minFraction;
+  const maxPos = bottomPos - minFraction;
   const clamped = Math.max(minPos, Math.min(maxPos, newPosition));
-
-  const nextPositions = { ...(data.rowDividerPositions ?? {}) };
-  for (const c of group.segments) {
-    nextPositions[`r${b}c${c}`] = clamped;
-  }
-  return { ...data, rowDividerPositions: nextPositions };
+  const nextRowHeights = [...data.rowHeights];
+  nextRowHeights[b] = clamped - topPos;
+  nextRowHeights[b + 1] = bottomPos - clamped;
+  return { ...data, rowHeights: normalizeFractions(nextRowHeights) };
 }

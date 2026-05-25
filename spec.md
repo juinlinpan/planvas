@@ -28,18 +28,23 @@
 - Each Page must be stored as two XML files inside `.pv_project/`: `<page_name>.semantic.xml` and `<page_name>.presentation.xml`.
 - Page discovery must come from the `.pv_project/` XML files, and Project note discovery must come from `.pv_project/*.md`.
 - Renaming a Page must also rename its sibling XML files to match the new Page name, while preserving the Page id and board content.
-- Page XML v2 must separate AI-readable semantic data from visual presentation data at the file level.
-- Page XML v2 semantic files must describe the information inside the board and the relationships between board objects.
-- Page XML v2 presentation files must describe geometry, z-order, color, patterns, shape styling, and connector routing.
+- Page XML must separate AI-readable semantic data from visual presentation data at the file level.
+- Page XML root `schema_version` values must follow the Planvas release version from v0.1.3 onward.
+- Opening a Page with legacy Page XML `schema_version="2"` or an older release-versioned schema must migrate and rewrite that Page to the current release schema.
+- Page XML semantic files must describe the information inside the board and the relationships between board objects.
+- Page XML presentation files must describe geometry, z-order, color, patterns, shape styling, and connector routing.
 - Page-level viewport fields such as `viewport_x`, `viewport_y`, and `zoom` must be stored on the Page XML root attributes rather than in `.pv_project/metadata.json`.
 - AI and automation workflows, including Jira ticket creation, should be able to read page meaning from the semantic file plus referenced markdown files without reading presentation data.
-- Page XML v2 semantic objects are grouped as `large_object`, `small_object`, `sticky_object`, and `link`.
+- Page XML semantic objects are grouped as `large_object`, `small_object`, `sticky_object`, and `link`.
 - `frame` and `table` are `large_object` types.
 - `text_box` and `note_paper` are `small_object` types.
 - `sticky_note` is a standalone `sticky_object` type. It is not a `small_object` or `large_object` and must not be contained by frames or tables.
 - `line` and `arrow` are `link` types only when they express a relationship; purely decorative lines may remain presentation-only.
 - `frame` can contain `small_object` children directly through semantic containment.
 - `table` is a `large_object`, but each `table_cell` is the semantic container that can contain `small_object` children.
+- `table` semantic XML must use a pivot-grid model. The `<table>` element declares the total grid dimensions with `rows="R"` and `cols="C"` attributes. There is no pinned header row or header column.
+- Table cell semantic records must include `row_refs` and `column_refs` as space-separated 0-based integer indices listing every grid row and grid column covered by that cell. For example, a cell spanning grid rows 1–2 and grid columns 0–1 writes `row_refs="1 2"` and `column_refs="0 1"`. This lets AI readers understand Gantt-style spans without relying on visually aligned grid lines.
+- Pivot-grid tables must not persist per-row or per-column freeform divider offsets. Internal cell boundaries must align to the global pivot grid lines; a cell that cannot be represented as whole integer row / column indices is invalid.
 - Semantic links are the canonical source of truth for object-to-object relationships.
 - Object-level `connections` entries may exist as AI-friendly indexes, but they must be generated from or validated against canonical semantic links.
 - Markdown files placed directly under `.pv_project/` are project note files and must be represented as `note_paper` notes by the system.
@@ -52,7 +57,7 @@
 - Opening an external Project path must initialize missing `.pv_project/` / `.pv_project/metadata.json` files when the path is new, and must only add the path to `project.json` when the path is already a Planvas project.
 - Project listing must refresh path existence and sort `project_store/` projects before other registered paths.
 - AI tool integration is distributed as an optional plugin/extension package under `plugins/planvas-ai/`; it is not bundled into the main MSI/exe app installer.
-- The optional AI package must include the `planvas-mcp` skill, Page XML v2 reading/writing references, and MCP configuration snippets for external AI coding tools.
+- The optional AI package must include the `planvas-mcp` skill, Page XML reading/writing references, and MCP configuration snippets for external AI coding tools.
 - Supported AI tool install targets for the optional package include Codex, Gemini CLI, Antigravity CLI, Claude Code, GitHub Copilot, and OpenCode.
 - Project settings must provide a `Connect to your AI agent` control where users select an AI tool and receive a project-scoped install command with `Copy` and `Run` actions.
 - AI agent installation from Project settings must install into the selected Project path, not a user-global directory.
@@ -453,7 +458,7 @@ Page 匯出備註：
 - 資料序列化時，以 `string[][]` 格式輸出文字內容，供快速存取。
 - Inspector 顯示目前選取的儲存格之文字對齊與樣式；在鎖定模式下不顯示 inline 操作。
 - **欄寬列高的記憶機制**：系統必須在新增欄列、resize 時同步更新分隔線位置，不依賴 CSS 自動計算。
-- 分隔線機制：系統使用整數索引位置表記錄每條分隔線的絕對位置（像素值）；`colDividerBreaks` / `rowDividerBreaks` 記錄合併儲存格邊界，供合併時跳過部分分隔線使用。
+- 分隔線機制：系統只使用全域欄寬與列高作為 pivot grid 的唯一分隔線來源；不得用 per-row / per-column 的局部分隔線位置或 break 表示合併邊界。
 - table 的欄列數計算必須準確，不可因儲存格合併而誤算數量或錯誤渲染邊框。
 - table 的選取行為有多層級：選取整個 table、選取某行 / 列、選取某儲存格；Inspector 顯示對應層級的操作。
 - 選取 table 儲存格時，按 `Delete` / `Backspace` 或使用右鍵選單的刪除必須依選取範圍執行：若選取範圍完整覆蓋一或多個 row，刪除該 row；若完整覆蓋一或多個 column，刪除該 column；若只選取零散儲存格，則只清除已選取儲存格的內容與內嵌項目，不刪除整個 table 物件。刪除 row / column 後，未刪除儲存格的像素大小必須維持不變，table 總高度或總寬度縮減；刪除中間 row / column 後，相鄰的上下 row 或左右 column 必須接合。
@@ -689,7 +694,7 @@ Log 儲存路徑：
 - Canvas item, connector, and viewport state changes must update the per-Page in-memory cache immediately so Page switching preserves the latest local working state while debounced persistence is still pending.
 - Pending viewport autosave must flush when the Canvas unmounts for Page switches or view changes, rather than only canceling the debounce timer.
 - Markdown note editing should autosave about every 5 seconds, flush immediately when the browser window/tab is left, and flush when leaving the markdown editor view. Returning to a Page or focusing the window should only refresh project notes and update their visible content in memory; it must not clear the page board cache, reload the page list, or remount the active Page.
-- The backend exposes `POST /pages/{page_id}/regulate` as a schema-aware maintenance endpoint. It rereads the current Page XML, normalizes existing `sticky_note` objects to the standalone `sticky_item` / `sticky_object` schema, clears stale sticky containment, removes stale table cell child references, removes connector links pointing to missing items, normalizes item category / table parent references according to the current schema, and rewrites the Page as well-formed Page XML v2.
+- The backend exposes `POST /pages/{page_id}/regulate` as a schema-aware maintenance endpoint. It rereads the current Page XML, normalizes existing `sticky_note` objects to the standalone `sticky_item` / `sticky_object` schema, clears stale sticky containment, removes stale table cell child references, removes connector links pointing to missing items, normalizes item category / table parent references according to the current schema, and rewrites the Page as well-formed release-versioned Page XML.
 - The canvas header exposes a refresh-style regulate action beside the autosave and `magnet` controls; clicking it calls the regulate endpoint for the current Page and reloads the returned board data.
 - Any future Page XML schema change must update the regulate function in the same change so maintenance repair behavior stays aligned with the canonical schema.
 
@@ -742,12 +747,14 @@ MVP 必要功能：
 6. magnet 磁鐵對齊
 7. Planvas file storage 持久化完整驗收測試
 
-## 15. Page XML v2 Semantic Storage
+## 15. Page XML Semantic Storage
 
-Page XML v2 must split each page into two sibling files:
+Page XML must split each page into two sibling files:
 
 - `<page_name>.semantic.xml`: AI-readable board meaning, including object content, containment, table cell structure, and canonical links.
 - `<page_name>.presentation.xml`: visual rendering data, including position, size, rotation, z-order, colors, fill patterns, shape details, and connector routes.
+
+The XML root `schema_version` follows the Planvas release version from v0.1.3 onward. Legacy `schema_version="2"` pages are upgraded when opened and rewritten with the current release schema.
 
 The semantic file is the preferred source for AI, automation, Jira ticket generation, summaries, and project reasoning. Those workflows should not need to read the presentation file unless they are answering a visual layout question.
 
@@ -764,6 +771,9 @@ Containment rules:
 - `table` is a `large_object`; its cells are nested semantic containers.
 - `table_cell` may contain `small_object` children.
 - A `table_cell` should have a stable id so semantic links and presentation layout can reference the cell.
+- Tables use `semantic_model="pivot_grid"` in Page XML. The `<table>` element's `rows` and `cols` attributes declare the total grid dimensions. There is no `pivot_row` / `pivot_column` pin attribute and no `<pivot_rows>` / `<pivot_columns>` registry.
+- Every `<cell>` writes `row_refs` and `column_refs` as space-separated 0-based integer indices enumerating every grid row and grid column the cell covers, in addition to the compatibility `row_span` and `col_span` attributes.
+- Table data must remove `colDividerPositions`, `rowDividerPositions`, `colDividerBreaks`, and `rowDividerBreaks` before persistence so semantic cells cannot drift away from the pivot axes. Split or merged cells are valid only when their borders coincide with pivot row / column boundaries.
 - MVP table cells should contain only `small_object` children. `sticky_object` and nested `large_object` children are not allowed.
 
 Relationship rules:
@@ -778,7 +788,7 @@ Relationship rules:
 Example target semantic file:
 
 ```xml
-<page_semantic id="page-1" schema_version="2">
+<page_semantic id="page-1" schema_version="0.1.3">
   <objects>
     <object id="frame-1" kind="large_object" type="frame">
       <title>Sprint 12</title>
@@ -793,9 +803,9 @@ Example target semantic file:
 
     <object id="table-1" kind="large_object" type="table">
       <title>Sprint board</title>
-      <table>
-        <row id="row-1" index="0">
-          <cell id="cell-1" row="0" column="0">
+      <table rows="1" cols="1" semantic_model="pivot_grid">
+        <row index="0">
+          <cell id="cell-1" row="0" column="0" row_span="1" col_span="1" row_refs="0" column_refs="0">
             <text>Todo</text>
             <contains>
               <item ref="note-3" />
@@ -818,7 +828,7 @@ Example target semantic file:
 Example target presentation file:
 
 ```xml
-<page_presentation id="page-1" schema_version="2">
+<page_presentation id="page-1" schema_version="0.1.3">
   <items>
     <item ref="frame-1" x="80" y="80" width="640" height="420" z_index="1" />
   </items>

@@ -69,7 +69,7 @@ npm run desktop:build
 建置完成後，NSIS 安裝檔會產生在：
 
 ```text
-src-tauri\target\release\bundle\nsis\Planvas_0.1.0_x64-setup.exe
+src-tauri\target\release\bundle\nsis\Planvas_0.1.3_x64-setup.exe
 ```
 
 未來版本號可能會改變；若找不到完全相同的檔名，請在同一個資料夾中尋找：
@@ -80,7 +80,7 @@ src-tauri\target\release\bundle\nsis\Planvas_*_x64-setup.exe
 
 ### 4. 安裝與啟動
 
-1. 雙擊產生的 `Planvas_0.1.0_x64-setup.exe`。
+1. 雙擊產生的 `Planvas_0.1.3_x64-setup.exe`。
 2. 依照安裝程式提示完成安裝。安裝檔使用目前使用者安裝模式，通常不需要系統層級安裝權限。
 3. 從開始功能表或桌面捷徑開啟 Planvas。
 4. Planvas 啟動時會檢查 `http://127.0.0.1:18000/healthz`。若沒有可用的 backend，桌面版會自動啟動隨附的 Node backend。
@@ -309,7 +309,7 @@ plugins/planvas-ai/
 ```
 
 This package is not installed by the main app MSI/exe flow. It is for users who
-want AI coding tools to read Planvas Page XML v2, use the Planvas MCP server, or
+want AI coding tools to read Planvas Page XML, use the Planvas MCP server, or
 update boards and tickets from whiteboard context.
 
 Before using the plugin, start Planvas so the MCP server is available:
@@ -375,3 +375,5 @@ See `plugins/planvas-ai/INSTALL.md` for tool-specific details.
 
 - Select multiple table cells, then use **平均分配高** from the right Inspector or right-click context menu to make the selected rows the same height.
 - Select multiple table cells, then use **平均分配寬** from the right Inspector or right-click context menu to make the selected columns the same width.
+- For AI-readable planning tables such as Gantt charts, Planvas treats the first row as the column axis and the first column as the row axis in Page XML. Merged cells record every covered row / column axis, so AI tools can read spans from semantic data instead of visual grid-line alignment.
+- Cell borders in saved planning tables must align to those first-row / first-column pivot axes. Freeform local divider offsets are normalized away when the Page is saved or migrated.

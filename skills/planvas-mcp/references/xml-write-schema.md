@@ -83,9 +83,17 @@ Frames may contain only `small_object` children. Remove stale child refs when de
 ## table Cell Containment
 
 ```xml
-<table rows="2" cols="2">
+<table rows="2" cols="2" semantic_model="pivot_grid" pivot_row="0" pivot_column="0">
+  <pivot_rows>
+    <pivot_row id="row-0" index="0" header_cell="cell-0-0" />
+    <pivot_row id="row-1" index="1" header_cell="cell-1-0" />
+  </pivot_rows>
+  <pivot_columns>
+    <pivot_column id="col-0" index="0" header_cell="cell-0-0" />
+    <pivot_column id="col-1" index="1" header_cell="cell-0-1" />
+  </pivot_columns>
   <row id="row-0" index="0">
-    <cell id="cell-0-0" row="0" column="0" row_span="1" col_span="1">
+    <cell id="cell-0-0" row="0" column="0" row_span="1" col_span="1" row_refs="row-0" column_refs="col-0">
       <text>Todo</text>
       <contains>
         <item ref="TEXT_UUID" />
@@ -96,6 +104,14 @@ Frames may contain only `small_object` children. Remove stale child refs when de
 ```
 
 Table cells may contain only `small_object` children in the MVP schema.
+The first row and first column are pivot axes. Table size is the pivot row count
+by pivot column count. For merged cells, keep `row_span` / `col_span` for API
+compatibility and also list every covered pivot axis in `row_refs` and
+`column_refs`, for example `row_refs="row-1 row-2"`.
+Do not write per-segment divider offsets (`colDividerPositions`,
+`rowDividerPositions`, `colDividerBreaks`, or `rowDividerBreaks`) for semantic
+pivot-grid tables. Cell borders must align to pivot axes; otherwise the cell
+cannot be assigned to stable row / column refs.
 
 ## Links
 

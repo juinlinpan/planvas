@@ -20,6 +20,8 @@ export type PageXmlData = {
   connectorLinks: ConnectorLink[];
 };
 
+const CURRENT_PAGE_XML_SCHEMA_VERSION = '0.1.3';
+
 export async function readPageXmlFile(
   pagePath: string,
   page: Page,
@@ -85,6 +87,9 @@ export async function readPageXmlFile(
       connectorFromSemanticLinkAttributes(parseAttributes(match[1])),
     )
     .sort((left, right) => left.id.localeCompare(right.id));
+  if (shouldRewritePageXmlForCurrentSchema(semanticXml, presentationXml)) {
+    await writePageXmlFile(pagePath, page, boardItems, connectorLinks);
+  }
   return { boardItems, connectorLinks };
 }
 
@@ -98,7 +103,9 @@ export async function writePageXmlFile(
   const persistedItems = await Promise.all(
     [...boardItems]
       .sort(compareBoardItems)
-      .map((item) => writeMarkdownBackedNote(projectDataDir, item)),
+      .map((item) =>
+        writeMarkdownBackedNote(projectDataDir, normalizePivotGridTableItem(item)),
+      ),
   );
   const itemById = new Map(persistedItems.map((item) => [item.id, item]));
   const connectors = [...connectorLinks].sort((left, right) =>
@@ -106,7 +113,7 @@ export async function writePageXmlFile(
   );
   const connectionIndexes = buildConnectionIndexes(connectors);
   const frameChildren = buildFrameChildren(persistedItems);
-  const pageAttributes = `schema_version="2" id="${escapeAttribute(page.id)}" project_id="${escapeAttribute(page.project_id)}" name="${escapeAttribute(page.name)}" sort_order="${page.sort_order}" viewport_x="${page.viewport_x}" viewport_y="${page.viewport_y}" zoom="${page.zoom}" created_at="${escapeAttribute(page.created_at)}" updated_at="${escapeAttribute(page.updated_at)}"`;
+  const pageAttributes = `schema_version="${CURRENT_PAGE_XML_SCHEMA_VERSION}" id="${escapeAttribute(page.id)}" project_id="${escapeAttribute(page.project_id)}" name="${escapeAttribute(page.name)}" sort_order="${page.sort_order}" viewport_x="${page.viewport_x}" viewport_y="${page.viewport_y}" zoom="${page.zoom}" created_at="${escapeAttribute(page.created_at)}" updated_at="${escapeAttribute(page.updated_at)}"`;
   const semanticLines = [
     '<?xml version="1.0" encoding="utf-8"?>',
     `<page_semantic ${pageAttributes}>`,
@@ -356,6 +363,54 @@ function compareBoardItems(left: BoardItem, right: BoardItem): number {
   return left.created_at.localeCompare(right.created_at);
 }
 
+function shouldRewritePageXmlForCurrentSchema(
+  semanticXml: string,
+  presentationXml: string,
+): boolean {
+  return (
+    shouldRewriteSchemaVersion(schemaVersionFromRoot(semanticXml)) ||
+    shouldRewriteSchemaVersion(schemaVersionFromRoot(presentationXml))
+  );
+}
+
+function schemaVersionFromRoot(xml: string): string | null {
+  const match = xml.match(/<page_(?:semantic|presentation)\s+([^>]*)>/);
+  if (!match) return null;
+  return parseAttributes(match[1]).schema_version ?? null;
+}
+
+function shouldRewriteSchemaVersion(version: string | null): boolean {
+  if (version === CURRENT_PAGE_XML_SCHEMA_VERSION) return false;
+  if (version === null || version === '2') return true;
+  const comparison = compareReleaseVersions(
+    version,
+    CURRENT_PAGE_XML_SCHEMA_VERSION,
+  );
+  return comparison !== null && comparison < 0;
+}
+
+function compareReleaseVersions(left: string, right: string): number | null {
+  const leftParts = releaseVersionParts(left);
+  const rightParts = releaseVersionParts(right);
+  if (!leftParts || !rightParts) return null;
+  for (let index = 0; index < 3; index += 1) {
+    if (leftParts[index] !== rightParts[index]) {
+      return leftParts[index] - rightParts[index];
+    }
+  }
+  return 0;
+}
+
+function releaseVersionParts(version: string): [number, number, number] | null {
+  const match = version.match(/^v?(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) return null;
+  return [
+    Number.parseInt(match[1], 10),
+    Number.parseInt(match[2], 10),
+    Number.parseInt(match[3], 10),
+  ];
+}
+
 function semanticKindForItem(item: BoardItem): string {
   if (item.type === 'frame' || item.type === 'table') return 'large_object';
   if (item.type === 'line' || item.type === 'arrow') return 'link';
@@ -414,6 +469,20 @@ function buildFrameChildren(boardItems: BoardItem[]): Map<string, string[]> {
   return children;
 }
 
+function normalizePivotGridTableItem(item: BoardItem): BoardItem {
+  if (item.type !== 'table' || item.data_json === null) return item;
+  const data = parseJsonObject(item.data_json);
+  const nextData = { ...data };
+  delete nextData.colDividerPositions;
+  delete nextData.rowDividerPositions;
+  delete nextData.colDividerBreaks;
+  delete nextData.rowDividerBreaks;
+  return {
+    ...item,
+    data_json: JSON.stringify(nextData),
+  };
+}
+
 function tableSemanticLines(dataJson: string | null, indent: string): string[] {
   const data = parseJsonObject(dataJson);
   const rows = typeof data.rows === 'number' ? Math.max(0, data.rows) : 0;
@@ -421,9 +490,11 @@ function tableSemanticLines(dataJson: string | null, indent: string): string[] {
   const rawCells = Array.isArray(data.cells) ? data.cells : [];
   if (rows === 0 || cols === 0 || rawCells.length === 0) return [];
 
-  const lines = [`${indent}<table rows="${rows}" cols="${cols}">`];
+  const lines = [
+    `${indent}<table rows="${rows}" cols="${cols}" semantic_model="pivot_grid">`,
+  ];
   for (let rowIndex = 0; rowIndex < rows; rowIndex += 1) {
-    lines.push(`${indent}  <row id="row-${rowIndex}" index="${rowIndex}">`);
+    lines.push(`${indent}  <row index="${rowIndex}">`);
     const rawRow = Array.isArray(rawCells[rowIndex])
       ? (rawCells[rowIndex] as unknown[])
       : [];
@@ -437,8 +508,16 @@ function tableSemanticLines(dataJson: string | null, indent: string): string[] {
           : `cell-${rowIndex}-${colIndex}`;
       const rowSpan = typeof cell.rowSpan === 'number' ? cell.rowSpan : 1;
       const colSpan = typeof cell.colSpan === 'number' ? cell.colSpan : 1;
+      const rowRefs = Array.from(
+        { length: Math.min(rows - rowIndex, rowSpan) },
+        (_, i) => rowIndex + i,
+      ).join(' ');
+      const columnRefs = Array.from(
+        { length: Math.min(cols - colIndex, colSpan) },
+        (_, i) => colIndex + i,
+      ).join(' ');
       lines.push(
-        `${indent}    <cell id="${escapeAttribute(cellId)}" row="${rowIndex}" column="${colIndex}" row_span="${rowSpan}" col_span="${colSpan}">`,
+        `${indent}    <cell id="${escapeAttribute(cellId)}" row="${rowIndex}" column="${colIndex}" row_span="${rowSpan}" col_span="${colSpan}" row_refs="${escapeAttribute(rowRefs)}" column_refs="${escapeAttribute(columnRefs)}">`,
       );
       if (typeof cell.content === 'string' && cell.content.length > 0) {
         lines.push(`${indent}      <text>${escapeText(cell.content)}</text>`);
@@ -644,14 +723,19 @@ function parseSemanticTableCells(tableBlock: string): Array<{
     (match) => {
       const attributes = parseAttributes(match[1]);
       const body = match[2] ?? '';
+      const rowRefs = splitAxisRefs(attributes.row_refs);
+      const columnRefs = splitAxisRefs(attributes.column_refs);
       return {
         id:
           attributes.id ??
           `cell-${attributes.row ?? '0'}-${attributes.column ?? '0'}`,
         row: Number.parseInt(attributes.row ?? '0', 10),
         col: Number.parseInt(attributes.column ?? '0', 10),
-        rowSpan: Number.parseInt(attributes.row_span ?? '1', 10),
-        colSpan: Number.parseInt(attributes.col_span ?? '1', 10),
+        rowSpan: positiveIntAttribute(attributes.row_span, rowRefs.length || 1),
+        colSpan: positiveIntAttribute(
+          attributes.col_span,
+          columnRefs.length || 1,
+        ),
         content: childText(body, 'text') ?? '',
         childItemIds: [
           ...new Set(
@@ -667,6 +751,13 @@ function parseSemanticTableCells(tableBlock: string): Array<{
       };
     },
   );
+}
+
+function splitAxisRefs(value: string | undefined): string[] {
+  return (value ?? '')
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
 }
 
 function connectorFromSemanticLinkAttributes(
@@ -727,6 +818,14 @@ function integerAttribute(
   name: string,
 ): number {
   return Number.parseInt(requiredAttribute(attributes, name), 10);
+}
+
+function positiveIntAttribute(
+  value: string | undefined,
+  fallback: number,
+): number {
+  const parsed = Number.parseInt(value ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function escapeText(value: string): string {

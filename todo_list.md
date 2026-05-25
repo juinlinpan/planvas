@@ -50,9 +50,11 @@
 - [x] Change Markdown editor saving to 5-second autosave plus immediate flush on window/tab leave and editor view switch, without remounting the current Page on note refresh.
 - [x] Add a Page XML regulate maintenance endpoint and canvas refresh action near `magnet` to rewrite current-schema Page XML, normalize `sticky_note` into standalone `sticky_item` / `sticky_object`, and remove stale table child references.
 
-## Page XML v2 Semantic Storage Notes
+## Page XML Semantic Storage Notes
 
-- [x] Define the Page XML v2 schema with separate `<page_name>.semantic.xml` and `<page_name>.presentation.xml` files.
+- [x] Define the Page XML schema with separate `<page_name>.semantic.xml` and `<page_name>.presentation.xml` files.
+- [x] Make Page XML root `schema_version` follow the Planvas release version from v0.1.3 onward.
+- [x] Migrate legacy Page XML `schema_version="2"` to the current release schema when a Page is opened.
 - [x] Move AI-readable board meaning into the semantic file, including object content, frame containment, table cell containment, and canonical links.
 - [x] Keep geometry, z-order, colors, fill patterns, shape details, and connector route points in the presentation file.
 - [x] Model semantic object kinds as `large_object`, `small_object`, and semantic `link`.
@@ -63,11 +65,12 @@
 - [ ] Optionally keep decorative lines presentation-only in a later cleanup.
 - [x] Add semantic `frame` containment for direct `small_object` children.
 - [x] Add stable `table_cell` ids and semantic table cell containment for `small_object` children.
+- [x] Add pivot-grid table semantics so Page XML declares first-row / first-column axes and each cell records covered pivot row / column refs for AI-readable merged-cell spans.
 - [x] Make semantic `links/link` records the canonical source of truth for relationships between objects or table cells.
 - [x] Generate or validate object-level `connections` indexes from canonical links so AI can quickly inspect incoming and outgoing relations.
 - [x] Preserve markdown-backed `note_paper` behavior by storing semantic note content as `content_ref type="markdown"` with the `.md` filename.
-- [x] Write new Page XML as v2 only; legacy v1 Page XML migration is intentionally out of scope for this change.
-- [x] Implement Page XML v2 writer output and reader round-trip for the existing HTTP API shape.
+- [x] Write new Page XML with the current release schema version; legacy v1 Page XML migration is intentionally out of scope for this change.
+- [x] Implement Page XML writer output and reader round-trip for the existing HTTP API shape.
 - [x] Add tests for frame containment, table cell containment, semantic link canonical data, derived object connections, presentation-only lines, and markdown content references.
 - [ ] Update JSON export / import and future AI-readable snapshots to prefer the semantic layer while preserving current API compatibility.
 
@@ -256,7 +259,7 @@
 - [x] Store `note_paper` bodies in sibling markdown files and keep only `data_json.noteFile` references in Page XML.
 - [x] Store connector links inside each Page semantic XML file.
 - [x] Keep page / item / connector ids stable inside metadata and XML files.
-- [x] Add `POST /pages/{page_id}/regulate` to repair Page XML v2 using the current schema: normalize existing `sticky_note` objects to standalone `sticky_item` / `sticky_object`, remove stale table child refs, normalize table child parent links, drop connector links with missing endpoints, and rewrite semantic / presentation XML.
+- [x] Add `POST /pages/{page_id}/regulate` to repair Page XML using the current schema: normalize existing `sticky_note` objects to standalone `sticky_item` / `sticky_object`, remove stale table child refs, normalize table child parent links, drop connector links with missing endpoints, and rewrite semantic / presentation XML.
 - [x] Replace DB access with a filesystem repository.
 - [x] 確認各 API 回應欄位包含 `project_id`、`page_id`、`parent_item_id`
 

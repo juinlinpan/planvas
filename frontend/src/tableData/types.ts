@@ -41,17 +41,13 @@ export type TableData = {
   colWidths: number[]; // fractions summing to ~1.0 (one entry per column)
   rowHeights: number[]; // fractions summing to ~1.0 (one entry per row)
   cells: (TableCellData | null)[][];
-  /** Per-segment column divider position overrides.
-   *  Key: "c{boundaryIdx}r{row}", Value: absolute position fraction (0-1) */
+  /** Legacy per-segment column divider overrides. Ignored and stripped. */
   colDividerPositions?: Record<string, number>;
-  /** Per-segment row divider position overrides.
-   *  Key: "r{boundaryIdx}c{col}", Value: absolute position fraction (0-1) */
+  /** Legacy per-segment row divider overrides. Ignored and stripped. */
   rowDividerPositions?: Record<string, number>;
-  /** Explicit continuity breaks between vertically adjacent column-divider segments.
-   *  Key: "c{boundaryIdx}r{row}" means the segments at rows r and r+1 must not auto-join. */
+  /** Legacy column divider breaks. Ignored and stripped. */
   colDividerBreaks?: Record<string, true>;
-  /** Explicit continuity breaks between horizontally adjacent row-divider segments.
-   *  Key: "r{boundaryIdx}c{col}" means the segments at cols c and c+1 must not auto-join. */
+  /** Legacy row divider breaks. Ignored and stripped. */
   rowDividerBreaks?: Record<string, true>;
   childLayoutDirection?: TableChildLayoutDirection;
   childLayoutUpdatedAt?: number;

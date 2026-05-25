@@ -562,22 +562,87 @@ const tests: TestCase[] = [
         data_json: null,
       });
       const tableData = {
-        rows: 1,
-        cols: 1,
-        colWidths: [1],
-        rowHeights: [1],
+        rows: 3,
+        cols: 3,
+        colWidths: [1 / 3, 1 / 3, 1 / 3],
+        rowHeights: [1 / 3, 1 / 3, 1 / 3],
         cells: [
           [
             {
+              id: 'cell-axis',
+              content: '',
+              rowSpan: 1,
+              colSpan: 1,
+              isCollapsed: true,
+              childItemIds: [],
+            },
+            {
+              id: 'cell-week-1',
+              content: 'Week 1',
+              rowSpan: 1,
+              colSpan: 1,
+              isCollapsed: true,
+              childItemIds: [],
+            },
+            {
+              id: 'cell-week-2',
+              content: 'Week 2',
+              rowSpan: 1,
+              colSpan: 1,
+              isCollapsed: true,
+              childItemIds: [],
+            },
+          ],
+          [
+            {
+              id: 'cell-task-a',
+              content: 'Task A',
+              rowSpan: 1,
+              colSpan: 1,
+              isCollapsed: true,
+              childItemIds: [],
+            },
+            {
               id: 'cell-ticket',
               content: 'Todo',
-              rowSpan: 1,
+              rowSpan: 2,
               colSpan: 1,
               isCollapsed: true,
               childItemIds: [tableChild.id],
             },
+            {
+              id: 'cell-empty-1',
+              content: '',
+              rowSpan: 1,
+              colSpan: 1,
+              isCollapsed: true,
+              childItemIds: [],
+            },
+          ],
+          [
+            {
+              id: 'cell-task-b',
+              content: 'Task B',
+              rowSpan: 1,
+              colSpan: 1,
+              isCollapsed: true,
+              childItemIds: [],
+            },
+            null,
+            {
+              id: 'cell-empty-2',
+              content: '',
+              rowSpan: 1,
+              colSpan: 1,
+              isCollapsed: true,
+              childItemIds: [],
+            },
           ],
         ],
+        colDividerPositions: { c1r2: 0.42 },
+        rowDividerPositions: { r1c2: 0.58 },
+        colDividerBreaks: { c1r1: true },
+        rowDividerBreaks: { r1c1: true },
       };
       const table = await createBoardItem(baseUrl, {
         page_id: page.id,
@@ -615,10 +680,18 @@ const tests: TestCase[] = [
       );
       assert.ok(loadedTable);
       const loadedTableData = JSON.parse(loadedTable.data_json ?? '{}') as {
+        colDividerPositions?: Record<string, number>;
+        rowDividerPositions?: Record<string, number>;
+        colDividerBreaks?: Record<string, true>;
+        rowDividerBreaks?: Record<string, true>;
         cells: Array<Array<{ childItemIds?: string[] } | null>>;
       };
+      assert.equal(loadedTableData.colDividerPositions, undefined);
+      assert.equal(loadedTableData.rowDividerPositions, undefined);
+      assert.equal(loadedTableData.colDividerBreaks, undefined);
+      assert.equal(loadedTableData.rowDividerBreaks, undefined);
       assert.deepEqual(
-        loadedTableData.cells[0]?.[0]?.childItemIds,
+        loadedTableData.cells[1]?.[1]?.childItemIds,
         [tableChild.id],
       );
 
@@ -636,10 +709,13 @@ const tests: TestCase[] = [
         path.join(projectDataDir, 'Main-Board.presentation.xml'),
         'utf8',
       );
-      assert.match(semanticXml, /<page_semantic schema_version="2"/);
+      assert.match(semanticXml, /<page_semantic schema_version="0\.1\.3"/);
       assert.match(semanticXml, /<objects>/);
       assert.match(semanticXml, /<links>/);
-      assert.match(presentationXml, /<page_presentation schema_version="2"/);
+      assert.match(
+        presentationXml,
+        /<page_presentation schema_version="0\.1\.3"/,
+      );
       assert.match(presentationXml, /<items>/);
       assert.match(
         semanticXml,
@@ -650,7 +726,21 @@ const tests: TestCase[] = [
       assert.match(
         semanticXml,
         new RegExp(
-          `<object id="${table.id}"[^>]*type="table"[\\s\\S]*<cell id="cell-ticket"[^>]*>[\\s\\S]*<item ref="${tableChild.id}" />`,
+          `<object id="${table.id}"[^>]*type="table"[\\s\\S]*<table rows="3" cols="3" semantic_model="pivot_grid" pivot_row="0" pivot_column="0">`,
+        ),
+      );
+      assert.match(
+        semanticXml,
+        /<pivot_row id="row-1" index="1" header_cell="cell-task-a" \/>/,
+      );
+      assert.match(
+        semanticXml,
+        /<pivot_column id="col-1" index="1" header_cell="cell-week-1" \/>/,
+      );
+      assert.match(
+        semanticXml,
+        new RegExp(
+          `<cell id="cell-ticket"[^>]*row="1"[^>]*column="1"[^>]*row_span="2"[^>]*col_span="1"[^>]*row_refs="row-1 row-2"[^>]*column_refs="col-1"[\\s\\S]*<item ref="${tableChild.id}" />`,
         ),
       );
       assert.match(
@@ -713,6 +803,134 @@ const tests: TestCase[] = [
         false,
       );
       assert.deepEqual(replace.data.connector_links, [connector]);
+    },
+  },
+  {
+    name: 'migrates legacy v2 Page XML to the current release schema on page open',
+    run: async () => {
+      const { baseUrl, settings } = await createTestServer();
+      const project = (
+        await requestJson<Project>(baseUrl, '/projects', {
+          method: 'POST',
+          ...jsonBody({ name: 'Legacy XML' }),
+        })
+      ).data;
+      const page = (
+        await requestJson<Page>(baseUrl, `/projects/${project.id}/pages`, {
+          method: 'POST',
+          ...jsonBody({ name: 'Legacy Page' }),
+        })
+      ).data;
+      const tableData = {
+        rows: 2,
+        cols: 2,
+        colWidths: [0.5, 0.5],
+        rowHeights: [0.5, 0.5],
+        cells: [
+          [
+            {
+              id: 'legacy-axis',
+              content: '',
+              rowSpan: 1,
+              colSpan: 1,
+              isCollapsed: true,
+              childItemIds: [],
+            },
+            {
+              id: 'legacy-week',
+              content: 'Week',
+              rowSpan: 1,
+              colSpan: 1,
+              isCollapsed: true,
+              childItemIds: [],
+            },
+          ],
+          [
+            {
+              id: 'legacy-task',
+              content: 'Task',
+              rowSpan: 1,
+              colSpan: 1,
+              isCollapsed: true,
+              childItemIds: [],
+            },
+            {
+              id: 'legacy-cell',
+              content: 'Work',
+              rowSpan: 1,
+              colSpan: 1,
+              isCollapsed: true,
+              childItemIds: [],
+            },
+          ],
+        ],
+      };
+      await createBoardItem(baseUrl, {
+        page_id: page.id,
+        parent_item_id: null,
+        category: 'shape',
+        type: 'table',
+        title: 'Legacy table',
+        content: null,
+        content_format: null,
+        x: 0,
+        y: 0,
+        width: 240,
+        height: 120,
+        rotation: 0,
+        z_index: 0,
+        is_collapsed: false,
+        style_json: null,
+        data_json: JSON.stringify(tableData),
+      });
+
+      const projectDataDir = path.join(
+        settings.planvasRoot,
+        'project_store',
+        'Legacy-XML',
+        '.pv_project',
+      );
+      const semanticPath = path.join(projectDataDir, 'Legacy-Page.semantic.xml');
+      const presentationPath = path.join(
+        projectDataDir,
+        'Legacy-Page.presentation.xml',
+      );
+      const legacySemanticXml = fs
+        .readFileSync(semanticPath, 'utf8')
+        .replace(/schema_version="0\.1\.3"/, 'schema_version="2"')
+        .replace(
+          /<table rows="2" cols="2" semantic_model="pivot_grid" pivot_row="0" pivot_column="0">/,
+          '<table rows="2" cols="2">',
+        )
+        .replace(/\n\s*<pivot_rows>[\s\S]*?\n\s*<\/pivot_columns>/, '')
+        .replace(/\srow_refs="[^"]*"\scolumn_refs="[^"]*"/g, '');
+      fs.writeFileSync(semanticPath, legacySemanticXml, 'utf8');
+      fs.writeFileSync(
+        presentationPath,
+        fs
+          .readFileSync(presentationPath, 'utf8')
+          .replace(/schema_version="0\.1\.3"/, 'schema_version="2"'),
+        'utf8',
+      );
+
+      const opened = await requestJson<PageBoardData>(
+        baseUrl,
+        `/pages/${page.id}/board-data`,
+      );
+      assert.equal(opened.data.board_items.length, 1);
+      const migratedSemanticXml = fs.readFileSync(semanticPath, 'utf8');
+      const migratedPresentationXml = fs.readFileSync(presentationPath, 'utf8');
+      assert.match(migratedSemanticXml, /schema_version="0\.1\.3"/);
+      assert.match(migratedPresentationXml, /schema_version="0\.1\.3"/);
+      assert.match(
+        migratedSemanticXml,
+        /<table rows="2" cols="2" semantic_model="pivot_grid" pivot_row="0" pivot_column="0">/,
+      );
+      assert.match(migratedSemanticXml, /<pivot_rows>/);
+      assert.match(
+        migratedSemanticXml,
+        /<cell id="legacy-cell"[^>]*row_refs="row-1"[^>]*column_refs="col-1"/,
+      );
     },
   },
   {
