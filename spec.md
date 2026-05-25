@@ -51,6 +51,12 @@
 - The existing HTTP API may stay stable while the repository implementation reads and writes `.pv_project/metadata.json` and Page XML files.
 - Opening an external Project path must initialize missing `.pv_project/` / `.pv_project/metadata.json` files when the path is new, and must only add the path to `project.json` when the path is already a Planvas project.
 - Project listing must refresh path existence and sort `project_store/` projects before other registered paths.
+- AI tool integration is distributed as an optional plugin/extension package under `plugins/planvas-ai/`; it is not bundled into the main MSI/exe app installer.
+- The optional AI package must include the `planvas-mcp` skill, Page XML v2 reading/writing references, and MCP configuration snippets for external AI coding tools.
+- Supported AI tool install targets for the optional package include Codex, Gemini CLI, Antigravity CLI, Claude Code, GitHub Copilot, and OpenCode.
+- Project settings must provide a `Connect to your AI agent` control where users select an AI tool and receive a project-scoped install command with `Copy` and `Run` actions.
+- AI agent installation from Project settings must install into the selected Project path, not a user-global directory.
+- The backend may run only the bundled Planvas AI installer script with a whitelisted AI agent target; the frontend must not submit arbitrary shell commands.
 
 ## Navigation Update Notes
 

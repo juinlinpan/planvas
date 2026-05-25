@@ -305,8 +305,44 @@ async function writeXmlLinesAtomic(
     path.dirname(targetPath),
     `.tmp-${randomUUID()}.xml`,
   );
-  await fs.promises.writeFile(tempPath, lines.join('\n'), 'utf8');
-  await fs.promises.rename(tempPath, targetPath);
+  try {
+    await fs.promises.writeFile(tempPath, lines.join('\n'), 'utf8');
+    await renameWithTransientRetry(tempPath, targetPath);
+  } catch (err) {
+    await fs.promises.rm(tempPath, { force: true }).catch(() => undefined);
+    throw err;
+  }
+}
+
+async function renameWithTransientRetry(
+  fromPath: string,
+  toPath: string,
+): Promise<void> {
+  const retryableCodes = new Set(['EACCES', 'EBUSY', 'EPERM']);
+  const delaysMs = [25, 75, 150, 300, 600];
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= delaysMs.length; attempt++) {
+    try {
+      await fs.promises.rename(fromPath, toPath);
+      return;
+    } catch (err) {
+      lastError = err;
+      const code = typeof err === 'object' && err !== null && 'code' in err
+        ? String((err as NodeJS.ErrnoException).code)
+        : '';
+      if (!retryableCodes.has(code) || attempt === delaysMs.length) {
+        throw err;
+      }
+      await sleep(delaysMs[attempt]);
+    }
+  }
+
+  throw lastError;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function pageVariantPath(pagePath: string, variant: string): string {

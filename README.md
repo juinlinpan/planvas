@@ -79,6 +79,38 @@ This mode keeps Vite on `5173` and the TypeScript backend on `18000`.
 If `18000` is already serving a healthy Planvas backend, the dev backend wrapper
 reuses it instead of starting another backend process.
 
+## Optional AI Tool Plugin
+
+Planvas includes an optional AI collaboration package at `plugins/planvas-ai/`.
+It is not bundled into MSI/exe app installation. Users who want AI coding tools
+to inspect or update Planvas projects can install it separately as a plugin,
+extension, or skill package.
+
+The package includes:
+
+- Codex plugin manifest: `plugins/planvas-ai/.codex-plugin/plugin.json`
+- Gemini CLI extension manifest: `plugins/planvas-ai/gemini-extension.json`
+- Shared skill: `plugins/planvas-ai/skills/planvas-mcp/`
+- MCP config snippets for Planvas MCP at `http://127.0.0.1:18001/sse`
+- Install helper: `plugins/planvas-ai/scripts/install.ps1`
+
+Examples:
+
+```powershell
+.\plugins\planvas-ai\scripts\install.ps1 -Target codex -Scope project
+.\plugins\planvas-ai\scripts\install.ps1 -Target gemini-cli -Scope project
+.\plugins\planvas-ai\scripts\install.ps1 -Target claude-code -Scope project
+.\plugins\planvas-ai\scripts\install.ps1 -Target github-copilot -Scope project
+.\plugins\planvas-ai\scripts\install.ps1 -Target opencode -Scope project
+```
+
+See `plugins/planvas-ai/INSTALL.md` and `user_guide.md` for the full tool list.
+
+Users can also install from inside the app: open a Project, go to Project
+Settings, choose `Connect to your AI agent`, select the tool, then use `Copy`
+or `Run`. This Project Settings flow installs into the selected Project path
+rather than a user-global directory.
+
 If a previous dev session left either port busy, stop the local dev processes:
 
 ```powershell

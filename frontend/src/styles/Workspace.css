@@ -565,6 +565,43 @@
   cursor: not-allowed;
 }
 
+.project-settings-ai-command {
+  overflow-x: auto;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(22, 50, 56, 0.12);
+  border-radius: 8px;
+  background: #f7faf8;
+  color: #17262b;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.project-settings-ai-command code {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+}
+
+.project-settings-ai-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.project-settings-ai-status {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(25, 115, 119, 0.08);
+  color: #1f4f54;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
 .project-settings-name-input {
   background: #ffffff;
   color: #17262b;
