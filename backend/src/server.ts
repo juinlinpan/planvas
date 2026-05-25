@@ -11,6 +11,7 @@ import {
   initializeStorage,
   WhiteboardRepository,
 } from './repository.js';
+import { startMcpServer } from './mcp.js';
 import {
   validateBoardItemPayload,
   validateBoardStatePayload,
@@ -148,6 +149,7 @@ export function startServer(
   settings: AppSettings = buildSettings(),
   host = '127.0.0.1',
   port = 18000,
+  mcpPort = 18001,
 ): http.Server {
   const server = createServer(settings);
   server.on('error', (error: NodeJS.ErrnoException) => {
@@ -163,6 +165,7 @@ export function startServer(
   server.listen(port, host, () => {
     console.log(`Whiteboard backend listening on http://${host}:${port}`);
   });
+  startMcpServer(settings, host, mcpPort);
   return server;
 }
 
@@ -780,5 +783,6 @@ const currentFile = fileURLToPath(import.meta.url);
 if (process.argv[1] && path.resolve(process.argv[1]) === currentFile) {
   const host = cliArg('--host', '127.0.0.1');
   const port = Number(cliArg('--port', '18000'));
-  startServer(buildSettings(), host, port);
+  const mcpPort = Number(cliArg('--mcp-port', '18001'));
+  startServer(buildSettings(), host, port, mcpPort);
 }
