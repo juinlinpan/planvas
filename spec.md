@@ -29,8 +29,8 @@
 - Page discovery must come from the `.pv_project/` XML files, and Project note discovery must come from `.pv_project/*.md`.
 - Renaming a Page must also rename its sibling XML files to match the new Page name, while preserving the Page id and board content.
 - Page XML must separate AI-readable semantic data from visual presentation data at the file level.
-- Page XML root `schema_version` values must follow the Planvas release version from v0.1.3 onward.
-- Opening a Page with legacy Page XML `schema_version="2"` or an older release-versioned schema must migrate and rewrite that Page to the current release schema.
+- Page XML root `schema_version` values are managed independently as integers (`v1~n` format) and set to `"5"`.
+- Opening a Page with legacy Page XML `schema_version="2"`, release-versioned schemas like `"0.1.3"`, or any version less than 5 must migrate and rewrite that Page to the current schema (version 5).
 - Page XML semantic files must describe the information inside the board and the relationships between board objects.
 - Page XML presentation files must describe geometry, z-order, color, patterns, shape styling, and connector routing.
 - Page-level viewport fields such as `viewport_x`, `viewport_y`, and `zoom` must be stored on the Page XML root attributes rather than in `.pv_project/metadata.json`.
@@ -754,7 +754,7 @@ Page XML must split each page into two sibling files:
 - `<page_name>.semantic.xml`: AI-readable board meaning, including object content, containment, table cell structure, and canonical links.
 - `<page_name>.presentation.xml`: visual rendering data, including position, size, rotation, z-order, colors, fill patterns, shape details, and connector routes.
 
-The XML root `schema_version` follows the Planvas release version from v0.1.3 onward. Legacy `schema_version="2"` pages are upgraded when opened and rewritten with the current release schema.
+The XML root `schema_version` is managed independently as an integer (`v1~n` format) and set to `"5"`. Legacy `schema_version="2"`, release-based schemas like `"0.1.3"`, or older versions are upgraded when opened and rewritten with version 5.
 
 The semantic file is the preferred source for AI, automation, Jira ticket generation, summaries, and project reasoning. Those workflows should not need to read the presentation file unless they are answering a visual layout question.
 
@@ -788,7 +788,7 @@ Relationship rules:
 Example target semantic file:
 
 ```xml
-<page_semantic id="page-1" schema_version="0.1.3">
+<page_semantic id="page-1" schema_version="5">
   <objects>
     <object id="frame-1" kind="large_object" type="frame">
       <title>Sprint 12</title>
@@ -828,7 +828,7 @@ Example target semantic file:
 Example target presentation file:
 
 ```xml
-<page_presentation id="page-1" schema_version="0.1.3">
+<page_presentation id="page-1" schema_version="5">
   <items>
     <item ref="frame-1" x="80" y="80" width="640" height="420" z_index="1" />
   </items>

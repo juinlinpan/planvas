@@ -53,8 +53,8 @@
 ## Page XML Semantic Storage Notes
 
 - [x] Define the Page XML schema with separate `<page_name>.semantic.xml` and `<page_name>.presentation.xml` files.
-- [x] Make Page XML root `schema_version` follow the Planvas release version from v0.1.3 onward.
-- [x] Migrate legacy Page XML `schema_version="2"` to the current release schema when a Page is opened.
+- [x] Make Page XML root `schema_version` use independent integer-based versioning (setting the current version to 5).
+- [x] Migrate legacy Page XML `schema_version="2"`, release-based schemas like `"0.1.3"`, or older versions to the version 5 schema when a Page is opened.
 - [x] Move AI-readable board meaning into the semantic file, including object content, frame containment, table cell containment, and canonical links.
 - [x] Keep geometry, z-order, colors, fill patterns, shape details, and connector route points in the presentation file.
 - [x] Model semantic object kinds as `large_object`, `small_object`, and semantic `link`.

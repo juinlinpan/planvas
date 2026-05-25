@@ -20,7 +20,7 @@ export type PageXmlData = {
   connectorLinks: ConnectorLink[];
 };
 
-const CURRENT_PAGE_XML_SCHEMA_VERSION = '0.1.3';
+const CURRENT_PAGE_XML_SCHEMA_VERSION = '5';
 
 export async function readPageXmlFile(
   pagePath: string,
@@ -381,34 +381,20 @@ function schemaVersionFromRoot(xml: string): string | null {
 
 function shouldRewriteSchemaVersion(version: string | null): boolean {
   if (version === CURRENT_PAGE_XML_SCHEMA_VERSION) return false;
-  if (version === null || version === '2') return true;
-  const comparison = compareReleaseVersions(
-    version,
-    CURRENT_PAGE_XML_SCHEMA_VERSION,
-  );
-  return comparison !== null && comparison < 0;
-}
+  if (version === null) return true;
 
-function compareReleaseVersions(left: string, right: string): number | null {
-  const leftParts = releaseVersionParts(left);
-  const rightParts = releaseVersionParts(right);
-  if (!leftParts || !rightParts) return null;
-  for (let index = 0; index < 3; index += 1) {
-    if (leftParts[index] !== rightParts[index]) {
-      return leftParts[index] - rightParts[index];
-    }
+  const parsedVersion = Number.parseInt(version, 10);
+  const currentVersionNum = Number.parseInt(CURRENT_PAGE_XML_SCHEMA_VERSION, 10);
+
+  if (Number.isInteger(parsedVersion) && Number.isInteger(currentVersionNum)) {
+    return parsedVersion < currentVersionNum;
   }
-  return 0;
-}
 
-function releaseVersionParts(version: string): [number, number, number] | null {
-  const match = version.match(/^v?(\d+)\.(\d+)\.(\d+)$/);
-  if (!match) return null;
-  return [
-    Number.parseInt(match[1], 10),
-    Number.parseInt(match[2], 10),
-    Number.parseInt(match[3], 10),
-  ];
+  if (version.includes('.')) {
+    return true;
+  }
+
+  return true;
 }
 
 function semanticKindForItem(item: BoardItem): string {

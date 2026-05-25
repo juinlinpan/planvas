@@ -302,9 +302,7 @@ containment, table cell containment, markdown note references, canonical links,
 and derived object connection indexes. AI and automation should read this file
 plus referenced markdown files. The presentation file stores geometry, z-order,
 collapsed state, styles, and visual routing data needed to restore the canvas.
-From v0.1.3 onward, each Page XML root `schema_version` follows the Planvas
-release version. Opening a legacy `schema_version="2"` page rewrites it to the
-current release schema.
+The Page XML root `schema_version` is managed independently as an integer (`v1~n` format) and is set to `"5"`. Opening a legacy `schema_version="2"` page, a release-based schema like `"0.1.3"`, or older versions will migrate and rewrite them to the current version 5 schema.
 Tables are written as pivot grids in the semantic file: the first row defines
 the column axis, the first column defines the row axis, and each cell records
 the pivot row / column refs it covers. This keeps merged Gantt-style cells

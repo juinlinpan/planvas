@@ -89,10 +89,7 @@ stores board object content, frame containment, table cell containment, markdown
 note references, canonical links, and generated per-object `connections`
 indexes. The presentation file stores item geometry, z-order, collapsed state,
 styling, and other canvas rendering details.
-From v0.1.3 onward, Page XML root `schema_version` values follow the Planvas
-release version. When the backend opens a legacy `schema_version="2"` Page, it
-parses the old XML and rewrites the semantic and presentation siblings with the
-current release schema.
+The Page XML root `schema_version` is managed independently as an integer (`v1~n` format) and is set to `"5"`. When the backend opens a legacy `schema_version="2"` Page, a release-based schema like `"0.1.3"`, or older versions, it parses the legacy XML and rewrites the semantic and presentation siblings with the current schema version 5.
 Table semantic XML uses a pivot-grid model: the first row is the column axis,
 the first column is the row axis, and each cell includes the covered pivot row
 and column refs. Merged cells still keep `row_span` / `col_span`, but AI tools

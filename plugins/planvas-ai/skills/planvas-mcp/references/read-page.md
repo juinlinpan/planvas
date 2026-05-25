@@ -33,7 +33,7 @@ For ticket/story updates, semantic XML plus referenced markdown notes is normall
 ## Semantic Root
 
 ```xml
-<page_semantic schema_version="0.1.3"
+<page_semantic schema_version="5"
                id="PAGE_UUID"
                project_id="PROJECT_UUID"
                name="Page Name"

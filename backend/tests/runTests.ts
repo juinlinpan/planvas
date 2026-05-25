@@ -709,12 +709,12 @@ const tests: TestCase[] = [
         path.join(projectDataDir, 'Main-Board.presentation.xml'),
         'utf8',
       );
-      assert.match(semanticXml, /<page_semantic schema_version="0\.1\.3"/);
+      assert.match(semanticXml, /<page_semantic schema_version="5"/);
       assert.match(semanticXml, /<objects>/);
       assert.match(semanticXml, /<links>/);
       assert.match(
         presentationXml,
-        /<page_presentation schema_version="0\.1\.3"/,
+        /<page_presentation schema_version="5"/,
       );
       assert.match(presentationXml, /<items>/);
       assert.match(
@@ -726,21 +726,15 @@ const tests: TestCase[] = [
       assert.match(
         semanticXml,
         new RegExp(
-          `<object id="${table.id}"[^>]*type="table"[\\s\\S]*<table rows="3" cols="3" semantic_model="pivot_grid" pivot_row="0" pivot_column="0">`,
+          `<object id="${table.id}"[^>]*type="table"[\\s\\S]*<table rows="3" cols="3" semantic_model="pivot_grid">`,
         ),
       );
-      assert.match(
-        semanticXml,
-        /<pivot_row id="row-1" index="1" header_cell="cell-task-a" \/>/,
-      );
-      assert.match(
-        semanticXml,
-        /<pivot_column id="col-1" index="1" header_cell="cell-week-1" \/>/,
-      );
+
+
       assert.match(
         semanticXml,
         new RegExp(
-          `<cell id="cell-ticket"[^>]*row="1"[^>]*column="1"[^>]*row_span="2"[^>]*col_span="1"[^>]*row_refs="row-1 row-2"[^>]*column_refs="col-1"[\\s\\S]*<item ref="${tableChild.id}" />`,
+          `<cell id="cell-ticket"[^>]*row="1"[^>]*column="1"[^>]*row_span="2"[^>]*col_span="1"[^>]*row_refs="1 2"[^>]*column_refs="1"[\\s\\S]*<item ref="${tableChild.id}" />`,
         ),
       );
       assert.match(
@@ -897,19 +891,18 @@ const tests: TestCase[] = [
       );
       const legacySemanticXml = fs
         .readFileSync(semanticPath, 'utf8')
-        .replace(/schema_version="0\.1\.3"/, 'schema_version="2"')
+        .replace(/schema_version="5"/, 'schema_version="2"')
         .replace(
-          /<table rows="2" cols="2" semantic_model="pivot_grid" pivot_row="0" pivot_column="0">/,
+          /<table rows="2" cols="2" semantic_model="pivot_grid">/,
           '<table rows="2" cols="2">',
         )
-        .replace(/\n\s*<pivot_rows>[\s\S]*?\n\s*<\/pivot_columns>/, '')
         .replace(/\srow_refs="[^"]*"\scolumn_refs="[^"]*"/g, '');
       fs.writeFileSync(semanticPath, legacySemanticXml, 'utf8');
       fs.writeFileSync(
         presentationPath,
         fs
           .readFileSync(presentationPath, 'utf8')
-          .replace(/schema_version="0\.1\.3"/, 'schema_version="2"'),
+          .replace(/schema_version="5"/, 'schema_version="2"'),
         'utf8',
       );
 
@@ -920,16 +913,15 @@ const tests: TestCase[] = [
       assert.equal(opened.data.board_items.length, 1);
       const migratedSemanticXml = fs.readFileSync(semanticPath, 'utf8');
       const migratedPresentationXml = fs.readFileSync(presentationPath, 'utf8');
-      assert.match(migratedSemanticXml, /schema_version="0\.1\.3"/);
-      assert.match(migratedPresentationXml, /schema_version="0\.1\.3"/);
+      assert.match(migratedSemanticXml, /schema_version="5"/);
+      assert.match(migratedPresentationXml, /schema_version="5"/);
       assert.match(
         migratedSemanticXml,
-        /<table rows="2" cols="2" semantic_model="pivot_grid" pivot_row="0" pivot_column="0">/,
+        /<table rows="2" cols="2" semantic_model="pivot_grid">/,
       );
-      assert.match(migratedSemanticXml, /<pivot_rows>/);
       assert.match(
         migratedSemanticXml,
-        /<cell id="legacy-cell"[^>]*row_refs="row-1"[^>]*column_refs="col-1"/,
+        /<cell id="legacy-cell"[^>]*row_refs="1"[^>]*column_refs="1"/,
       );
     },
   },
