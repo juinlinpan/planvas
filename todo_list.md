@@ -55,6 +55,14 @@
 - [x] Add tests for frame containment, table cell containment, semantic link canonical data, derived object connections, presentation-only lines, and markdown content references.
 - [ ] Update JSON export / import and future AI-readable snapshots to prefer the semantic layer while preserving current API compatibility.
 
+## AI Tool Plugin Packaging Notes
+
+- [x] Package the Planvas AI collaboration instructions as an optional plugin under `plugins/planvas-ai/` instead of bundling it with MSI/exe app installation.
+- [x] Include the `planvas-mcp` skill inside the plugin package with split references for read-only page analysis, MCP tool usage, and direct XML write/schema repair.
+- [x] Add Codex plugin metadata, Gemini CLI extension metadata, MCP config snippets, and adapter files for Claude Code, GitHub Copilot, Antigravity CLI, and OpenCode.
+- [x] Add a PowerShell install helper for Codex, Gemini CLI, Antigravity CLI, Claude Code, GitHub Copilot, and OpenCode.
+- [x] Document optional AI plugin installation in `user_guide.md` and `README.md`.
+
 ## Navigation Update Notes
 
 - [x] Make the workspace left page sidebar and right inspector collapsible with a persistent restore handle.

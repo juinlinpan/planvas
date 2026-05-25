@@ -234,3 +234,67 @@ npm run backup
 ```powershell
 npm run smoke
 ```
+---
+
+## Optional AI Tool Plugin
+
+Planvas provides an optional AI collaboration package at:
+
+```text
+plugins/planvas-ai/
+```
+
+This package is not installed by the main app MSI/exe flow. It is for users who
+want AI coding tools to read Planvas Page XML v2, use the Planvas MCP server, or
+update boards and tickets from whiteboard context.
+
+Before using the plugin, start Planvas so the MCP server is available:
+
+```text
+http://127.0.0.1:18001/sse
+```
+
+Install commands from the repository root:
+
+```powershell
+# Codex
+.\plugins\planvas-ai\scripts\install.ps1 -Target codex -Scope global
+
+# Gemini CLI
+gemini extensions install .\plugins\planvas-ai
+# or:
+.\plugins\planvas-ai\scripts\install.ps1 -Target gemini-cli -Scope global
+
+# Antigravity CLI
+.\plugins\planvas-ai\scripts\install.ps1 -Target antigravity-cli -Scope global
+
+# Claude Code
+claude mcp add --transport sse planvas http://127.0.0.1:18001/sse
+.\plugins\planvas-ai\scripts\install.ps1 -Target claude-code -Scope project
+
+# GitHub Copilot
+.\plugins\planvas-ai\scripts\install.ps1 -Target github-copilot -Scope project
+
+# OpenCode
+.\plugins\planvas-ai\scripts\install.ps1 -Target opencode -Scope project
+```
+
+Install for every supported target:
+
+```powershell
+.\plugins\planvas-ai\scripts\install.ps1 -Target all -Scope project
+```
+
+The plugin includes:
+
+- `skills/planvas-mcp/`: shared skill for supported AI tools.
+- `references/read-page.md`: use for read-only page analysis and ticket updates.
+- `references/mcp-tools.md`: use when calling Planvas MCP tools.
+- `references/xml-write-schema.md`: use only for direct XML fallback or schema repair.
+- `.mcp.json` and adapter snippets for MCP clients.
+- `gemini-extension.json` for Gemini CLI extension install.
+- `.codex-plugin/plugin.json` for Codex plugin packaging.
+
+See `plugins/planvas-ai/INSTALL.md` for tool-specific details.
+
+---
