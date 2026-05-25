@@ -195,6 +195,25 @@ automatically. If `node.exe` is not installed on that machine, the desktop shell
 cannot launch the bundled backend yet; use the local web launcher or install
 Node.js first.
 
+## Release
+
+GitHub Actions builds the Windows desktop installer when a `v*` tag is pushed.
+Before tagging, update the version in the npm workspace files and the Tauri
+files so the package, app metadata, and installer name stay aligned.
+
+```powershell
+npm run typecheck
+npm run test --workspace frontend
+npm run test --workspace backend
+npm run build
+git tag v0.1.1
+git push origin desktop-tauri-local
+git push origin v0.1.1
+```
+
+The release workflow creates a GitHub Release for the tag and uploads the NSIS
+installer from `src-tauri/target/release/bundle/nsis/`.
+
 ## Project Home
 
 The app now opens on a dedicated home page. From there you can:

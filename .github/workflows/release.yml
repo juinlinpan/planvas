@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  windows-desktop:
+    name: Build Windows Desktop
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test frontend
+        run: npm run test --workspace frontend
+
+      - name: Test backend
+        run: npm run test --workspace backend
+
+      - name: Build web and backend
+        run: npm run build
+
+      - name: Build desktop installer
+        run: npm run desktop:build
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $assets = @(
+            Get-ChildItem -Path "src-tauri/target/release/bundle/nsis" -Recurse -File -ErrorAction SilentlyContinue |
+              Where-Object { $_.Extension -eq ".exe" }
+          )
+
+          if ($assets.Count -eq 0) {
+            Write-Error "No NSIS installer asset was found."
+          }
+
+          gh release create $tag `
+            --repo "${{ github.repository }}" `
+            --title $tag `
+            --notes "Planvas $tag" `
+            $assets.FullName
