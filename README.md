@@ -1,4 +1,4 @@
-# Whiteboard Planner
+# Planvas
 
 Local-first whiteboard planning app built with React, TypeScript, Node.js, and file-based project storage.
 
@@ -76,6 +76,8 @@ npm run dev
 ```
 
 This mode keeps Vite on `5173` and the TypeScript backend on `18000`.
+If `18000` is already serving a healthy Planvas backend, the dev backend wrapper
+reuses it instead of starting another backend process.
 
 ## Optional AI Tool Plugin
 
@@ -114,6 +116,103 @@ If a previous dev session left either port busy, stop the local dev processes:
 ```powershell
 npm run dev:stop
 ```
+
+## Local Web Launcher
+
+For company environments that may block unsigned desktop executables, Planvas
+also supports a browser-based local launcher. It uses the same Node local
+backend and opens the built web app in your default browser:
+
+```powershell
+npm run web:start
+```
+
+Windows users can also double-click:
+
+```text
+scripts\start-web.bat
+```
+
+The launcher reuses an existing backend if `http://127.0.0.1:18000/healthz`
+already responds. Otherwise it builds the app, opens the browser, and runs the
+Node backend in the launcher console. Closing that console stops the local
+backend.
+
+## Desktop Development
+
+Planvas now includes a Tauri 2 desktop shell for the local-first desktop path.
+The first desktop implementation preserves the current React UI and Node local
+API behavior while the Rust command backend is migrated incrementally.
+
+Start the desktop app in development:
+
+```powershell
+npm run desktop:dev
+```
+
+The desktop dev/build scripts now auto-detect the installed MSVC linker and
+Rust cargo bin directories, so you should not need to prepend PATH manually in
+normal use.
+
+If this machine does not have MSVC `link.exe`, this command exits before
+starting Vite/backend and points you to the local web launcher instead. That is
+expected on non-admin company machines.
+
+On Windows, Tauri needs the Visual Studio C++ build tools, Windows SDK, and a
+Rust toolchain. If `npx tauri info` reports that MSVC or Rust is missing, run:
+
+```powershell
+npm run desktop:setup
+```
+
+Accept the Windows UAC prompt when it appears, then restart your terminal.
+If Visual Studio Build Tools is already installed but `where.exe link` still
+finds nothing, run the same setup command again. The setup script now repairs an
+existing Build Tools install by adding the missing C++ workload. It also installs
+`rustup` when `cargo` / `rustc` are not available yet.
+
+Build the desktop shell:
+
+```powershell
+npm run desktop:build
+```
+
+During this phase, Tauri loads the Vite frontend from `5173` and the frontend
+continues to call the local API on `18000`. The intended desktop packaging path
+is to bundle and launch the same Node local backend as a Tauri sidecar, so web
+and desktop modes keep one backend implementation. The current desktop shell now
+auto-starts the bundled backend JavaScript when `127.0.0.1:18000` is not
+already healthy, but it still relies on a local `node.exe` installation on the
+machine. Rust commands remain a future option for local filesystem operations,
+not the required near-term path.
+
+On Windows, any backend process that the desktop shell starts itself is now tied
+more tightly to the desktop app lifecycle and should stop when that desktop app
+process exits.
+
+Directly opening the packaged desktop executable should now start the backend
+automatically. If `node.exe` is not installed on that machine, the desktop shell
+cannot launch the bundled backend yet; use the local web launcher or install
+Node.js first.
+
+## Release
+
+GitHub Actions builds the Windows desktop installer when a `v*` tag is pushed.
+Before tagging, update the version in the npm workspace files and the Tauri
+files so the package, app metadata, and installer name stay aligned.
+
+```powershell
+npm run typecheck
+npm run test --workspace frontend
+npm run test --workspace backend
+npm run build
+git tag v0.1.1
+git push origin desktop-tauri-local
+git push origin v0.1.1
+```
+
+The release workflow creates a GitHub Release for the tag and uploads the NSIS
+installer from `src-tauri/target/release/bundle/nsis/`.
 
 ## Project Home
 

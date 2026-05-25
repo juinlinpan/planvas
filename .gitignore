@@ -15,6 +15,10 @@ logs/
 data/
 backups/
 dev-server*.log
+src-tauri/target/
+src-tauri/gen/
+backend/.test_tmp/
+backend/pytest-of-your_mom/
 .DS_Store
 Thumbs.db
 .pv_project

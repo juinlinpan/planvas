@@ -1,4 +1,18 @@
-# Whiteboard Planning App Spec
+# Planvas App Spec
+
+## Desktop Runtime Update Notes
+
+- The product roadmap is desktop-first for local personal planning, with a later optional team/server edition.
+- Desktop runtime uses Tauri 2 as the shell for the existing React + TypeScript UI.
+- The first Tauri desktop shell may launch the existing Vite frontend and Node local API in development to avoid regressing the current Planvas file storage behavior.
+- The near-term desktop architecture keeps the Node local API as the shared backend for local web and desktop modes.
+- The current desktop shell auto-starts the bundled Node backend JavaScript when the local API is not already healthy, while still relying on a locally installed `node.exe` runtime.
+- On Windows, any Node backend process started by the desktop shell should be tied to the desktop app lifecycle so it exits when the desktop process closes.
+- The intended packaged desktop path is to launch the Node local API as a Tauri sidecar so the desktop executable starts its backend automatically.
+- Moving local filesystem operations from the Node HTTP API into Tauri Rust commands is a later option, not a required desktop MVP step.
+- The frontend must not spread `.planvas`, `.pv_project`, folder picker, or reveal-folder assumptions through canvas/UI components; local filesystem details belong behind an API adapter.
+- The future team/server edition should use the shared React UI and data contract, but its backend is separate server infrastructure with HTTP/WebSocket APIs, permissions, team workspaces, and collaborative sync.
+- Server/team project creation and permission logic is intentionally out of scope for the desktop MVP.
 
 ## Persistence Update Notes
 
