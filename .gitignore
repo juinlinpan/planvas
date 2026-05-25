@@ -16,6 +16,7 @@ data/
 backups/
 dev-server*.log
 src-tauri/target/
+src-tauri/bin/
 src-tauri/gen/
 backend/.test_tmp/
 backend/pytest-of-your_mom/

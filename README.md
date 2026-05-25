@@ -181,19 +181,18 @@ During this phase, Tauri loads the Vite frontend from `5173` and the frontend
 continues to call the local API on `18000`. The intended desktop packaging path
 is to bundle and launch the same Node local backend as a Tauri sidecar, so web
 and desktop modes keep one backend implementation. The current desktop shell now
-auto-starts the bundled backend JavaScript when `127.0.0.1:18000` is not
-already healthy, but it still relies on a local `node.exe` installation on the
-machine. Rust commands remain a future option for local filesystem operations,
-not the required near-term path.
+auto-starts the bundled backend JavaScript with the packaged Node runtime when
+`127.0.0.1:18000` is not already healthy. Rust commands remain a future option
+for local filesystem operations, not the required near-term path.
 
 On Windows, any backend process that the desktop shell starts itself is now tied
 more tightly to the desktop app lifecycle and should stop when that desktop app
 process exits.
 
 Directly opening the packaged desktop executable should now start the backend
-automatically. If `node.exe` is not installed on that machine, the desktop shell
-cannot launch the bundled backend yet; use the local web launcher or install
-Node.js first.
+automatically on a clean Windows machine, without requiring Node.js to be
+installed separately. Packaged backend startup logs are written under
+`%LOCALAPPDATA%\Planvas\backend-runtime\logs\`.
 
 ## Release
 
@@ -206,9 +205,9 @@ npm run typecheck
 npm run test --workspace frontend
 npm run test --workspace backend
 npm run build
-git tag v0.1.1
+git tag v0.1.2
 git push origin desktop-tauri-local
-git push origin v0.1.1
+git push origin v0.1.2
 ```
 
 The release workflow creates a GitHub Release for the tag and uploads the NSIS

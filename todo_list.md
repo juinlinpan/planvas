@@ -11,7 +11,7 @@
 - [ ] Implement a `HttpPlanvasApi` adapter for current web/dev usage.
 - [x] Add a browser-based local web launcher that starts or reuses the Node local backend.
 - [x] Add a Windows `.bat` entry point for local web mode.
-- [ ] Bundle a dedicated Node runtime with the desktop shell so packaged desktop builds no longer depend on a preinstalled `node.exe`.
+- [x] Bundle a dedicated Node runtime with the desktop shell so packaged desktop builds no longer depend on a preinstalled `node.exe`.
 - [ ] Make the desktop executable load the packaged frontend while using the sidecar Node local backend.
 - [ ] Consider a `TauriPlanvasApi` adapter backed by Rust commands only after the shared Node backend launcher path is stable.
 - [ ] Keep future team/server project creation, permissions, and collaboration as a separate server edition scope.

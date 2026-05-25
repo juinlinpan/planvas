@@ -40,7 +40,7 @@ npm install
 
 Planvas 目前提供 Windows 桌面版，桌面殼使用 Tauri 2。桌面版沿用既有的 React UI 與 Node 本機 API，因此 `.planvas` 專案儲存行為會和瀏覽器本機版一致。
 
-> 目前限制：打包後的桌面版可以自動啟動隨附的 backend JavaScript，但執行環境仍需要本機已安裝 `node.exe`。如果目標電腦沒有 Node.js，請先安裝 Node.js LTS，或改用本機 Web 啟動器。
+> 打包後的桌面版會隨附 backend JavaScript、backend dependencies 和 Node runtime；乾淨 Windows 電腦不需要另外安裝 Node.js 才能啟動。
 
 ### 1. 準備桌面版建置工具
 
@@ -69,7 +69,7 @@ npm run desktop:build
 建置完成後，NSIS 安裝檔會產生在：
 
 ```text
-src-tauri\target\release\bundle\nsis\Planvas_0.1.0_x64-setup.exe
+src-tauri\target\release\bundle\nsis\Planvas_0.1.2_x64-setup.exe
 ```
 
 未來版本號可能會改變；若找不到完全相同的檔名，請在同一個資料夾中尋找：
@@ -80,7 +80,7 @@ src-tauri\target\release\bundle\nsis\Planvas_*_x64-setup.exe
 
 ### 4. 安裝與啟動
 
-1. 雙擊產生的 `Planvas_0.1.0_x64-setup.exe`。
+1. 雙擊產生的 `Planvas_0.1.2_x64-setup.exe`。
 2. 依照安裝程式提示完成安裝。安裝檔使用目前使用者安裝模式，通常不需要系統層級安裝權限。
 3. 從開始功能表或桌面捷徑開啟 Planvas。
 4. Planvas 啟動時會檢查 `http://127.0.0.1:18000/healthz`。若沒有可用的 backend，桌面版會自動啟動隨附的 Node backend。
