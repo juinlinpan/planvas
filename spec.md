@@ -6,7 +6,7 @@
 - Desktop runtime uses Tauri 2 as the shell for the existing React + TypeScript UI.
 - The first Tauri desktop shell may launch the existing Vite frontend and Node local API in development to avoid regressing the current Planvas file storage behavior.
 - The near-term desktop architecture keeps the Node local API as the shared backend for local web and desktop modes.
-- The current desktop shell auto-starts the bundled Node backend JavaScript when the local API is not already healthy, while still relying on a locally installed `node.exe` runtime.
+- Packaged desktop builds must include a dedicated `node.exe` runtime and the backend Node dependencies so a clean Windows machine can launch Planvas without a preinstalled Node.js runtime or source checkout.
 - On Windows, any Node backend process started by the desktop shell should be tied to the desktop app lifecycle so it exits when the desktop process closes.
 - The intended packaged desktop path is to launch the Node local API as a Tauri sidecar so the desktop executable starts its backend automatically.
 - Moving local filesystem operations from the Node HTTP API into Tauri Rust commands is a later option, not a required desktop MVP step.

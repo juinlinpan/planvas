@@ -40,7 +40,7 @@ npm install
 
 Planvas 目前提供 Windows 桌面版，桌面殼使用 Tauri 2。桌面版沿用既有的 React UI 與 Node 本機 API，因此 `.planvas` 專案儲存行為會和瀏覽器本機版一致。
 
-> 目前限制：打包後的桌面版可以自動啟動隨附的 backend JavaScript，但執行環境仍需要本機已安裝 `node.exe`。如果目標電腦沒有 Node.js，請先安裝 Node.js LTS，或改用本機 Web 啟動器。
+> 打包後的桌面版會隨附 backend JavaScript、backend dependencies 和 Node runtime；乾淨 Windows 電腦不需要另外安裝 Node.js 才能啟動。
 
 ### 1. 準備桌面版建置工具
 

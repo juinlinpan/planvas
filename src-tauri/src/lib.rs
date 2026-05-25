@@ -18,8 +18,8 @@ use std::time::{Duration, Instant};
 use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::System::JobObjects::{
-    AssignProcessToJobObject, CreateJobObjectW, SetInformationJobObject,
-    JobObjectExtendedLimitInformation, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+    AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+    SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
     JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
 };
 
@@ -47,7 +47,9 @@ pub fn run() {
     tauri::Builder::default()
         .setup(move |_app| {
             let child = ensure_backend_ready()?;
-            *backend_process_for_setup.lock().expect("backend mutex poisoned") = child;
+            *backend_process_for_setup
+                .lock()
+                .expect("backend mutex poisoned") = child;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![desktop_health])
@@ -111,9 +113,7 @@ fn backend_healthz_ok() -> bool {
     let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
 
     if stream
-        .write_all(
-            b"GET /healthz HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
-        )
+        .write_all(b"GET /healthz HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n")
         .is_err()
     {
         return false;
@@ -139,6 +139,7 @@ fn spawn_backend(backend_entry: &Path) -> io::Result<Child> {
 
     let mut command = Command::new(node_exe);
     command
+        .arg("--experimental-default-type=module")
         .arg(backend_entry)
         .arg("--host")
         .arg(BACKEND_HOST)
@@ -155,7 +156,13 @@ fn spawn_backend(backend_entry: &Path) -> io::Result<Child> {
     if cfg!(debug_assertions) {
         command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
     } else {
-        command.stdout(Stdio::null()).stderr(Stdio::null());
+        let log_dir = backend_root.join("logs");
+        fs::create_dir_all(&log_dir)?;
+        let stdout_log = fs::File::create(log_dir.join("desktop-backend.stdout.log"))?;
+        let stderr_log = fs::File::create(log_dir.join("desktop-backend.stderr.log"))?;
+        command
+            .stdout(Stdio::from(stdout_log))
+            .stderr(Stdio::from(stderr_log));
         #[cfg(target_os = "windows")]
         command.creation_flags(CREATE_NO_WINDOW);
     }
@@ -231,7 +238,11 @@ fn resolve_backend_entry_script() -> io::Result<PathBuf> {
             .join("dist")
             .join("src")
             .join("server.js"),
-        resources_dir.join("backend").join("dist").join("src").join("server.js"),
+        resources_dir
+            .join("backend")
+            .join("dist")
+            .join("src")
+            .join("server.js"),
         resources_dir.join("dist").join("src").join("server.js"),
     ] {
         if release_entry.exists() {
@@ -256,6 +267,18 @@ fn resolve_backend_entry_script() -> io::Result<PathBuf> {
 }
 
 fn find_node_exe() -> Option<PathBuf> {
+    if let Ok(exe_dir) = current_exe_dir() {
+        let resources_dir = exe_dir.join("resources");
+        for packaged_node in [
+            resources_dir.join("node.exe"),
+            resources_dir.join("bin").join("node.exe"),
+        ] {
+            if packaged_node.exists() {
+                return Some(packaged_node);
+            }
+        }
+    }
+
     if let Some(path) = find_in_path("node.exe") {
         return Some(path);
     }

@@ -31,7 +31,10 @@
     "targets": ["nsis"],
     "category": "Productivity",
     "resources": [
-      "../backend/dist/**/*"
+      "../backend/dist/**/*",
+      "../backend/package.json",
+      "../node_modules/**/*",
+      "bin/node.exe"
     ],
     "icon": [
       "icons/icon.ico"
