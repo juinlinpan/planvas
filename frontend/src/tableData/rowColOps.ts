@@ -10,6 +10,8 @@ import {
 } from './core';
 import {
   clampDim,
+  getTableCellSelectionColIndexes,
+  getTableCellSelectionRowIndexes,
   normalizeFractions,
   createTableData,
   makeCell,
@@ -188,6 +190,121 @@ export function addCol(data: TableData, afterColIndex: number): TableData {
 // ── Resize col / row (drag divider) ─────────────────────────────────────
 
 const MIN_FRAC = 0.04;
+
+function groupContiguousIndexes(indexes: number[]): number[][] {
+  const groups: number[][] = [];
+  const sorted = [...new Set(indexes)].sort((a, b) => a - b);
+
+  for (const index of sorted) {
+    const current = groups[groups.length - 1];
+    if (
+      current === undefined ||
+      index !== (current[current.length - 1] ?? -2) + 1
+    ) {
+      groups.push([index]);
+    } else {
+      current.push(index);
+    }
+  }
+
+  return groups;
+}
+
+export function distributeSelectedColumnWidths(
+  data: TableData,
+  cellIds: string[],
+): TableData {
+  const groups = groupContiguousIndexes(
+    getTableCellSelectionColIndexes(data, cellIds),
+  ).filter((group) => group.length >= 2);
+  if (groups.length === 0) return data;
+
+  const nextColWidths = [...data.colWidths];
+  const nextColPositions: Record<string, number> = {
+    ...(data.colDividerPositions ?? {}),
+  };
+
+  for (const group of groups) {
+    const start = group[0]!;
+    const end = group[group.length - 1]!;
+    const totalWidth = group.reduce(
+      (sum, colIndex) => sum + (data.colWidths[colIndex] ?? 0),
+      0,
+    );
+    const equalWidth = totalWidth / group.length;
+
+    for (const colIndex of group) {
+      nextColWidths[colIndex] = equalWidth;
+    }
+
+    for (let row = 0; row < data.rows; row += 1) {
+      const left = getEffectiveColEdge(data, start, row);
+      const right = getEffectiveColEdge(data, end + 1, row);
+      const total = right - left;
+
+      for (let edgeIndex = start + 1; edgeIndex <= end; edgeIndex += 1) {
+        const offset = edgeIndex - start;
+        nextColPositions[`c${edgeIndex - 1}r${row}`] =
+          left + (total * offset) / group.length;
+      }
+    }
+  }
+
+  return {
+    ...data,
+    colWidths: normalizeFractions(nextColWidths),
+    colDividerPositions:
+      Object.keys(nextColPositions).length > 0 ? nextColPositions : undefined,
+  };
+}
+
+export function distributeSelectedRowHeights(
+  data: TableData,
+  cellIds: string[],
+): TableData {
+  const groups = groupContiguousIndexes(
+    getTableCellSelectionRowIndexes(data, cellIds),
+  ).filter((group) => group.length >= 2);
+  if (groups.length === 0) return data;
+
+  const nextRowHeights = [...data.rowHeights];
+  const nextRowPositions: Record<string, number> = {
+    ...(data.rowDividerPositions ?? {}),
+  };
+
+  for (const group of groups) {
+    const start = group[0]!;
+    const end = group[group.length - 1]!;
+    const totalHeight = group.reduce(
+      (sum, rowIndex) => sum + (data.rowHeights[rowIndex] ?? 0),
+      0,
+    );
+    const equalHeight = totalHeight / group.length;
+
+    for (const rowIndex of group) {
+      nextRowHeights[rowIndex] = equalHeight;
+    }
+
+    for (let col = 0; col < data.cols; col += 1) {
+      const top = getEffectiveRowEdge(data, start, col);
+      const bottom = getEffectiveRowEdge(data, end + 1, col);
+      const total = bottom - top;
+
+      for (let edgeIndex = start + 1; edgeIndex <= end; edgeIndex += 1) {
+        const offset = edgeIndex - start;
+        nextRowPositions[`r${edgeIndex - 1}c${col}`] =
+          top + (total * offset) / group.length;
+      }
+    }
+  }
+
+  return {
+    ...data,
+    rowHeights: normalizeFractions(nextRowHeights),
+    rowDividerPositions:
+      Object.keys(nextRowPositions).length > 0 ? nextRowPositions : undefined,
+  };
+}
 
 export function resizeColumn(
   data: TableData,

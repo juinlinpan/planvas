@@ -10,6 +10,8 @@ import {
   createTableData,
   deleteCols,
   deleteRows,
+  distributeSelectedColumnWidths,
+  distributeSelectedRowHeights,
   getEffectiveTableCellChildLayoutDirection,
   getNextTableLayoutUpdatedAt,
   getTableMinSize,
@@ -516,6 +518,49 @@ describe('tableData merge and split semantics', () => {
   it('uses text box minimum size as the minimum size of each table cell', () => {
     expect(getTableMinSize(1, 1)).toEqual({ width: 48, height: 48 });
     expect(getTableMinSize(4, 5)).toEqual({ width: 240, height: 192 });
+  });
+
+  it('distributes selected column widths while preserving selected total width', () => {
+    const data = {
+      ...createTableData(2, 4),
+      colWidths: [0.1, 0.2, 0.4, 0.3],
+    };
+    const selectedCellIds = [
+      data.cells[0]?.[1]?.id,
+      data.cells[0]?.[2]?.id,
+      data.cells[0]?.[3]?.id,
+    ].filter((id): id is string => id !== undefined);
+
+    const distributed = distributeSelectedColumnWidths(data, selectedCellIds);
+
+    expect(distributed.colWidths[0]).toBeCloseTo(0.1);
+    expect(distributed.colWidths[1]).toBeCloseTo(0.3);
+    expect(distributed.colWidths[2]).toBeCloseTo(0.3);
+    expect(distributed.colWidths[3]).toBeCloseTo(0.3);
+  });
+
+  it('distributes selected row heights and rewrites row divider overrides', () => {
+    const data = {
+      ...createTableData(3, 2),
+      rowHeights: [0.2, 0.5, 0.3],
+      rowDividerPositions: {
+        r0c0: 0.25,
+        r1c0: 0.85,
+      },
+    };
+    const selectedCellIds = [
+      data.cells[0]?.[0]?.id,
+      data.cells[1]?.[0]?.id,
+      data.cells[2]?.[0]?.id,
+    ].filter((id): id is string => id !== undefined);
+
+    const distributed = distributeSelectedRowHeights(data, selectedCellIds);
+
+    expect(distributed.rowHeights[0]).toBeCloseTo(1 / 3);
+    expect(distributed.rowHeights[1]).toBeCloseTo(1 / 3);
+    expect(distributed.rowHeights[2]).toBeCloseTo(1 / 3);
+    expect(distributed.rowDividerPositions?.['r0c0']).toBeCloseTo(1 / 3);
+    expect(distributed.rowDividerPositions?.['r1c0']).toBeCloseTo(2 / 3);
   });
 
   it('defaults table cell child layout to vertical', () => {

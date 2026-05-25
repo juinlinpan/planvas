@@ -15,6 +15,10 @@ type ViewMode = 'edit' | 'split' | 'preview';
 
 const AUTOSAVE_DELAY_MS = 5000;
 
+// Persists unsaved drafts across unmount/remount cycles (e.g. tab switches).
+// Keyed by `${projectId}:${noteFile}`.
+const draftCache = new Map<string, string>();
+
 function IconBold() {
   return (
     <svg
@@ -118,18 +122,24 @@ export function MarkdownEditor({
   onNoteRenamed,
 }: Props) {
   const note = projectNotes.find((n) => n.note_file === noteFile);
-  const [content, setContent] = useState(note?.content ?? '');
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
+  const cacheKey = `${projectId}:${noteFile}`;
+  const cachedDraft = draftCache.get(cacheKey);
+  const savedContent = note?.content ?? '';
+  const initialContent = cachedDraft ?? savedContent;
+  const [content, setContent] = useState(initialContent);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>(
+    cachedDraft !== undefined && cachedDraft !== savedContent ? 'unsaved' : 'saved',
+  );
   const [viewMode, setViewMode] = useState<ViewMode>('split');
   const [isEditingFileName, setIsEditingFileName] = useState(false);
   const [fileNameDraft, setFileNameDraft] = useState(noteFile);
   const [fileNameError, setFileNameError] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const lastSavedContent = useRef(note?.content ?? '');
+  const lastSavedContent = useRef(savedContent);
   // Tracks the latest content so the unmount flush can access it without
   // capturing a stale closure.
-  const latestContentRef = useRef(note?.content ?? '');
+  const latestContentRef = useRef(initialContent);
 
   // When the noteFile changes (tab switch), reload content from projectNotes
   useEffect(() => {
@@ -157,6 +167,7 @@ export function MarkdownEditor({
       try {
         await updateProjectNote(projectId, noteFile, textToSave);
         lastSavedContent.current = textToSave;
+        draftCache.delete(`${projectId}:${noteFile}`);
         setSaveStatus('saved');
         onNotesChanged();
       } catch {
@@ -168,6 +179,7 @@ export function MarkdownEditor({
 
   function handleContentChange(newContent: string) {
     latestContentRef.current = newContent;
+    draftCache.set(cacheKey, newContent);
     setContent(newContent);
     setSaveStatus('unsaved');
     if (saveTimerRef.current !== null) {
@@ -268,6 +280,8 @@ export function MarkdownEditor({
       }
       const unsaved = latestContentRef.current;
       if (unsaved !== lastSavedContent.current) {
+        // Keep the draft in cache so it survives the remount.
+        draftCache.set(`${projectId}:${noteFile}`, unsaved);
         void updateProjectNote(projectId, noteFile, unsaved).catch(() => {});
       }
     };

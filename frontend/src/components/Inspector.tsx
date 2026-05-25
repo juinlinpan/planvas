@@ -27,6 +27,8 @@ type Props = {
   selectedTableCellIds: string[];
   isCollapsed: boolean;
   onUpdate: (item: BoardItem) => void;
+  onDistributeTableRows: () => void;
+  onDistributeTableCols: () => void;
   onUpdateTableCells: (
     tableId: string,
     cellIds: string[],
@@ -153,6 +155,8 @@ export function Inspector({
   selectedTableCellIds,
   isCollapsed,
   onUpdate,
+  onDistributeTableRows,
+  onDistributeTableCols,
   onUpdateTableCells,
   onDelete,
   onToggleInspector,
@@ -415,6 +419,8 @@ export function Inspector({
             tableChildLayoutDirection={tableChildLayoutDirection}
             projectDefaultStyle={projectDefaultStyle}
             onUpdate={onUpdate}
+            onDistributeRows={onDistributeTableRows}
+            onDistributeCols={onDistributeTableCols}
             onUpdateTableCells={onUpdateTableCells}
           />
         ) : null}

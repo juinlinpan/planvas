@@ -12,6 +12,8 @@ import {
   DEFAULT_TABLE_LABEL_FONT_SIZE,
   TABLE_LABEL_FONT_SIZE_MAX,
   TABLE_LABEL_FONT_SIZE_MIN,
+  getTableCellSelectionColIndexes,
+  getTableCellSelectionRowIndexes,
   getNextTableLayoutUpdatedAt,
   sanitizeTableLabelFontSize,
   sanitizeTableName,
@@ -54,6 +56,8 @@ type Props = {
   tableChildLayoutDirection: string;
   projectDefaultStyle?: ProjectDefaultStyle;
   onUpdate: (item: BoardItem) => void;
+  onDistributeRows: () => void;
+  onDistributeCols: () => void;
   onUpdateTableCells: (
     tableId: string,
     cellIds: string[],
@@ -75,6 +79,8 @@ export function TablePanel({
   tableChildLayoutDirection,
   projectDefaultStyle,
   onUpdate,
+  onDistributeRows,
+  onDistributeCols,
   onUpdateTableCells,
 }: Props) {
   if (item.type !== ITEM_TYPE.table) return null;
@@ -82,6 +88,14 @@ export function TablePanel({
   const resolvedStyle = resolveBoardItemStyle(item, projectDefaultStyle);
   const hasCustomStyle =
     item.style_json !== null && item.style_json.trim().length > 0;
+  const canDistributeRows =
+    tableData !== null &&
+    getTableCellSelectionRowIndexes(tableData, selectedTableCellIds).length >=
+      2;
+  const canDistributeCols =
+    tableData !== null &&
+    getTableCellSelectionColIndexes(tableData, selectedTableCellIds).length >=
+      2;
 
   function handleStyleChange(patch: BoardItemStyle) {
     const currentStyle = parseBoardItemStyle(item.style_json);
@@ -177,6 +191,24 @@ export function TablePanel({
                 ))}
               </select>
             </label>
+            <div className="inspector-toggle-group">
+              <button
+                type="button"
+                className="ghost-button"
+                disabled={!canDistributeRows}
+                onClick={onDistributeRows}
+              >
+                平均分配高
+              </button>
+              <button
+                type="button"
+                className="ghost-button"
+                disabled={!canDistributeCols}
+                onClick={onDistributeCols}
+              >
+                平均分配寬
+              </button>
+            </div>
           </section>
         ) : null}
 

@@ -137,6 +137,7 @@
 - The minimum `text_box`, `sticky_note`, and `table` cell size should be `48 x 48`, matching two default text line-heights while staying aligned to the canvas grid.
 - Every board item minimum size, including `line`, `arrow`, and dynamic `table` minimum sizes, must stay aligned to whole canvas grid units.
 - When `magnet` is enabled, dragging internal `table` row and column divider lines must snap those divider lines to the canvas grid. Holding `Alt` temporarily disables this table-divider snapping.
+- After selecting one or more `table` cells, the right inspector and the selected-item context menu must expose `平均分配高` and `平均分配寬`. These actions distribute the selected rows or selected columns evenly while preserving the total selected table area.
 
 ## Item Context Menu Update Notes
 

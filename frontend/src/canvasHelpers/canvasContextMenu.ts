@@ -11,6 +11,8 @@ export type CanvasContextMenuState = {
   canBringToFront: boolean;
   canSendToBack: boolean;
   isStickyNoteOnly: boolean;
+  canDistributeTableRows: boolean;
+  canDistributeTableCols: boolean;
 };
 
 export type CanvasContextMenuActionKey =
@@ -22,7 +24,9 @@ export type CanvasContextMenuActionKey =
   | 'sendBackward'
   | 'bringToFront'
   | 'sendToBack'
-  | 'transformToNote';
+  | 'transformToNote'
+  | 'distributeTableRows'
+  | 'distributeTableCols';
 
 const MENU_MARGIN = 12;
 const MENU_WIDTH = 220;
@@ -49,6 +53,12 @@ export function getCanvasContextMenuActionKeys(
 
     if (state.selectionCount === 1 && state.isStickyNoteOnly) {
       actions.push('transformToNote');
+    }
+    if (state.canDistributeTableRows) {
+      actions.push('distributeTableRows');
+    }
+    if (state.canDistributeTableCols) {
+      actions.push('distributeTableCols');
     }
 
     return actions;
@@ -78,6 +88,10 @@ export function isCanvasContextMenuActionDisabled(
       return !state.canSendToBack;
     case 'transformToNote':
       return state.selectionCount !== 1 || !state.isStickyNoteOnly;
+    case 'distributeTableRows':
+      return !state.canDistributeTableRows;
+    case 'distributeTableCols':
+      return !state.canDistributeTableCols;
     default:
       return false;
   }

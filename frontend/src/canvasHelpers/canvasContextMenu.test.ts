@@ -21,6 +21,8 @@ function createContextMenuState(
     canBringToFront: true,
     canSendToBack: true,
     isStickyNoteOnly: false,
+    canDistributeTableRows: false,
+    canDistributeTableCols: false,
     ...overrides,
   };
 }
@@ -45,6 +47,28 @@ describe('canvas context menu helpers', () => {
         createContextMenuState({ scope: 'canvas' }),
       ),
     ).toEqual(['paste']);
+  });
+
+  it('shows table distribution actions when table cells can be distributed', () => {
+    expect(
+      getCanvasContextMenuActionKeys(
+        createContextMenuState({
+          canDistributeTableRows: true,
+          canDistributeTableCols: true,
+        }),
+      ),
+    ).toEqual([
+      'cut',
+      'copy',
+      'paste',
+      'delete',
+      'bringForward',
+      'sendBackward',
+      'bringToFront',
+      'sendToBack',
+      'distributeTableRows',
+      'distributeTableCols',
+    ]);
   });
 
   it('disables destructive actions when nothing is selected', () => {

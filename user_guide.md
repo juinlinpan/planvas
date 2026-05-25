@@ -370,3 +370,8 @@ The plugin includes:
 See `plugins/planvas-ai/INSTALL.md` for tool-specific details.
 
 ---
+
+## Table cell layout
+
+- Select multiple table cells, then use **平均分配高** from the right Inspector or right-click context menu to make the selected rows the same height.
+- Select multiple table cells, then use **平均分配寬** from the right Inspector or right-click context menu to make the selected columns the same width.

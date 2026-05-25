@@ -12,6 +12,8 @@ type UseCanvasContextMenuActionsParams = {
   handleDeleteSelection: () => void;
   getPrimarySelectionId: (ids: string[]) => string | null;
   handleTransformToNote: (itemId: string) => void;
+  handleDistributeSelectedTableRows: () => void;
+  handleDistributeSelectedTableCols: () => void;
   handleLayerChange: (
     change: 'bringForward' | 'sendBackward' | 'bringToFront' | 'sendToBack',
   ) => void;
@@ -28,6 +30,8 @@ export function useCanvasContextMenuActions({
   handleDeleteSelection,
   getPrimarySelectionId,
   handleTransformToNote,
+  handleDistributeSelectedTableRows,
+  handleDistributeSelectedTableCols,
   handleLayerChange,
 }: UseCanvasContextMenuActionsParams) {
   const handleContextMenuPaste = useCallback(() => {
@@ -104,6 +108,16 @@ export function useCanvasContextMenuActions({
     setContextMenu(null);
   }, [handleLayerChange, setContextMenu]);
 
+  const handleContextMenuDistributeTableRows = useCallback(() => {
+    setContextMenu(null);
+    handleDistributeSelectedTableRows();
+  }, [handleDistributeSelectedTableRows, setContextMenu]);
+
+  const handleContextMenuDistributeTableCols = useCallback(() => {
+    setContextMenu(null);
+    handleDistributeSelectedTableCols();
+  }, [handleDistributeSelectedTableCols, setContextMenu]);
+
   return {
     handleContextMenuPaste,
     handleContextMenuCopy,
@@ -114,5 +128,7 @@ export function useCanvasContextMenuActions({
     handleContextMenuSendBackward,
     handleContextMenuBringToFront,
     handleContextMenuSendToBack,
+    handleContextMenuDistributeTableRows,
+    handleContextMenuDistributeTableCols,
   };
 }

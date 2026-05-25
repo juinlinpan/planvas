@@ -47,6 +47,8 @@ function InspectorHarness({ item }: { item: BoardItem }) {
       selectedTableCellIds={[]}
       isCollapsed={false}
       onUpdate={setCurrentItem}
+      onDistributeTableRows={() => {}}
+      onDistributeTableCols={() => {}}
       onUpdateTableCells={() => {}}
       onDelete={() => {}}
       onToggleInspector={() => {}}

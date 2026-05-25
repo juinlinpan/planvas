@@ -13,11 +13,13 @@ const CONTEXT_MENU_LABELS: Record<CanvasContextMenuActionKey, string> = {
   copy: '複製',
   paste: '貼上',
   delete: '刪除',
-  bringForward: '移上一層',
-  sendBackward: '移下一層',
-  bringToFront: '移到最頂',
-  sendToBack: '移到最底',
-  transformToNote: '轉換為筆記 (Note)',
+  bringForward: '上移一層',
+  sendBackward: '下移一層',
+  bringToFront: '移到最上層',
+  sendToBack: '移到最下層',
+  transformToNote: '轉成 Note',
+  distributeTableRows: '平均分配高',
+  distributeTableCols: '平均分配寬',
 };
 
 const CONTEXT_MENU_SHORTCUTS: Record<CanvasContextMenuActionKey, string> = {
@@ -30,6 +32,8 @@ const CONTEXT_MENU_SHORTCUTS: Record<CanvasContextMenuActionKey, string> = {
   bringToFront: '',
   sendToBack: '',
   transformToNote: '',
+  distributeTableRows: '',
+  distributeTableCols: '',
 };
 
 type Props = {
@@ -43,6 +47,8 @@ type Props = {
   onBringToFront: () => void;
   onSendToBack: () => void;
   onTransformToNote: () => void;
+  onDistributeTableRows: () => void;
+  onDistributeTableCols: () => void;
 };
 
 export function CanvasContextMenuLayer({
@@ -56,6 +62,8 @@ export function CanvasContextMenuLayer({
   onBringToFront,
   onSendToBack,
   onTransformToNote,
+  onDistributeTableRows,
+  onDistributeTableCols,
 }: Props) {
   const contextMenuActions = useMemo(
     () =>
@@ -97,13 +105,17 @@ export function CanvasContextMenuLayer({
       bringToFront: onBringToFront,
       sendToBack: onSendToBack,
       transformToNote: onTransformToNote,
+      distributeTableRows: onDistributeTableRows,
+      distributeTableCols: onDistributeTableCols,
     }),
     [
-      onCopy,
       onBringForward,
       onBringToFront,
+      onCopy,
       onCut,
       onDelete,
+      onDistributeTableCols,
+      onDistributeTableRows,
       onPaste,
       onSendBackward,
       onSendToBack,

@@ -47,6 +47,8 @@ function renderInspector(
       selectedTableCellIds={[]}
       isCollapsed={false}
       onUpdate={() => {}}
+      onDistributeTableRows={() => {}}
+      onDistributeTableCols={() => {}}
       onUpdateTableCells={() => {}}
       onDelete={() => {}}
       onToggleInspector={() => {}}
@@ -66,6 +68,8 @@ describe('Inspector style palette', () => {
         selectedTableCellIds={[]}
         isCollapsed
         onUpdate={() => {}}
+        onDistributeTableRows={() => {}}
+        onDistributeTableCols={() => {}}
         onUpdateTableCells={() => {}}
         onDelete={() => {}}
         onToggleInspector={() => {}}
@@ -160,6 +164,8 @@ describe('Inspector style palette', () => {
     expect(markup).toContain('meta-label">Table Cell<');
     expect(markup).toContain('Cell text');
     expect(markup).toContain('Item layout');
+    expect(markup).toContain('平均分配高');
+    expect(markup).toContain('平均分配寬');
     expect(markup).toContain('Vertical');
     expect(markup).toContain('Horizontal');
     expect(markup).not.toContain('Rows');

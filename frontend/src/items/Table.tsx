@@ -740,6 +740,7 @@ export function Table({
                 }}
                 onMouseDown={(e) => {
                   e.stopPropagation();
+                  if (e.button !== 0) return;
                   if (isDraggingDivider) return;
                   handleCellSelectionStart(cell.id, ri, ci, e.shiftKey);
                 }}

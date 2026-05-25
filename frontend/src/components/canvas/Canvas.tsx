@@ -67,7 +67,11 @@ import {
   getChildItemIdsInRows,
   getTableCellIdsInCols,
   getTableCellIdsInRows,
+  getTableCellSelectionColIndexes,
+  getTableCellSelectionRowIndexes,
   getTableCellDeleteOperation,
+  distributeSelectedColumnWidths,
+  distributeSelectedRowHeights,
   parseTableData,
   serializeTableData,
   TABLE_MAX_DIMENSION,
@@ -976,6 +980,54 @@ export function Canvas({
       return handleDeleteTableCells(selection.tableId, selection.cellIds);
     }, [handleDeleteTableCells, tableInspectorSelection]);
 
+  const handleDistributeSelectedTableRows = useCallback(() => {
+    const selection = tableInspectorSelection;
+    if (selection === null) return;
+
+    const tableItem = itemsRef.current.find(
+      (item) => item.id === selection.tableId && item.type === ITEM_TYPE.table,
+    );
+    if (tableItem === undefined) return;
+
+    const tableData = parseTableData(tableItem.data_json);
+    if (
+      getTableCellSelectionRowIndexes(tableData, selection.cellIds).length < 2
+    ) {
+      return;
+    }
+
+    handleItemUpdate({
+      ...tableItem,
+      data_json: serializeTableData(
+        distributeSelectedRowHeights(tableData, selection.cellIds),
+      ),
+    });
+  }, [handleItemUpdate, itemsRef, tableInspectorSelection]);
+
+  const handleDistributeSelectedTableCols = useCallback(() => {
+    const selection = tableInspectorSelection;
+    if (selection === null) return;
+
+    const tableItem = itemsRef.current.find(
+      (item) => item.id === selection.tableId && item.type === ITEM_TYPE.table,
+    );
+    if (tableItem === undefined) return;
+
+    const tableData = parseTableData(tableItem.data_json);
+    if (
+      getTableCellSelectionColIndexes(tableData, selection.cellIds).length < 2
+    ) {
+      return;
+    }
+
+    handleItemUpdate({
+      ...tableItem,
+      data_json: serializeTableData(
+        distributeSelectedColumnWidths(tableData, selection.cellIds),
+      ),
+    });
+  }, [handleItemUpdate, itemsRef, tableInspectorSelection]);
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === ' ' && !isSpaceRef.current) {
@@ -1179,6 +1231,8 @@ export function Canvas({
         canBringToFront: false,
         canSendToBack: false,
         isStickyNoteOnly: false,
+        canDistributeTableRows: false,
+        canDistributeTableCols: false,
       });
     },
     [hasClipboardData],
@@ -1219,6 +1273,29 @@ export function Canvas({
           )
         : itemsRef.current.find((it) => it.id === itemId)?.type ===
           ITEM_TYPE.sticky_note;
+      const tableCellSelection =
+        tableInspectorSelection?.tableId === itemId
+          ? tableInspectorSelection
+          : null;
+      const tableItem = itemsRef.current.find(
+        (it) => it.id === itemId && it.type === ITEM_TYPE.table,
+      );
+      const tableData =
+        tableItem !== undefined && tableCellSelection !== null
+          ? parseTableData(tableItem.data_json)
+          : null;
+      const canDistributeTableRows =
+        tableData !== null &&
+        getTableCellSelectionRowIndexes(
+          tableData,
+          tableCellSelection?.cellIds ?? [],
+        ).length >= 2;
+      const canDistributeTableCols =
+        tableData !== null &&
+        getTableCellSelectionColIndexes(
+          tableData,
+          tableCellSelection?.cellIds ?? [],
+        ).length >= 2;
 
       setEditingId(null);
       setContextMenu({
@@ -1232,9 +1309,11 @@ export function Canvas({
         canBringToFront: canBringForward,
         canSendToBack: canSendBackward,
         isStickyNoteOnly: isStickyNoteOnly ?? false,
+        canDistributeTableRows,
+        canDistributeTableCols,
       });
     },
-    [hasClipboardData, setSelection],
+    [hasClipboardData, setSelection, tableInspectorSelection],
   );
 
   const {
@@ -1247,6 +1326,8 @@ export function Canvas({
     handleContextMenuSendBackward,
     handleContextMenuBringToFront,
     handleContextMenuSendToBack,
+    handleContextMenuDistributeTableRows,
+    handleContextMenuDistributeTableCols,
   } = useCanvasContextMenuActions({
     setContextMenu,
     hasClipboardData,
@@ -1258,6 +1339,8 @@ export function Canvas({
     handleDeleteSelection: () => { void handleDeleteSelection(); },
     getPrimarySelectionId,
     handleTransformToNote: (itemId: string) => { void handleTransformToNote(itemId); },
+    handleDistributeSelectedTableRows,
+    handleDistributeSelectedTableCols,
     handleLayerChange,
   });
 
@@ -1652,6 +1735,8 @@ export function Canvas({
           }
           isCollapsed={isInspectorCollapsed}
           onUpdate={handleItemUpdate}
+          onDistributeTableRows={handleDistributeSelectedTableRows}
+          onDistributeTableCols={handleDistributeSelectedTableCols}
           onUpdateTableCells={(tableId, cellIds, patch) => {
             const tableItem = items.find(
               (candidate) =>
@@ -1693,6 +1778,8 @@ export function Canvas({
         onBringToFront={handleContextMenuBringToFront}
         onSendToBack={handleContextMenuSendToBack}
         onTransformToNote={handleContextMenuTransformToNote}
+        onDistributeTableRows={handleContextMenuDistributeTableRows}
+        onDistributeTableCols={handleContextMenuDistributeTableCols}
       />
     </div>
   );

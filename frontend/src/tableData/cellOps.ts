@@ -153,6 +153,36 @@ function getSelectedGridPositions(
   return positions;
 }
 
+export function getTableCellSelectionRowIndexes(
+  data: TableData,
+  cellIds: string[],
+): number[] {
+  const selectedPositions = getSelectedGridPositions(data, cellIds);
+  const rows = new Set<number>();
+
+  for (const position of selectedPositions) {
+    const [rowPart] = position.split(',');
+    rows.add(Number(rowPart));
+  }
+
+  return [...rows].sort((a, b) => a - b);
+}
+
+export function getTableCellSelectionColIndexes(
+  data: TableData,
+  cellIds: string[],
+): number[] {
+  const selectedPositions = getSelectedGridPositions(data, cellIds);
+  const cols = new Set<number>();
+
+  for (const position of selectedPositions) {
+    const [, colPart] = position.split(',');
+    cols.add(Number(colPart));
+  }
+
+  return [...cols].sort((a, b) => a - b);
+}
+
 export function getTableCellDeleteOperation(
   data: TableData,
   cellIds: string[],
