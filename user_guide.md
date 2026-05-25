@@ -41,6 +41,7 @@ npm install
 專案提供多種啟動與使用方式，以滿足不同的開發與使用情境：
 
 ### 1. 背景執行模式 (`planvas` 指令)
+
 透過內建的腳本，您可以在背景啟動系統，而不會佔用當前的命令列視窗。
 在專案根目錄下，執行：
 
@@ -48,14 +49,16 @@ npm install
 ./scripts/planvas.cmd
 ```
 
-*(如果已將專案設定為全域指令，例如透過 `npm link`，也可以直接輸入 `planvas`)*
+_(如果已將專案設定為全域指令，例如透過 `npm link`，也可以直接輸入 `planvas`)_
 
 啟動後會提示以下資訊：
+
 - Frontend: `http://127.0.0.1:5173`
 - Backend: `http://127.0.0.1:18000`
 - 背景執行記錄（Log）：位於 `backend\logs\planvas-dev.log`
 
 > **提示**：若要停止背景執行的 Planvas，或是遇到 Port 被佔用的問題，請執行：
+>
 > ```powershell
 > npm run dev:stop
 > ```
@@ -63,6 +66,7 @@ npm install
 ---
 
 ### 2. 開發模式（前景執行，前後端同時啟動）
+
 適合在開發時查看即時日誌。
 
 ```powershell
@@ -78,6 +82,7 @@ http://127.0.0.1:5173
 ---
 
 ### 3. 單 Port 模式（Production 模式）
+
 適合分享給他人使用，前端會被建置並由後端靜態伺服，只需一個網址。
 
 先建置：
@@ -133,15 +138,15 @@ http://127.0.0.1:18000
 
 ### 白板物件
 
-| 物件類型      | 說明                                  |
-| ------------- | ------------------------------------- |
-| `text_box`    | 文字方塊                              |
-| `sticky_note` | 便利貼                                |
-| `note_paper`  | Markdown 筆記（對應一個 `.md` 檔）    |
+| 物件類型      | 說明                                                          |
+| ------------- | ------------------------------------------------------------- |
+| `text_box`    | 文字方塊                                                      |
+| `sticky_note` | 便利貼                                                        |
+| `note_paper`  | Markdown 筆記（對應一個 `.md` 檔）                            |
 | `frame`       | 容器框，可收合展開，可容納 small_item，但不容納 `sticky_note` |
-| `line`        | 線條                                  |
-| `table`       | 表格                                  |
-| `arrow`       | 箭頭連接器，可連結任何物件            |
+| `line`        | 線條                                                          |
+| `table`       | 表格                                                          |
+| `arrow`       | 箭頭連接器，可連結任何物件                                    |
 
 ### Frame 收合行為
 
@@ -234,6 +239,7 @@ npm run backup
 ```powershell
 npm run smoke
 ```
+
 ---
 
 ## Optional AI Tool Plugin
@@ -258,15 +264,13 @@ Install commands from the repository root:
 
 ```powershell
 # Codex
-.\plugins\planvas-ai\scripts\install.ps1 -Target codex -Scope global
+.\plugins\planvas-ai\scripts\install.ps1 -Target codex -Scope project
 
 # Gemini CLI
-gemini extensions install .\plugins\planvas-ai
-# or:
-.\plugins\planvas-ai\scripts\install.ps1 -Target gemini-cli -Scope global
+.\plugins\planvas-ai\scripts\install.ps1 -Target gemini-cli -Scope project
 
 # Antigravity CLI
-.\plugins\planvas-ai\scripts\install.ps1 -Target antigravity-cli -Scope global
+.\plugins\planvas-ai\scripts\install.ps1 -Target antigravity-cli -Scope project
 
 # Claude Code
 claude mcp add --transport sse planvas http://127.0.0.1:18001/sse
@@ -284,6 +288,16 @@ Install for every supported target:
 ```powershell
 .\plugins\planvas-ai\scripts\install.ps1 -Target all -Scope project
 ```
+
+You can also install from inside Planvas:
+
+1. Open a Project.
+2. Open Project Settings.
+3. In `Connect to your AI agent`, choose the tool.
+4. Use `Copy` to copy the project-scoped command, or `Run` to run the bundled installer.
+
+The Project Settings installer always targets the selected Project path. It does
+not install into the user-global tool directory.
 
 The plugin includes:
 

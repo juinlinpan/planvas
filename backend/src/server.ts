@@ -31,6 +31,14 @@ import {
 const devOrigins = new Set(['http://127.0.0.1:5173', 'http://localhost:5173']);
 const slowRequestThresholdMs = 250;
 const eventLoopLagThresholdMs = 250;
+const aiAgentInstallTargets = new Set([
+  'codex',
+  'gemini-cli',
+  'antigravity-cli',
+  'claude-code',
+  'github-copilot',
+  'opencode',
+]);
 
 let diagnosticsStarted = false;
 let diagnosticsSettings: AppSettings | null = null;
@@ -222,6 +230,12 @@ function buildRoutes(): Route[] {
       pattern: /^\/projects\/(?<projectId>[^/]+)\/reveal$/,
       handler: ({ repository }, { params }) =>
         repository.revealProject(params.projectId),
+    },
+    {
+      method: 'POST',
+      pattern: /^\/projects\/(?<projectId>[^/]+)\/ai-agent\/install$/,
+      handler: ({ repository, body }, { params }) =>
+        installProjectAiAgent(repository, params.projectId, body),
     },
     {
       method: 'PATCH',
@@ -441,6 +455,133 @@ function buildRoutes(): Route[] {
         repository.deleteConnectorLink(params.connectorId),
     },
   ];
+}
+
+type AiAgentInstallPayload = { target: string };
+
+function validateAiAgentInstallPayload(body: unknown): AiAgentInstallPayload {
+  if (
+    typeof body !== 'object' ||
+    body === null ||
+    !('target' in body) ||
+    typeof (body as { target?: unknown }).target !== 'string'
+  ) {
+    throw new HttpError(400, 'AI agent target is required.');
+  }
+  const target = (body as { target: string }).target;
+  if (!aiAgentInstallTargets.has(target)) {
+    throw new HttpError(400, `Unsupported AI agent target: ${target}`);
+  }
+  return { target };
+}
+
+async function installProjectAiAgent(
+  repository: WhiteboardRepository,
+  projectId: string,
+  body: unknown,
+): Promise<{
+  target: string;
+  command: string;
+  stdout: string;
+  stderr: string;
+}> {
+  if (process.platform !== 'win32') {
+    throw new HttpError(
+      400,
+      'AI agent installer run is only available on Windows.',
+    );
+  }
+  const { target } = validateAiAgentInstallPayload(body);
+  const project = await repository.getProject(projectId);
+  if (!project.path) {
+    throw new HttpError(400, 'Project path is unavailable.');
+  }
+
+  const installerPath = path.join(
+    repoRootDir(),
+    'plugins',
+    'planvas-ai',
+    'scripts',
+    'install.ps1',
+  );
+  if (!(await fileExists(installerPath))) {
+    throw new HttpError(
+      500,
+      `Planvas AI installer was not found: ${installerPath}`,
+    );
+  }
+
+  const args = [
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-File',
+    installerPath,
+    '-Target',
+    target,
+    '-Scope',
+    'project',
+    '-ProjectPath',
+    project.path,
+  ];
+
+  const result = await runProcess('powershell.exe', args);
+  const command = [
+    'powershell',
+    '-ExecutionPolicy Bypass',
+    '-File',
+    quotePowerShellPath(installerPath),
+    '-Target',
+    target,
+    '-Scope project',
+    '-ProjectPath',
+    quotePowerShellPath(project.path),
+  ].join(' ');
+  if (result.exitCode !== 0) {
+    throw new HttpError(
+      500,
+      result.stderr.trim() ||
+        result.stdout.trim() ||
+        'AI agent installer failed.',
+    );
+  }
+  return {
+    target,
+    command,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  };
+}
+
+function runProcess(
+  command: string,
+  args: string[],
+): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { windowsHide: true });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk: string) => {
+      stdout += chunk;
+    });
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', (chunk: string) => {
+      stderr += chunk;
+    });
+    child.on('error', reject);
+    child.on('close', (exitCode) => {
+      resolve({ exitCode: exitCode ?? 1, stdout, stderr });
+    });
+  });
+}
+
+function quotePowerShellPath(value: string): string {
+  return `"${value.replace(/"/g, '`"')}"`;
+}
+
+function repoRootDir(): string {
+  return path.resolve(path.dirname(currentFile), '..', '..', '..');
 }
 
 async function readRequestBody(request: IncomingMessage): Promise<unknown> {

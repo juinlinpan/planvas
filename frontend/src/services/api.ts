@@ -21,6 +21,21 @@ export type Project = {
 
 export type ProjectThemeColor = 'default' | 'sage' | 'sunset' | 'ocean';
 
+export type AiAgentInstallTarget =
+  | 'codex'
+  | 'gemini-cli'
+  | 'antigravity-cli'
+  | 'claude-code'
+  | 'github-copilot'
+  | 'opencode';
+
+export type AiAgentInstallResult = {
+  target: AiAgentInstallTarget;
+  command: string;
+  stdout: string;
+  stderr: string;
+};
+
 export type Page = {
   id: string;
   project_id: string;
@@ -165,6 +180,19 @@ export async function deleteProject(id: string): Promise<void> {
 
 export async function revealProject(id: string): Promise<void> {
   await requestVoid(`/projects/${id}/reveal`, { method: 'POST' });
+}
+
+export async function installProjectAiAgent(
+  projectId: string,
+  target: AiAgentInstallTarget,
+): Promise<AiAgentInstallResult> {
+  return requestJson<AiAgentInstallResult>(
+    `/projects/${projectId}/ai-agent/install`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ target }),
+    },
+  );
 }
 
 export async function reorderProjects(
@@ -371,7 +399,9 @@ export async function replacePageBoardState(
   });
 }
 
-export async function regulatePage(pageId: string): Promise<PageRegulateResult> {
+export async function regulatePage(
+  pageId: string,
+): Promise<PageRegulateResult> {
   return requestJson<PageRegulateResult>(`/pages/${pageId}/regulate`, {
     method: 'POST',
   });

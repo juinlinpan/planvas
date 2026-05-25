@@ -9,9 +9,9 @@ Prerequisite: run Planvas backend so the MCP server is available at `http://127.
 From the repository root:
 
 ```powershell
-.\plugins\planvas-ai\scripts\install.ps1 -Target codex -Scope global
-.\plugins\planvas-ai\scripts\install.ps1 -Target gemini-cli -Scope global
-.\plugins\planvas-ai\scripts\install.ps1 -Target antigravity-cli -Scope global
+.\plugins\planvas-ai\scripts\install.ps1 -Target codex -Scope project
+.\plugins\planvas-ai\scripts\install.ps1 -Target gemini-cli -Scope project
+.\plugins\planvas-ai\scripts\install.ps1 -Target antigravity-cli -Scope project
 .\plugins\planvas-ai\scripts\install.ps1 -Target claude-code -Scope project
 .\plugins\planvas-ai\scripts\install.ps1 -Target github-copilot -Scope project
 .\plugins\planvas-ai\scripts\install.ps1 -Target opencode -Scope project
@@ -23,6 +23,10 @@ Install for every supported target:
 .\plugins\planvas-ai\scripts\install.ps1 -Target all -Scope project
 ```
 
+Inside the Planvas app, open Project Settings and use `Connect to your AI agent`
+to generate the same project-scoped command. The `Copy` button copies the
+command; the `Run` button runs the bundled installer for the selected Project.
+
 ## Tool-Specific Notes
 
 ### Codex
@@ -33,26 +37,14 @@ Project skill install:
 .\plugins\planvas-ai\scripts\install.ps1 -Target codex -Scope project
 ```
 
-Global skill/plugin copy:
-
-```powershell
-.\plugins\planvas-ai\scripts\install.ps1 -Target codex -Scope global
-```
-
 The Codex plugin manifest is at `.codex-plugin/plugin.json` and points to `skills/` plus `.mcp.json`.
 
 ### Gemini CLI
 
-Install as a Gemini CLI extension from the local path:
+Install into the current Project:
 
 ```powershell
-gemini extensions install .\plugins\planvas-ai
-```
-
-Or copy it directly:
-
-```powershell
-.\plugins\planvas-ai\scripts\install.ps1 -Target gemini-cli -Scope global
+.\plugins\planvas-ai\scripts\install.ps1 -Target gemini-cli -Scope project
 ```
 
 The extension manifest is `gemini-extension.json`.
@@ -62,7 +54,7 @@ The extension manifest is `gemini-extension.json`.
 Install the shared extension files and MCP snippet:
 
 ```powershell
-.\plugins\planvas-ai\scripts\install.ps1 -Target antigravity-cli -Scope global
+.\plugins\planvas-ai\scripts\install.ps1 -Target antigravity-cli -Scope project
 ```
 
 If your Antigravity version uses a different plugin directory, copy `plugins/planvas-ai` there manually and merge `adapters/antigravity/mcp_config.snippet.json` into Antigravity's MCP config.

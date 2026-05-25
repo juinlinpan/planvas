@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import {
+  installProjectAiAgent,
+  type AiAgentInstallTarget,
   type Project,
   type ProjectThemeColor,
 } from '../../services/api';
-import {
-  ColorPaletteField,
-  CommitNumberInput,
-} from '../Inspector';
+import { ColorPaletteField, CommitNumberInput } from '../Inspector';
 import {
   BACKGROUND_COLOR_OPTIONS,
   STROKE_COLOR_OPTIONS,
@@ -25,6 +24,18 @@ const PROJECT_THEME_OPTIONS: Array<{
   { value: 'ocean', label: 'Ocean' },
 ];
 
+const AI_AGENT_OPTIONS: Array<{
+  value: AiAgentInstallTarget;
+  label: string;
+}> = [
+  { value: 'codex', label: 'Codex' },
+  { value: 'gemini-cli', label: 'Gemini CLI' },
+  { value: 'antigravity-cli', label: 'Antigravity CLI' },
+  { value: 'claude-code', label: 'Claude Code' },
+  { value: 'github-copilot', label: 'GitHub Copilot' },
+  { value: 'opencode', label: 'OpenCode' },
+];
+
 export interface ProjectSettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -34,7 +45,9 @@ export interface ProjectSettingsDialogProps {
   onSaveProjectName: (nextName: string) => Promise<void>;
   onChangeProjectTheme: (theme: ProjectThemeColor) => Promise<void>;
   onRevealProject: () => Promise<void>;
-  onChangeProjectDefaultStyle: (style: Partial<ProjectDefaultStyle>) => Promise<void>;
+  onChangeProjectDefaultStyle: (
+    style: Partial<ProjectDefaultStyle>,
+  ) => Promise<void>;
   onOpenProjectDeleteDialog: () => void;
 }
 
@@ -53,6 +66,10 @@ export function ProjectSettingsDialog({
   const [projectNameDraft, setProjectNameDraft] = useState('');
   const [prevProjectId, setPrevProjectId] = useState<string | null>(null);
   const [prevProjectName, setPrevProjectName] = useState('');
+  const [selectedAiAgent, setSelectedAiAgent] =
+    useState<AiAgentInstallTarget>('codex');
+  const [aiInstallStatus, setAiInstallStatus] = useState<string | null>(null);
+  const [isInstallingAiAgent, setIsInstallingAiAgent] = useState(false);
 
   // Synchronize state with props during render pass
   if (
@@ -70,6 +87,10 @@ export function ProjectSettingsDialog({
   }
 
   const normalizedProjectNameDraft = projectNameDraft.trim();
+  const aiInstallCommand = buildAiAgentInstallCommand(
+    selectedAiAgent,
+    selectedProject.path,
+  );
 
   const handleLocalSaveProjectName = () => {
     if (
@@ -79,6 +100,37 @@ export function ProjectSettingsDialog({
       return;
     }
     void onSaveProjectName(normalizedProjectNameDraft);
+  };
+
+  const handleCopyAiInstallCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(aiInstallCommand);
+      setAiInstallStatus('Command copied.');
+    } catch {
+      setAiInstallStatus(
+        'Copy failed. Select the command and copy it manually.',
+      );
+    }
+  };
+
+  const handleRunAiInstallCommand = async () => {
+    if (!selectedProject.path) return;
+    setIsInstallingAiAgent(true);
+    setAiInstallStatus('Installing...');
+    try {
+      const result = await installProjectAiAgent(
+        selectedProject.id,
+        selectedAiAgent,
+      );
+      const output = result.stdout.trim() || result.stderr.trim();
+      setAiInstallStatus(output || 'Installed.');
+    } catch (error) {
+      setAiInstallStatus(
+        error instanceof Error ? error.message : 'Install failed.',
+      );
+    } finally {
+      setIsInstallingAiAgent(false);
+    }
   };
 
   return (
@@ -102,9 +154,7 @@ export function ProjectSettingsDialog({
             <div className="project-settings-dialog-kicker">
               Project settings
             </div>
-            <h2 id="project-settings-dialog-title">
-              {selectedProject.name}
-            </h2>
+            <h2 id="project-settings-dialog-title">{selectedProject.name}</h2>
           </div>
           <button
             type="button"
@@ -131,9 +181,7 @@ export function ProjectSettingsDialog({
                   disabled={isMutating}
                   type="text"
                   value={projectNameDraft}
-                  onChange={(event) =>
-                    setProjectNameDraft(event.target.value)
-                  }
+                  onChange={(event) => setProjectNameDraft(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') {
                       event.preventDefault();
@@ -198,6 +246,56 @@ export function ProjectSettingsDialog({
             </div>
           </section>
           <section className="project-settings-panel">
+            <div className="project-settings-panel-heading">
+              Connect to your AI agent
+            </div>
+            <label className="sidebar-project-theme-control">
+              <span className="sidebar-name-label">Agent</span>
+              <select
+                disabled={isMutating || isInstallingAiAgent}
+                value={selectedAiAgent}
+                onChange={(event) => {
+                  setSelectedAiAgent(
+                    event.target.value as AiAgentInstallTarget,
+                  );
+                  setAiInstallStatus(null);
+                }}
+              >
+                {AI_AGENT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <pre className="project-settings-ai-command">
+              <code>{aiInstallCommand}</code>
+            </pre>
+            <div className="project-settings-ai-actions">
+              <button
+                type="button"
+                className="ghost-button project-settings-reveal-button"
+                disabled={isMutating || isInstallingAiAgent}
+                onClick={() => void handleCopyAiInstallCommand()}
+              >
+                Copy
+              </button>
+              <button
+                type="button"
+                className="ghost-button project-settings-reveal-button"
+                disabled={
+                  isMutating || isInstallingAiAgent || !selectedProject.path
+                }
+                onClick={() => void handleRunAiInstallCommand()}
+              >
+                {isInstallingAiAgent ? 'Running...' : 'Run'}
+              </button>
+            </div>
+            {aiInstallStatus ? (
+              <p className="project-settings-ai-status">{aiInstallStatus}</p>
+            ) : null}
+          </section>
+          <section className="project-settings-panel">
             <div className="project-settings-panel-heading">Components</div>
 
             <div className="project-settings-component-group">
@@ -245,9 +343,7 @@ export function ProjectSettingsDialog({
             </div>
 
             <div className="project-settings-component-group">
-              <div className="project-settings-dialog-kicker">
-                Line & Arrow
-              </div>
+              <div className="project-settings-dialog-kicker">Line & Arrow</div>
               <div className="project-default-style-grid">
                 <ColorPaletteField
                   label="Stroke"
@@ -278,10 +374,7 @@ export function ProjectSettingsDialog({
                     })
                   }
                 />
-                <div
-                  className="inspector-grid"
-                  style={{ marginTop: '8px' }}
-                >
+                <div className="inspector-grid" style={{ marginTop: '8px' }}>
                   <label className="sidebar-project-theme-control project-style-control">
                     <span className="sidebar-name-label">Width</span>
                     <input
@@ -298,9 +391,7 @@ export function ProjectSettingsDialog({
                     />
                   </label>
                   <label className="sidebar-project-theme-control project-style-control">
-                    <span className="sidebar-name-label">
-                      Text position
-                    </span>
+                    <span className="sidebar-name-label">Text position</span>
                     <select
                       disabled={isMutating}
                       value={
@@ -340,10 +431,7 @@ export function ProjectSettingsDialog({
                     })
                   }
                 />
-                <div
-                  className="inspector-grid"
-                  style={{ marginTop: '8px' }}
-                >
+                <div className="inspector-grid" style={{ marginTop: '8px' }}>
                   <label className="sidebar-project-theme-control project-style-control">
                     <span className="sidebar-name-label">Size</span>
                     <CommitNumberInput
@@ -383,4 +471,25 @@ export function ProjectSettingsDialog({
       </section>
     </div>
   );
+}
+
+function buildAiAgentInstallCommand(
+  target: AiAgentInstallTarget,
+  projectPath?: string | null,
+): string {
+  const quotedProjectPath = projectPath
+    ? quotePowerShellArgument(projectPath)
+    : '"<project-path>"';
+  return [
+    '.\\plugins\\planvas-ai\\scripts\\install.ps1',
+    '-Target',
+    target,
+    '-Scope project',
+    '-ProjectPath',
+    quotedProjectPath,
+  ].join(' ');
+}
+
+function quotePowerShellArgument(value: string): string {
+  return `"${value.replace(/"/g, '`"')}"`;
 }

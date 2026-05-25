@@ -95,14 +95,19 @@ The package includes:
 Examples:
 
 ```powershell
-.\plugins\planvas-ai\scripts\install.ps1 -Target codex -Scope global
-.\plugins\planvas-ai\scripts\install.ps1 -Target gemini-cli -Scope global
+.\plugins\planvas-ai\scripts\install.ps1 -Target codex -Scope project
+.\plugins\planvas-ai\scripts\install.ps1 -Target gemini-cli -Scope project
 .\plugins\planvas-ai\scripts\install.ps1 -Target claude-code -Scope project
 .\plugins\planvas-ai\scripts\install.ps1 -Target github-copilot -Scope project
 .\plugins\planvas-ai\scripts\install.ps1 -Target opencode -Scope project
 ```
 
 See `plugins/planvas-ai/INSTALL.md` and `user_guide.md` for the full tool list.
+
+Users can also install from inside the app: open a Project, go to Project
+Settings, choose `Connect to your AI agent`, select the tool, then use `Copy`
+or `Run`. This Project Settings flow installs into the selected Project path
+rather than a user-global directory.
 
 If a previous dev session left either port busy, stop the local dev processes:
 
