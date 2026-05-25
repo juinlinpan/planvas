@@ -55,6 +55,16 @@
 - [x] Add tests for frame containment, table cell containment, semantic link canonical data, derived object connections, presentation-only lines, and markdown content references.
 - [ ] Update JSON export / import and future AI-readable snapshots to prefer the semantic layer while preserving current API compatibility.
 
+## AI Tool Plugin Packaging Notes
+
+- [x] Package the Planvas AI collaboration instructions as an optional plugin under `plugins/planvas-ai/` instead of bundling it with MSI/exe app installation.
+- [x] Include the `planvas-mcp` skill inside the plugin package with split references for read-only page analysis, MCP tool usage, and direct XML write/schema repair.
+- [x] Add Codex plugin metadata, Gemini CLI extension metadata, MCP config snippets, and adapter files for Claude Code, GitHub Copilot, Antigravity CLI, and OpenCode.
+- [x] Add a PowerShell install helper for Codex, Gemini CLI, Antigravity CLI, Claude Code, GitHub Copilot, and OpenCode.
+- [x] Document optional AI plugin installation in `user_guide.md` and `README.md`.
+- [x] Add a Project Settings `Connect to your AI agent` selector that shows project-scoped install commands and provides `Copy` / `Run` actions.
+- [x] Add a backend endpoint that runs only the bundled Planvas AI installer with a whitelisted target and the selected Project path.
+
 ## Navigation Update Notes
 
 - [x] Make the workspace left page sidebar and right inspector collapsible with a persistent restore handle.
@@ -475,33 +485,33 @@ Goal: reduce `frontend/src/App.tsx` from a mixed orchestration/rendering file in
 Split order:
 
 - [x] Extract workspace tab state and rendering into `frontend/src/workspaceTabState.ts` and `frontend/src/WorkspaceTabs.tsx`.
-  Scope: `WorkspaceTab`, visible-tab filtering, active tab detection, tab close/open/reorder, tab drag/drop, and tab bar JSX.
-  Keep in `App.tsx`: selected project/page/note ids and callbacks that change them.
-  Verify: page tabs open on page selection, note tabs open from Notes, active tab switching works, tab close fallback still selects the previous page tab, tab drag reorder still works, `npm.cmd run build --workspace frontend`.
+      Scope: `WorkspaceTab`, visible-tab filtering, active tab detection, tab close/open/reorder, tab drag/drop, and tab bar JSX.
+      Keep in `App.tsx`: selected project/page/note ids and callbacks that change them.
+      Verify: page tabs open on page selection, note tabs open from Notes, active tab switching works, tab close fallback still selects the previous page tab, tab drag reorder still works, `npm.cmd run build --workspace frontend`.
 
 - [x] Extract left workspace sidebar rendering into `frontend/src/WorkspaceSidebar.tsx`.
-  Scope: project header, sidebar collapse button, Pages box, Notes box, page rename/delete buttons, note open/delete buttons, note/page drag targets.
-  Keep in `App.tsx`: data loading, mutations, selected ids, and mutation handlers.
-  Verify: Home button, project settings button, sidebar collapse/restore, page create/rename/delete, note open/delete, note drag-to-page placement, page reorder, `npm.cmd run build --workspace frontend`.
+      Scope: project header, sidebar collapse button, Pages box, Notes box, page rename/delete buttons, note open/delete buttons, note/page drag targets.
+      Keep in `App.tsx`: data loading, mutations, selected ids, and mutation handlers.
+      Verify: Home button, project settings button, sidebar collapse/restore, page create/rename/delete, note open/delete, note drag-to-page placement, page reorder, `npm.cmd run build --workspace frontend`.
 
 - [x] Extract project settings dialog into `frontend/src/ProjectSettingsDialog.tsx`.
-  Scope: project name form, theme dropdown, project path/reveal control, default style controls, and delete-project entry point.
-  Keep in `App.tsx`: `selectedProjectDefaultStyle`, `handleSaveProjectName`, `handleChangeProjectTheme`, `handleChangeProjectDefaultStyle`, `handleRevealProject`, delete dialog state.
-  Verify: project rename, theme change, default style changes, open folder, delete dialog launch, `npm.cmd run build --workspace frontend`.
+      Scope: project name form, theme dropdown, project path/reveal control, default style controls, and delete-project entry point.
+      Keep in `App.tsx`: `selectedProjectDefaultStyle`, `handleSaveProjectName`, `handleChangeProjectTheme`, `handleChangeProjectDefaultStyle`, `handleRevealProject`, delete dialog state.
+      Verify: project rename, theme change, default style changes, open folder, delete dialog launch, `npm.cmd run build --workspace frontend`.
 
 - [x] Extract page import/export orchestration into `frontend/src/usePageImportExport.ts`.
-  Scope: PNG/PPTX/Markdown/HTML export click flow, export image modal data, Mermaid import modal state, cross-project import modal state, and file picker helpers if they remain local to `App.tsx`.
-  Keep in `App.tsx`: selected project/page ids, `pages`, `projectNotes`, `setPages`, `setSelectedPageId`, note refresh callback, and `runMutation`.
-  Verify: PNG export empty-page error, PNG export modal confirm/cancel, PPTX export, Markdown export, HTML export, Mermaid import, cross-project import, `npm.cmd run build --workspace frontend`.
+      Scope: PNG/PPTX/Markdown/HTML export click flow, export image modal data, Mermaid import modal state, cross-project import modal state, and file picker helpers if they remain local to `App.tsx`.
+      Keep in `App.tsx`: selected project/page ids, `pages`, `projectNotes`, `setPages`, `setSelectedPageId`, note refresh callback, and `runMutation`.
+      Verify: PNG export empty-page error, PNG export modal confirm/cancel, PPTX export, Markdown export, HTML export, Mermaid import, cross-project import, `npm.cmd run build --workspace frontend`.
 
 - [x] Extract project/page/note loading and cache coordination into `frontend/src/useWorkspaceData.ts`.
-  Scope: `loadWorkspace`, `loadProjectSidebarData`, project notes refresh, focus/visibility refresh, board cache refs, page refresh tokens, selected page ref, and workspace entry retry.
-  Keep in `App.tsx`: high-level view state and UI composition.
-  Verify: initial home load, open project, browser back/forward route sync, project refresh, project notes refresh on focus, page cache restore, page refresh token reload, `npm.cmd run build --workspace frontend`.
+      Scope: `loadWorkspace`, `loadProjectSidebarData`, project notes refresh, focus/visibility refresh, board cache refs, page refresh tokens, selected page ref, and workspace entry retry.
+      Keep in `App.tsx`: high-level view state and UI composition.
+      Verify: initial home load, open project, browser back/forward route sync, project refresh, project notes refresh on focus, page cache restore, page refresh token reload, `npm.cmd run build --workspace frontend`.
 
 - [x] Extract shared App utility helpers into focused files.
-  Scope: move `buildUntitledPageName`, `selectFallbackId`, sidebar reorder helpers, file picker types/helpers, and App-only icons out of `App.tsx` when they are not already extracted.
-  Verify: no `App.tsx`-local helper remains unless it directly coordinates top-level state, no unused local warnings in `App.tsx` under `tsc --noUnusedLocals --noUnusedParameters`, `npm.cmd run build --workspace frontend`.
+      Scope: move `buildUntitledPageName`, `selectFallbackId`, sidebar reorder helpers, file picker types/helpers, and App-only icons out of `App.tsx` when they are not already extracted.
+      Verify: no `App.tsx`-local helper remains unless it directly coordinates top-level state, no unused local warnings in `App.tsx` under `tsc --noUnusedLocals --noUnusedParameters`, `npm.cmd run build --workspace frontend`.
 
 Rules for each split:
 
@@ -518,39 +528,39 @@ Goal: 將 2074 行的單一巨型 hook 依互動職責拆成多個聚焦 hook，
 Split order:
 
 - [x] Extract wheel / scroll target detection helpers into `frontend/src/canvasHelpers/scrollTarget.ts`.
-  Scope: `isScrollableOverflow`, `isScrollableWheelTarget` — 已提取為純函式。
-  Keep in `useCanvasMouseHandlers.ts`: 所有 state 與事件 handler。
-  Verify: ✅ `npm run build --workspace frontend` 通過。
+      Scope: `isScrollableOverflow`, `isScrollableWheelTarget` — 已提取為純函式。
+      Keep in `useCanvasMouseHandlers.ts`: 所有 state 與事件 handler。
+      Verify: ✅ `npm run build --workspace frontend` 通過。
 
 - [x] Extract viewport pan logic into `frontend/src/useCanvasPan.ts`.
-  Scope: `startViewportPan`、`handlePanMove`、`handlePanEnd` — 已提取。
-  Keep in `useCanvasMouseHandlers.ts`: dispatch 到 pan hook 的入口呼叫。
-  Verify: ✅ `npm run build --workspace frontend` 通過。
+      Scope: `startViewportPan`、`handlePanMove`、`handlePanEnd` — 已提取。
+      Keep in `useCanvasMouseHandlers.ts`: dispatch 到 pan hook 的入口呼叫。
+      Verify: ✅ `npm run build --workspace frontend` 通過。
 
 - [x] Extract marquee selection logic into `frontend/src/useCanvasMarquee.ts`.
-  Scope: `startMarqueeSelection`、`handleMarqueeMove`、`handleMarqueeEnd` — 已提取。
-  Keep in `useCanvasMouseHandlers.ts`: 分派到 marquee hook 的呼叫。
-  Verify: ✅ `npm run build --workspace frontend` 通過。
+      Scope: `startMarqueeSelection`、`handleMarqueeMove`、`handleMarqueeEnd` — 已提取。
+      Keep in `useCanvasMouseHandlers.ts`: 分派到 marquee hook 的呼叫。
+      Verify: ✅ `npm run build --workspace frontend` 通過。
 
 - [x] Extract item resize logic into `frontend/src/useCanvasResize.ts`.
-  Scope: `startResize`、`handleResizeMove`、`handleResizeEnd`，包含 magnet resize 吸附計算與 frame/table relayout — 已提取。
-  Keep in `useCanvasMouseHandlers.ts`: resize 入口分派。
-  Verify: ✅ `npm run build --workspace frontend` 通過。
+      Scope: `startResize`、`handleResizeMove`、`handleResizeEnd`，包含 magnet resize 吸附計算與 frame/table relayout — 已提取。
+      Keep in `useCanvasMouseHandlers.ts`: resize 入口分派。
+      Verify: ✅ `npm run build --workspace frontend` 通過。
 
 - [x] Extract segment endpoint & waypoint drag logic into `frontend/src/useCanvasSegmentDrag.ts`.
-  Scope: endpoint drag、waypoint drag、midpoint 插入，以及 `SegmentDraftState` 繪製流程 — 已提取。
-  Keep in `useCanvasMouseHandlers.ts`: 入口分派。
-  Verify: ✅ `npm run build --workspace frontend` 通過。
+      Scope: endpoint drag、waypoint drag、midpoint 插入，以及 `SegmentDraftState` 繪製流程 — 已提取。
+      Keep in `useCanvasMouseHandlers.ts`: 入口分派。
+      Verify: ✅ `npm run build --workspace frontend` 通過。
 
 - [x] Extract table insert preview logic into `frontend/src/useCanvasTableInsert.ts`.
-  Scope: `startTableInsertDraft`、`handleTableInsertMouseMove`、`handleTableInsertMouseUp` — 已提取。
-  Keep in `useCanvasMouseHandlers.ts`: 入口分派。
-  Verify: ✅ `npm run build --workspace frontend` 通過。
+      Scope: `startTableInsertDraft`、`handleTableInsertMouseMove`、`handleTableInsertMouseUp` — 已提取。
+      Keep in `useCanvasMouseHandlers.ts`: 入口分派。
+      Verify: ✅ `npm run build --workspace frontend` 通過。
 
 - [ ] Slim `useCanvasMouseHandlers.ts` down to a thin coordinator — **部分完成**。
-  已完成：所有上述職責已提取，coordinator 現在只剩 `mousedown` / `mousemove` / `mouseup` / `wheel` 入口分派。
-  尚待完成：item drag/move 的核心 state 仍在 coordinator 中，可在後續步驟提取到 `useCanvasItemDrag.ts`。
-  Verify: `tsc --noUnusedLocals --noUnusedParameters` 無警告（useCanvasMouseHandlers.ts 本身已清乾淨）、`npm run build --workspace frontend` ✅。
+      已完成：所有上述職責已提取，coordinator 現在只剩 `mousedown` / `mousemove` / `mouseup` / `wheel` 入口分派。
+      尚待完成：item drag/move 的核心 state 仍在 coordinator 中，可在後續步驟提取到 `useCanvasItemDrag.ts`。
+      Verify: `tsc --noUnusedLocals --noUnusedParameters` 無警告（useCanvasMouseHandlers.ts 本身已清乾淨）、`npm run build --workspace frontend` ✅。
 
 Rules for each split:
 
@@ -568,34 +578,34 @@ Goal: 將 1848 行的主元件從「渲染 + 狀態 + 副作用全混」拆成�
 Split order:
 
 - [x] Extract inline-edit session state into `frontend/src/useCanvasEditSession.ts`.
-  Scope: `EditSessionState` 初始化與更新、`handleStartEdit` / `handleCommitEdit` / `handleCancelEdit`，以及雙擊觸發 edit 的判斷。
-  Keep in `Canvas.tsx`: 傳入 `editSession` 與回調給下層元件。
-  Verify: text_box / sticky_note / note_paper 雙擊進入編輯、Escape 取消、點擊外部提交、`npm.cmd run build --workspace frontend`。
+      Scope: `EditSessionState` 初始化與更新、`handleStartEdit` / `handleCommitEdit` / `handleCancelEdit`，以及雙擊觸發 edit 的判斷。
+      Keep in `Canvas.tsx`: 傳入 `editSession` 與回調給下層元件。
+      Verify: text_box / sticky_note / note_paper 雙擊進入編輯、Escape 取消、點擊外部提交、`npm.cmd run build --workspace frontend`。
 
 - [x] Extract sidebar note drag-drop-to-canvas logic into `frontend/src/useCanvasNoteDrop.ts`.
-  Scope: `onDragOver` / `onDrop` 針對 sidebar note 拖入畫布的處理（`resolveSidebarNoteDragFile` 呼叫與後續 `createBoardItem`）。
-  Keep in `Canvas.tsx`: 傳入 drop 回調給 canvas container div。
-  Verify: 從側欄 Notes box 拖放 note_paper 到畫布後出現、位置正確吸附到 grid、`npm.cmd run build --workspace frontend`。
+      Scope: `onDragOver` / `onDrop` 針對 sidebar note 拖入畫布的處理（`resolveSidebarNoteDragFile` 呼叫與後續 `createBoardItem`）。
+      Keep in `Canvas.tsx`: 傳入 drop 回調給 canvas container div。
+      Verify: 從側欄 Notes box 拖放 note_paper 到畫布後出現、位置正確吸附到 grid、`npm.cmd run build --workspace frontend`。
 
 - [x] Extract connector rendering into `frontend/src/CanvasConnectorLayer.tsx`.
-  (Note: Legacy connector rendering was already removed/migrated to BoardItemRenderer; anchor indicators moved to CanvasItemLayer.)
-  Scope: 所有 `ConnectorLink` 的 SVG 渲染邏輯（segment path 計算、箭頭頭部、label、hover 樣式）。
-  Keep in `Canvas.tsx`: 傳入 `connectors`、`selectedIds`、`viewport` 等 props 給新元件。
-  Verify: arrow / line 顯示正確、label 顯示、端點 anchor 指示器、hover 高亮、`npm.cmd run build --workspace frontend`。
+      (Note: Legacy connector rendering was already removed/migrated to BoardItemRenderer; anchor indicators moved to CanvasItemLayer.)
+      Scope: 所有 `ConnectorLink` 的 SVG 渲染邏輯（segment path 計算、箭頭頭部、label、hover 樣式）。
+      Keep in `Canvas.tsx`: 傳入 `connectors`、`selectedIds`、`viewport` 等 props 給新元件。
+      Verify: arrow / line 顯示正確、label 顯示、端點 anchor 指示器、hover 高亮、`npm.cmd run build --workspace frontend`。
 
 - [x] Extract per-item-type rendering into `frontend/src/CanvasItemLayer.tsx`.
-  Scope: `items.map(...)` 的 JSX 輸出，包含每個 item type 的 switch/dispatch 渲染，以及 frame collapse 預覽摘要。
-  Keep in `Canvas.tsx`: 傳入 `items`、`selectedIds`、`editSession`、`viewport` 等 props。
-  Verify: 所有 item 類型正常顯示、frame collapse/expand 正常、selected 高亮正常、`npm.cmd run build --workspace frontend`。
+      Scope: `items.map(...)` 的 JSX 輸出，包含每個 item type 的 switch/dispatch 渲染，以及 frame collapse 預覽摘要。
+      Keep in `Canvas.tsx`: 傳入 `items`、`selectedIds`、`editSession`、`viewport` 等 props。
+      Verify: 所有 item 類型正常顯示、frame collapse/expand 正常、selected 高亮正常、`npm.cmd run build --workspace frontend`。
 
 - [x] Extract canvas context menu rendering into `frontend/src/CanvasContextMenuLayer.tsx`.
-  Scope: item context menu 與 canvas context menu 的 JSX、visibility 判斷、位置計算。
-  Keep in `Canvas.tsx`: 傳入 `contextMenuState` 與 action 回調。
-  Verify: 右鍵物件顯示 cut/copy/paste/delete 選單、右鍵空白顯示 paste 選單、選單動作行為正確、`npm.cmd run build --workspace frontend`。
+      Scope: item context menu 與 canvas context menu 的 JSX、visibility 判斷、位置計算。
+      Keep in `Canvas.tsx`: 傳入 `contextMenuState` 與 action 回調。
+      Verify: 右鍵物件顯示 cut/copy/paste/delete 選單、右鍵空白顯示 paste 選單、選單動作行為正確、`npm.cmd run build --workspace frontend`。
 
 - [x] Verify `Canvas.tsx` is a thin coordinator after all extractions.
-  Scope: 確認 `Canvas.tsx` 只剩 hook 組合 + props 傳遞 + 最外層 div 結構，無業務邏輯散落。
-  Verify: `tsc --noUnusedLocals --noUnusedParameters` 無警告、所有 Canvas 相關測試通過、`npm.cmd run build --workspace frontend`。
+      Scope: 確認 `Canvas.tsx` 只剩 hook 組合 + props 傳遞 + 最外層 div 結構，無業務邏輯散落。
+      Verify: `tsc --noUnusedLocals --noUnusedParameters` 無警告、所有 Canvas 相關測試通過、`npm.cmd run build --workspace frontend`。
 
 Rules for each split:
 
@@ -613,34 +623,34 @@ Goal: 將 1749 行的 table 資料 god module 按功能域拆成多個聚焦模�
 Split order:
 
 - [x] Extract type definitions into `frontend/src/tableData/types.ts`.
-  Scope: `TableCellData`、`TableData`、`SegmentGroup`、`CellPosition`、`TableCellDeleteOperation`、`TableChildLayoutDirection` 以及所有常數（`TABLE_MIN_DIMENSION`、`TABLE_MAX_DIMENSION`、`TABLE_CELL_MIN_*`、`DEFAULT_TABLE_LABEL_FONT_SIZE` 等）。
-  Keep in `core.ts`: 所有函式實作。
-  Verify: `tsc` 無錯誤、現有測試通過、`npm.cmd run build --workspace frontend`。
+      Scope: `TableCellData`、`TableData`、`SegmentGroup`、`CellPosition`、`TableCellDeleteOperation`、`TableChildLayoutDirection` 以及所有常數（`TABLE_MIN_DIMENSION`、`TABLE_MAX_DIMENSION`、`TABLE_CELL_MIN_*`、`DEFAULT_TABLE_LABEL_FONT_SIZE` 等）。
+      Keep in `core.ts`: 所有函式實作。
+      Verify: `tsc` 無錯誤、現有測試通過、`npm.cmd run build --workspace frontend`。
 
 - [x] Extract serialization into `frontend/src/tableData/serialization.ts`.
-  Scope: `serializeTableData`、`parseTableData`、`hasNewFormat`、`parseNewFormat`、`parseOldFormat`、`parseDividerPositions`、`parseDividerBreaks`，以及 sanitize helpers（`sanitizeTableName`、`sanitizeTableLabelFontSize`、`sanitizeTableChildLayoutDirection`）。
-  Verify: `parseTableData` 往返序列化正確、舊格式 migration 仍正常、`npm.cmd run build --workspace frontend`。
+      Scope: `serializeTableData`、`parseTableData`、`hasNewFormat`、`parseNewFormat`、`parseOldFormat`、`parseDividerPositions`、`parseDividerBreaks`，以及 sanitize helpers（`sanitizeTableName`、`sanitizeTableLabelFontSize`、`sanitizeTableChildLayoutDirection`）。
+      Verify: `parseTableData` 往返序列化正確、舊格式 migration 仍正常、`npm.cmd run build --workspace frontend`。
 
 - [x] Extract cell mutation operations into `frontend/src/tableData/cellOps.ts`.
-  Scope: `createTableData`、`makeCell`（改為 module-private）、`updateTableCell`、`clearTableCells`、`getTableCellDeleteOperation`、`mergeCells`、`splitCellHorizontal`、`splitCellVertical`、`countFilledTableCells`、`getTableCellSummary`、`findCellByChildItemId`、`getChildItemIdsInRows`、`getChildItemIdsInCols`、`getTableCellIdsInRows`、`getTableCellIdsInCols`。
-  Verify: merge/split 儲存格行為不變、child item 查詢正確、`npm.cmd run build --workspace frontend`。
+      Scope: `createTableData`、`makeCell`（改為 module-private）、`updateTableCell`、`clearTableCells`、`getTableCellDeleteOperation`、`mergeCells`、`splitCellHorizontal`、`splitCellVertical`、`countFilledTableCells`、`getTableCellSummary`、`findCellByChildItemId`、`getChildItemIdsInRows`、`getChildItemIdsInCols`、`getTableCellIdsInRows`、`getTableCellIdsInCols`。
+      Verify: merge/split 儲存格行為不變、child item 查詢正確、`npm.cmd run build --workspace frontend`。
 
 - [x] Extract row / column operations into `frontend/src/tableData/rowColOps.ts`.
-  Scope: `addRow`、`addCol`、`deleteRow`、`deleteCol`、`deleteRows`、`deleteCols`、`resizeColumn`、`resizeRow`、`resizeTableData`、`preserveOuterAddColLayout`、`preserveOuterAddRowLayout`、`preserveOuterPrependColLayout`、`preserveOuterPrependRowLayout`。
-  Verify: 新增/刪除 row/col 後 layout 正確、刪除後 child items 一併清除、`npm.cmd run build --workspace frontend`。
+      Scope: `addRow`、`addCol`、`deleteRow`、`deleteCol`、`deleteRows`、`deleteCols`、`resizeColumn`、`resizeRow`、`resizeTableData`、`preserveOuterAddColLayout`、`preserveOuterAddRowLayout`、`preserveOuterPrependColLayout`、`preserveOuterPrependRowLayout`。
+      Verify: 新增/刪除 row/col 後 layout 正確、刪除後 child items 一併清除、`npm.cmd run build --workspace frontend`。
 
 - [x] Extract segment group & divider logic into `frontend/src/tableData/segmentGroups.ts`.
-  Scope: `computeColSegmentGroups`、`computeRowSegmentGroups`、`resizeColGroup`、`resizeRowGroup`、`scaleTableDividerPositions`，以及相關的 `normalizeFractions`（改為 module-private）。
-  Verify: col/row divider 拖曳吸附正確、segment group 合併邏輯不變、`npm.cmd run build --workspace frontend`。
+      Scope: `computeColSegmentGroups`、`computeRowSegmentGroups`、`resizeColGroup`、`resizeRowGroup`、`scaleTableDividerPositions`，以及相關的 `normalizeFractions`（改為 module-private）。
+      Verify: col/row divider 拖曳吸附正確、segment group 合併邏輯不變、`npm.cmd run build --workspace frontend`。
 
 - [x] Slim `core.ts` to geometry / query utilities only.
-  Scope: 確認 `core.ts` 最終只保留 `getTableMinSize`、`getTableMinSizeFromDataJson`、`getRootCellAt`、`getCumulativeColPositions`、`getCumulativeRowPositions`、`getEffectiveColEdge`、`getEffectiveRowEdge`、`getCellBounds`、`getEffectiveTableCellChildLayoutDirection`、`getNextTableLayoutUpdatedAt`。
-  Verify: `tsc --noUnusedLocals --noUnusedParameters` 無警告、所有 tableData 測試通過、`npm.cmd run build --workspace frontend`。
+      Scope: 確認 `core.ts` 最終只保留 `getTableMinSize`、`getTableMinSizeFromDataJson`、`getRootCellAt`、`getCumulativeColPositions`、`getCumulativeRowPositions`、`getEffectiveColEdge`、`getEffectiveRowEdge`、`getCellBounds`、`getEffectiveTableCellChildLayoutDirection`、`getNextTableLayoutUpdatedAt`。
+      Verify: `tsc --noUnusedLocals --noUnusedParameters` 無警告、所有 tableData 測試通過、`npm.cmd run build --workspace frontend`。
 
 - [x] Update `frontend/src/tableData/index.ts` re-export surface.
-  (Note: The project uses `frontend/src/tableData.ts` as the main entry point and it's already updated to export from the submodules.)
-  Scope: 確認 index.ts 從所有新子模組重新 export，外部 import 路徑（`./tableData` 或 `./tableData/core`）不需要變動。
-  Verify: Canvas、useCanvasMouseHandlers 等所有 consumer import 無需修改即可通過 `tsc`。
+      (Note: The project uses `frontend/src/tableData.ts` as the main entry point and it's already updated to export from the submodules.)
+      Scope: 確認 index.ts 從所有新子模組重新 export，外部 import 路徑（`./tableData` 或 `./tableData/core`）不需要變動。
+      Verify: Canvas、useCanvasMouseHandlers 等所有 consumer import 無需修改即可通過 `tsc`。
 
 Rules for each split:
 
@@ -686,4 +696,3 @@ Rules for each split:
   - [x] Modify `canvasSyncHelpers.ts` to update local React states in-memory but NOT issue parallel `PATCH`/`PUT` requests.
   - [x] Adapt `useCanvasItemActions.ts` (e.g. `handleDeleteItems` and `handleItemUpdate`) to delegate persistence to the central Canvas scheduler.
   - [x] Adapt `useCanvasMouseHandlers.ts` drag-end connector deletion to run as part of the next board state write.
-

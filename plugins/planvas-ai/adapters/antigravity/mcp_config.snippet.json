@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "planvas": {
+      "type": "sse",
+      "url": "http://127.0.0.1:18001/sse"
+    }
+  }
+}

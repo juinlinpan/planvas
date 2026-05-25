@@ -1,0 +1,23 @@
+{
+  "name": "planvas-ai",
+  "version": "0.1.0",
+  "description": "AI collaboration package for local Planvas whiteboard projects.",
+  "author": {
+    "name": "Planvas"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Planvas AI",
+    "shortDescription": "Read and update Planvas boards.",
+    "longDescription": "Planvas AI packages the Planvas MCP connection and reusable board-reading skills for AI coding tools.",
+    "developerName": "Planvas",
+    "category": "Productivity",
+    "capabilities": ["MCP", "Skills", "Local-first"],
+    "defaultPrompt": [
+      "Summarize the current Planvas page.",
+      "Use a Planvas page to update tickets.",
+      "Create a planning board in Planvas."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}
