@@ -6,8 +6,8 @@ type Props = {
   projectId: string;
   noteFile: string;
   projectNotes: ProjectNote[];
-  onNotesChanged: () => void;
   onNoteRenamed: (previousNoteFile: string, renamedNote: ProjectNote) => void;
+  onNoteSaved: (savedNote: ProjectNote) => void;
 };
 
 type SaveStatus = 'saved' | 'saving' | 'unsaved' | 'renaming';
@@ -118,8 +118,8 @@ export function MarkdownEditor({
   projectId,
   noteFile,
   projectNotes,
-  onNotesChanged,
   onNoteRenamed,
+  onNoteSaved,
 }: Props) {
   const note = projectNotes.find((n) => n.note_file === noteFile);
   const cacheKey = `${projectId}:${noteFile}`;
@@ -165,17 +165,34 @@ export function MarkdownEditor({
       }
       setSaveStatus('saving');
       try {
-        await updateProjectNote(projectId, noteFile, textToSave);
+        const savedNote = await updateProjectNote(projectId, noteFile, textToSave);
         lastSavedContent.current = textToSave;
         draftCache.delete(`${projectId}:${noteFile}`);
         setSaveStatus('saved');
-        onNotesChanged();
+        onNoteSaved(savedNote);
       } catch {
         setSaveStatus('unsaved');
+        saveTimerRef.current = setTimeout(() => {
+          saveTimerRef.current = null;
+          void performSave(latestContentRef.current);
+        }, AUTOSAVE_DELAY_MS);
       }
     },
-    [projectId, noteFile, onNotesChanged],
+    [projectId, noteFile, onNoteSaved],
   );
+
+  useEffect(() => {
+    if (latestContentRef.current === lastSavedContent.current) {
+      return;
+    }
+    if (saveTimerRef.current !== null) {
+      return;
+    }
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
+      void performSave(latestContentRef.current);
+    }, AUTOSAVE_DELAY_MS);
+  }, [performSave]);
 
   function handleContentChange(newContent: string) {
     latestContentRef.current = newContent;
@@ -202,6 +219,10 @@ export function MarkdownEditor({
     }
     await performSave(latestContentRef.current);
   }, [performSave]);
+
+  function handleSaveClick(): void {
+    void flushPendingSave();
+  }
 
   async function commitFileNameChange(): Promise<void> {
     const nextNoteFile = normalizeFileName(fileNameDraft);
@@ -234,7 +255,6 @@ export function MarkdownEditor({
       setFileNameDraft(renamed.note_file);
       setSaveStatus('saved');
       onNoteRenamed(noteFile, renamed);
-      onNotesChanged();
     } catch (error) {
       setSaveStatus(
         latestContentRef.current === lastSavedContent.current
@@ -282,10 +302,16 @@ export function MarkdownEditor({
       if (unsaved !== lastSavedContent.current) {
         // Keep the draft in cache so it survives the remount.
         draftCache.set(`${projectId}:${noteFile}`, unsaved);
-        void updateProjectNote(projectId, noteFile, unsaved).catch(() => {});
+        void updateProjectNote(projectId, noteFile, unsaved)
+          .then((savedNote) => {
+            lastSavedContent.current = savedNote.content;
+            draftCache.delete(`${projectId}:${noteFile}`);
+            onNoteSaved(savedNote);
+          })
+          .catch(() => {});
       }
     };
-  }, [projectId, noteFile]);
+  }, [projectId, noteFile, onNoteSaved]);
 
   // Keyboard shortcut: Ctrl+S / Cmd+S immediate save.
   useEffect(() => {
@@ -430,6 +456,15 @@ export function MarkdownEditor({
         </div>
 
         <div className="markdown-editor-view-toggle">
+          <button
+            type="button"
+            className="markdown-editor-save-btn"
+            onClick={handleSaveClick}
+            disabled={saveStatus === 'saving' || saveStatus === 'renaming'}
+            title="Save markdown note now"
+          >
+            Save
+          </button>
           {(['edit', 'split', 'preview'] as ViewMode[]).map((mode) => (
             <button
               key={mode}

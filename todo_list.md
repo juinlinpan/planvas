@@ -154,6 +154,13 @@
 - [x] Add project-level note listing API and sidebar drag placement for markdown-backed notes.
 - [x] Refresh `.pv_project/*.md` project notes from disk when the workspace regains focus or the tab becomes visible, and update visible `note_paper` placements that reference changed files.
 - [x] Preserve active in-app markdown drafts when an external note refresh arrives.
+- [x] Add a manual Markdown note `Save` button and keep open note-tab drafts available across workspace tab switches before autosave fires.
+- [x] Update project-note state immediately after a successful Markdown note save so tab switches cannot reload stale note content while the background notes refresh is pending.
+- [x] Stop Markdown note saves from triggering project-note refresh cycles; use the save API response to update local note state instead.
+- [x] Stop Canvas board autosave from replacing the item array or refreshing project notes unless backend-managed note metadata actually changed.
+- [x] Change background project-note refresh on focus/visibility return into a diff check that only marks the Notes refresh button when updates are available.
+- [x] Add a Notes refresh-button update indicator and apply changed project notes only when the user clicks refresh.
+- [x] Make remounted unsaved Markdown drafts schedule autosave without requiring another edit, and retry failed note autosaves on the normal interval.
 
 ## Table And Small-Item Sizing Update Notes
 

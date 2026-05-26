@@ -169,6 +169,7 @@
 }
 
 .sidebar-section-refresh {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -178,6 +179,21 @@
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.06);
   color: var(--sidebar-muted);
+}
+
+.sidebar-section-refresh.has-updates {
+  color: var(--sidebar-ink);
+}
+
+.sidebar-refresh-indicator {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--sidebar-surface);
+  border-radius: 999px;
+  background: #f59e0b;
 }
 
 .sidebar-section-refresh:hover:not(:disabled) {

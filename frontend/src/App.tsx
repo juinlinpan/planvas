@@ -76,6 +76,7 @@ export function App() {
     setPages,
     projectNotes,
     setProjectNotes,
+    hasProjectNoteUpdates,
     selectedProjectId,
     setSelectedProjectId,
     selectedPageId,
@@ -265,6 +266,20 @@ export function App() {
       }));
     }
   }
+
+  const handleNoteSaved = useCallback(
+    (savedNote: ProjectNote): void => {
+      setProjectNotes((current) => {
+        const replaced = current.map((note) =>
+          note.note_file === savedNote.note_file ? savedNote : note,
+        );
+        return replaced.some((note) => note.note_file === savedNote.note_file)
+          ? replaced
+          : [...replaced, savedNote];
+      });
+    },
+    [setProjectNotes],
+  );
 
   function openCreateProjectDialog(): void {
     setCreateProjectNameDraft('Untitled Project');
@@ -840,6 +855,7 @@ export function App() {
           isLoadingNotes={isLoadingNotes}
           pages={pages}
           projectNotes={projectNotes}
+          hasProjectNoteUpdates={hasProjectNoteUpdates}
           openTabs={openTabs}
           dragState={dragState}
           dropState={dropState}
@@ -903,11 +919,7 @@ export function App() {
                 noteFile={activeNoteFile}
                 projectNotes={projectNotes}
                 onNoteRenamed={handleNoteRenamed}
-                onNotesChanged={() => {
-                  if (selectedProjectId !== null) {
-                    void refreshProjectNotes(selectedProjectId);
-                  }
-                }}
+                onNoteSaved={handleNoteSaved}
               />
             ) : selectedProject === null ? (
               <section className="hero-panel">

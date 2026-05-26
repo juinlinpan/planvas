@@ -45,6 +45,7 @@ export interface WorkspaceSidebarProps {
   isLoadingNotes: boolean;
   pages: Page[];
   projectNotes: ProjectNote[];
+  hasProjectNoteUpdates: boolean;
   openTabs: WorkspaceTab[];
   dragState: SidebarDragState | null;
   dropState: SidebarDropState | null;
@@ -75,6 +76,7 @@ export function WorkspaceSidebar({
   isLoadingNotes,
   pages,
   projectNotes,
+  hasProjectNoteUpdates,
   openTabs,
   dragState,
   dropState,
@@ -437,15 +439,24 @@ export function WorkspaceSidebar({
           <div className="sidebar-section-actions">
             <button
               type="button"
-              className="ghost-button sidebar-section-refresh"
+              className={`ghost-button sidebar-section-refresh ${
+                hasProjectNoteUpdates ? 'has-updates' : ''
+              }`}
               disabled={isMutating || isLoadingNotes}
-              title="Refresh notes"
+              title={
+                hasProjectNoteUpdates
+                  ? 'Refresh notes: updates available'
+                  : 'Refresh notes'
+              }
               onClick={(e) => {
                 e.stopPropagation();
                 onRefreshNotes();
               }}
             >
               <IconRefresh />
+              {hasProjectNoteUpdates ? (
+                <span className="sidebar-refresh-indicator" />
+              ) : null}
             </button>
             <span className="count-badge">{projectNotes.length}</span>
           </div>

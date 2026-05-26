@@ -130,6 +130,28 @@
   flex-shrink: 0;
 }
 
+.markdown-editor-save-btn {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--project-accent, #197377);
+  border-radius: 6px;
+  background: var(--project-accent, #197377);
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.markdown-editor-save-btn:hover:not(:disabled) {
+  background: var(--project-accent-dark, #163238);
+  border-color: var(--project-accent-dark, #163238);
+}
+
+.markdown-editor-save-btn:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .markdown-editor-view-btn {
   padding: 4px 12px;
   border: none;

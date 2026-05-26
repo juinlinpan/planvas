@@ -328,9 +328,17 @@ export function Canvas({
         const serverItemsById = new Map(
           persisted.board_items.map((it) => [it.id, it]),
         );
+        let serverNoteMetadataChanged = false;
         const nextItems = itemsRef.current.map((item) => {
           const serverItem = serverItemsById.get(item.id);
           if (serverItem && item.type === ITEM_TYPE.note_paper) {
+            if (
+              item.title === serverItem.title &&
+              item.data_json === serverItem.data_json
+            ) {
+              return item;
+            }
+            serverNoteMetadataChanged = true;
             return {
               ...item,
               title: serverItem.title,
@@ -340,15 +348,9 @@ export function Canvas({
           return item;
         });
 
-        if (nextItems !== itemsRef.current) {
+        if (serverNoteMetadataChanged) {
           itemsRef.current = nextItems;
           setItems(nextItems);
-        }
-
-        const hasNotePaper = itemsRef.current.some(
-          (item) => item.type === ITEM_TYPE.note_paper,
-        );
-        if (hasNotePaper) {
           onProjectNotesChanged?.();
         }
       } catch (err) {

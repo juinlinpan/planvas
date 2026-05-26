@@ -51,6 +51,7 @@ export interface UseWorkspaceDataResult {
   setPages: Dispatch<SetStateAction<Page[]>>;
   projectNotes: ProjectNote[];
   setProjectNotes: Dispatch<SetStateAction<ProjectNote[]>>;
+  hasProjectNoteUpdates: boolean;
   selectedProjectId: string | null;
   setSelectedProjectId: Dispatch<SetStateAction<string | null>>;
   selectedPageId: string | null;
@@ -70,6 +71,7 @@ export interface UseWorkspaceDataResult {
     signal?: AbortSignal,
   ) => Promise<void>;
   refreshProjectNotes: (projectId: string) => Promise<void>;
+  checkProjectNotesChanged: (projectId: string) => Promise<void>;
   refreshCurrentProjectFromDisk: () => Promise<void>;
   handlePageViewportChange: (
     pageId: string,
@@ -104,6 +106,25 @@ function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError';
 }
 
+function areProjectNotesEqual(
+  left: ProjectNote[],
+  right: ProjectNote[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((note, index) => {
+      const rightNote = right[index];
+      return (
+        rightNote !== undefined &&
+        note.note_file === rightNote.note_file &&
+        note.title === rightNote.title &&
+        note.content === rightNote.content &&
+        note.updated_at === rightNote.updated_at
+      );
+    })
+  );
+}
+
 
 
 export function useWorkspaceData({
@@ -115,6 +136,7 @@ export function useWorkspaceData({
   const [projects, setProjects] = useState<Project[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
   const [projectNotes, setProjectNotes] = useState<ProjectNote[]>([]);
+  const [hasProjectNoteUpdates, setHasProjectNoteUpdates] = useState(false);
   const initialRoute = useMemo(() => readAppRoute(window.location.search), []);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     initialRoute.view === 'workspace' ? initialRoute.projectId : null,
@@ -141,6 +163,7 @@ export function useWorkspaceData({
   );
 
   const pageBoardCacheRef = useRef<Map<string, PageBoardCacheEntry>>(new Map());
+  const projectNotesRef = useRef<ProjectNote[]>(projectNotes);
   const selectedPageIdRef = useRef<string | null>(selectedPageId);
   const projectDataLoadIdRef = useRef(0);
   const workspaceEntryRetryAttemptedRef = useRef<number | null>(null);
@@ -148,6 +171,10 @@ export function useWorkspaceData({
   useEffect(() => {
     selectedPageIdRef.current = selectedPageId;
   }, [selectedPageId]);
+
+  useEffect(() => {
+    projectNotesRef.current = projectNotes;
+  }, [projectNotes]);
 
   const updateCachedPageBoardData = useCallback((data: PageBoardData) => {
     pageBoardCacheRef.current.set(data.page.id, data);
@@ -189,6 +216,7 @@ export function useWorkspaceData({
         markProjectPagesAsUnloaded(nextPages);
         setPages(nextPages);
         setProjectNotes(nextNotes);
+        setHasProjectNoteUpdates(false);
         const nextPageId =
           preferredPageId !== null &&
           nextPages.some((page) => page.id === preferredPageId)
@@ -212,6 +240,7 @@ export function useWorkspaceData({
         setErrorMessage(getErrorMessage(error));
         setPages([]);
         setProjectNotes([]);
+        setHasProjectNoteUpdates(false);
         setSelectedPageId(null);
       } finally {
         if (!signal?.aborted && projectDataLoadIdRef.current === loadId) {
@@ -268,6 +297,7 @@ export function useWorkspaceData({
       if (!isSameProject) {
         setPages([]);
         setProjectNotes([]);
+        setHasProjectNoteUpdates(false);
       }
 
       syncBrowserRoute(
@@ -349,9 +379,20 @@ export function useWorkspaceData({
           }
           return nextNotes;
         });
+        setHasProjectNoteUpdates(false);
       } finally {
         setIsLoadingNotes(false);
       }
+    },
+    [],
+  );
+
+  const checkProjectNotesChanged = useCallback(
+    async (projectId: string): Promise<void> => {
+      const nextNotes = await listProjectNotes(projectId);
+      setHasProjectNoteUpdates(
+        !areProjectNotesEqual(projectNotesRef.current, nextNotes),
+      );
     },
     [],
   );
@@ -362,11 +403,13 @@ export function useWorkspaceData({
     }
 
     try {
-      await refreshProjectNotes(selectedProjectId);
+      if (!hasProjectNoteUpdates) {
+        await checkProjectNotesChanged(selectedProjectId);
+      }
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     }
-  }, [refreshProjectNotes, selectedProjectId]);
+  }, [checkProjectNotesChanged, hasProjectNoteUpdates, selectedProjectId]);
 
   // Initial load
   useEffect(() => {
@@ -446,6 +489,7 @@ export function useWorkspaceData({
       pageBoardCacheRef.current.clear();
       setPages([]);
       setProjectNotes([]);
+      setHasProjectNoteUpdates(false);
       setSelectedPageId(null);
       return;
     }
@@ -545,6 +589,7 @@ export function useWorkspaceData({
     setPages,
     projectNotes,
     setProjectNotes,
+    hasProjectNoteUpdates,
     selectedProjectId,
     setSelectedProjectId,
     selectedPageId,
@@ -560,6 +605,7 @@ export function useWorkspaceData({
     loadWorkspace,
     loadProjectSidebarData,
     refreshProjectNotes,
+    checkProjectNotesChanged,
     refreshCurrentProjectFromDisk,
     handlePageViewportChange,
     goHome,
