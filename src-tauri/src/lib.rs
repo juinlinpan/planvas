@@ -14,6 +14,7 @@ use std::process::{Child, Command, Stdio};
 use std::ptr::null;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use tauri::Manager;
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
 #[cfg(target_os = "windows")]
@@ -45,11 +46,28 @@ pub fn run() {
     let backend_process_for_setup = Arc::clone(&backend_process);
 
     tauri::Builder::default()
-        .setup(move |_app| {
-            let child = ensure_backend_ready()?;
-            *backend_process_for_setup
-                .lock()
-                .expect("backend mutex poisoned") = child;
+        .setup(move |app| {
+            let resource_dir = match app.path().resource_dir() {
+                Ok(path) => Some(path),
+                Err(error) => {
+                    log_desktop_shell_error(format!(
+                        "Could not resolve packaged resource directory: {error}"
+                    ));
+                    None
+                }
+            };
+
+            match ensure_backend_ready(resource_dir.as_deref()) {
+                Ok(child) => {
+                    *backend_process_for_setup
+                        .lock()
+                        .expect("backend mutex poisoned") = child;
+                }
+                Err(error) => {
+                    log_desktop_shell_error(format!("Could not start packaged backend: {error}"));
+                    eprintln!("Could not start packaged backend: {error}");
+                }
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![desktop_health])
@@ -64,13 +82,13 @@ pub fn run() {
     );
 }
 
-fn ensure_backend_ready() -> io::Result<Option<ManagedBackendProcess>> {
+fn ensure_backend_ready(resource_dir: Option<&Path>) -> io::Result<Option<ManagedBackendProcess>> {
     if wait_for_backend(Duration::from_secs(8)) {
         return Ok(None);
     }
 
-    let backend_entry = resolve_backend_entry_script()?;
-    let child = ManagedBackendProcess::new(spawn_backend(&backend_entry)?)?;
+    let backend_entry = resolve_backend_entry_script(resource_dir)?;
+    let child = ManagedBackendProcess::new(spawn_backend(&backend_entry, resource_dir)?)?;
 
     if wait_for_backend(Duration::from_secs(15)) {
         return Ok(Some(child));
@@ -127,8 +145,8 @@ fn backend_healthz_ok() -> bool {
     response.starts_with("HTTP/1.1 200") && response.contains("\"status\":\"ok\"")
 }
 
-fn spawn_backend(backend_entry: &Path) -> io::Result<Child> {
-    let node_exe = find_node_exe().ok_or_else(|| {
+fn spawn_backend(backend_entry: &Path, resource_dir: Option<&Path>) -> io::Result<Child> {
+    let node_exe = find_node_exe(resource_dir).ok_or_else(|| {
         io::Error::other(
             "node.exe was not found. Install Node.js to let the Planvas desktop shell auto-start its backend.",
         )
@@ -229,7 +247,22 @@ fn attach_child_to_kill_on_close_job(child: &Child) -> io::Result<HANDLE> {
     }
 }
 
-fn resolve_backend_entry_script() -> io::Result<PathBuf> {
+fn resolve_backend_entry_script(resource_dir: Option<&Path>) -> io::Result<PathBuf> {
+    if let Some(resources_dir) = resource_dir {
+        for release_entry in [
+            resources_dir
+                .join("backend")
+                .join("dist")
+                .join("src")
+                .join("server.js"),
+            resources_dir.join("dist").join("src").join("server.js"),
+        ] {
+            if release_entry.exists() {
+                return Ok(release_entry);
+            }
+        }
+    }
+
     let resources_dir = current_exe_dir()?.join("resources");
     for release_entry in [
         current_exe_dir()?
@@ -266,7 +299,18 @@ fn resolve_backend_entry_script() -> io::Result<PathBuf> {
     ))
 }
 
-fn find_node_exe() -> Option<PathBuf> {
+fn find_node_exe(resource_dir: Option<&Path>) -> Option<PathBuf> {
+    if let Some(resources_dir) = resource_dir {
+        for packaged_node in [
+            resources_dir.join("node.exe"),
+            resources_dir.join("bin").join("node.exe"),
+        ] {
+            if packaged_node.exists() {
+                return Some(packaged_node);
+            }
+        }
+    }
+
     if let Ok(exe_dir) = current_exe_dir() {
         let resources_dir = exe_dir.join("resources");
         for packaged_node in [
@@ -310,6 +354,21 @@ fn runtime_backend_root() -> PathBuf {
     current_exe_dir()
         .unwrap_or_else(|_| env::temp_dir())
         .join("planvas-backend-runtime")
+}
+
+fn log_desktop_shell_error(message: impl AsRef<str>) {
+    let log_dir = runtime_backend_root().join("logs");
+    if fs::create_dir_all(&log_dir).is_err() {
+        return;
+    }
+
+    if let Ok(mut file) = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_dir.join("desktop-shell.log"))
+    {
+        let _ = writeln!(file, "{}", message.as_ref());
+    }
 }
 
 fn current_exe_dir() -> io::Result<PathBuf> {

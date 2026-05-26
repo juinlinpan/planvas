@@ -224,8 +224,8 @@ npm run test --workspace frontend
 npm run test --workspace backend
 npm run build
 git push origin main
-git tag v0.1.7
-git push origin v0.1.7
+git tag v0.1.8
+git push origin v0.1.8
 ```
 
 The release workflow creates a GitHub Release for the tag and uploads the NSIS
