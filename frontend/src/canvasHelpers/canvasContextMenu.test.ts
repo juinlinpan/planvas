@@ -23,6 +23,8 @@ function createContextMenuState(
     isStickyNoteOnly: false,
     canDistributeTableRows: false,
     canDistributeTableCols: false,
+    canInsertTableRowBelow: false,
+    canInsertTableColRight: false,
     ...overrides,
   };
 }
