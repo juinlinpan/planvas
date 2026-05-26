@@ -69,7 +69,7 @@ npm run desktop:build
 建置完成後，NSIS 安裝檔會產生在：
 
 ```text
-src-tauri\target\release\bundle\nsis\Planvas_0.1.4_x64-setup.exe
+src-tauri\target\release\bundle\nsis\Planvas_<version>_x64-setup.exe
 ```
 
 未來版本號可能會改變；若找不到完全相同的檔名，請在同一個資料夾中尋找：
@@ -80,7 +80,7 @@ src-tauri\target\release\bundle\nsis\Planvas_*_x64-setup.exe
 
 ### 4. 安裝與啟動
 
-1. 雙擊產生的 `Planvas_0.1.4_x64-setup.exe`。
+1. 雙擊產生的 `Planvas_<version>_x64-setup.exe`。
 2. 依照安裝程式提示完成安裝。安裝檔使用目前使用者安裝模式，通常不需要系統層級安裝權限。
 3. 從開始功能表或桌面捷徑開啟 Planvas。
 4. Planvas 啟動時會檢查 `http://127.0.0.1:18000/healthz`。若沒有可用的 backend，桌面版會自動啟動隨附的 Node backend。

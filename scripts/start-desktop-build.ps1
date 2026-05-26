@@ -6,6 +6,8 @@ $toolchain = Use-DesktopToolchain
 $projectRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $projectRoot
 
+node .\scripts\sync-version.mjs
+
 if (-not $toolchain.LinkExe) {
   Write-Error "Tauri desktop build cannot start because MSVC linker link.exe was not found. Run npm run desktop:setup first."
 }

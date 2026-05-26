@@ -197,17 +197,35 @@ installed separately. Packaged backend startup logs are written under
 ## Release
 
 GitHub Actions builds the Windows desktop installer when a `v*` tag is pushed.
-Before tagging, update the version in the npm workspace files and the Tauri
-files so the package, app metadata, and installer name stay aligned.
+The release version is manually maintained in one place:
+`app.version.json`.
+
+`npm run version:sync` copies that version into every file that needs release
+metadata:
+
+- `package.json`
+- `frontend/package.json`
+- `backend/package.json`
+- `package-lock.json`
+- `src-tauri/tauri.conf.json`
+- `src-tauri/Cargo.toml`
+- `src-tauri/Cargo.lock` for the `planvas-desktop` package
+- `backend/src/mcp.ts`
+- `plugins/planvas-ai/gemini-extension.json`
+
+`npm run version:check` verifies that those files still match
+`app.version.json`. The GitHub release workflow runs the sync step and also
+fails if the pushed tag does not match `v{app.version.json.version}`.
 
 ```powershell
+npm run version:sync
 npm run typecheck
 npm run test --workspace frontend
 npm run test --workspace backend
 npm run build
-git tag v0.1.4
 git push origin main
-git push origin v0.1.4
+git tag v0.1.7
+git push origin v0.1.7
 ```
 
 The release workflow creates a GitHub Release for the tag and uploads the NSIS

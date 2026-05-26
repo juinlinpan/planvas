@@ -1,7 +1,7 @@
 {
   "name": "planvas",
   "private": true,
-  "version": "0.1.4",
+  "version": "0.1.7",
   "bin": {
     "planvas": "./scripts/planvas.cmd"
   },
@@ -18,8 +18,10 @@
     "desktop:setup": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-tauri-windows.ps1",
     "desktop:dev": "powershell -ExecutionPolicy Bypass -File ./scripts/start-desktop-dev.ps1",
     "desktop:build": "powershell -ExecutionPolicy Bypass -File ./scripts/start-desktop-build.ps1",
+    "version:sync": "node ./scripts/sync-version.mjs",
+    "version:check": "node ./scripts/sync-version.mjs --check",
     "serve": "npm run build --workspace backend && npm run serve --workspace backend",
-    "build": "npm run build --workspace frontend && npm run build --workspace backend",
+    "build": "npm run version:sync && npm run build --workspace frontend && npm run build --workspace backend",
     "lint": "npm run lint --workspace frontend && npm run typecheck --workspace backend",
     "format": "node ./scripts/format.mjs",
     "smoke": "powershell -ExecutionPolicy Bypass -File ./scripts/smoke.ps1",
