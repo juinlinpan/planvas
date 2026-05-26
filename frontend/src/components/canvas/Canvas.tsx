@@ -322,18 +322,34 @@ export function Canvas({
         });
         onBoardDataCacheChange?.(persisted);
         setSaveStatus('saved');
-        // Only refresh project notes on explicit (non-silent) saves like Ctrl+S.
-        // Silent auto-saves write data TO the backend — frontend already has
-        // the correct state.  Refreshing notes after every auto-save causes:
-        //   new projectNotes array → Canvas re-render → sync useEffect →
-        //   potential save cascade and UI jank (selection lost, notes flicker).
-        if (!silent) {
-          const hasNotePaper = itemsRef.current.some(
-            (item) => item.type === ITEM_TYPE.note_paper,
-          );
-          if (hasNotePaper) {
-            onProjectNotesChanged?.();
+
+        // Merge server-side updates (like noteFile and generated titles) back into local state.
+        // We only update fields that the backend is responsible for generating or normalizing.
+        const serverItemsById = new Map(
+          persisted.board_items.map((it) => [it.id, it]),
+        );
+        const nextItems = itemsRef.current.map((item) => {
+          const serverItem = serverItemsById.get(item.id);
+          if (serverItem && item.type === ITEM_TYPE.note_paper) {
+            return {
+              ...item,
+              title: serverItem.title,
+              data_json: serverItem.data_json,
+            };
           }
+          return item;
+        });
+
+        if (nextItems !== itemsRef.current) {
+          itemsRef.current = nextItems;
+          setItems(nextItems);
+        }
+
+        const hasNotePaper = itemsRef.current.some(
+          (item) => item.type === ITEM_TYPE.note_paper,
+        );
+        if (hasNotePaper) {
+          onProjectNotesChanged?.();
         }
       } catch (err) {
         console.error('[Canvas] Failed to save board state', err);
@@ -1701,6 +1717,7 @@ export function Canvas({
                 deletingWaypointInfo={deletingWaypointInfo}
                 tableCellSelectionResetKey={tableCellSelectionResetKey}
                 magnetEnabled={magnetEnabled}
+                viewportZoom={viewport.zoom}
                 projectDefaultStyle={projectDefaultStyle}
                 segmentDraft={segmentDraft}
                 anchorIndicatorItems={anchorIndicatorItems}

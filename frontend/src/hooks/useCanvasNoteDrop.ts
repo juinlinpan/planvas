@@ -127,7 +127,6 @@ export function useCanvasNoteDrop({
       setItemsAndSync((current) => [...current, newItem], true);
       setSelection([newItem.id]);
       setEditingId(null);
-      onProjectNotesChanged?.();
       triggerSave?.(true);
     },
     [

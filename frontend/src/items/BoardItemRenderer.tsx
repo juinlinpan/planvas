@@ -45,6 +45,7 @@ type Props = {
   tableCellSelectionResetKey?: number;
   tableDropTargetCellId?: string | null;
   magnetEnabled?: boolean;
+  viewportZoom?: number;
   projectDefaultStyle?: ProjectDefaultStyle;
 };
 
@@ -74,6 +75,7 @@ function BoardItemRendererComponent({
   tableCellSelectionResetKey,
   tableDropTargetCellId,
   magnetEnabled,
+  viewportZoom = 1,
   projectDefaultStyle,
 }: Props) {
   const isSegmentItem = item.type === 'line' || item.type === 'arrow';
@@ -99,30 +101,43 @@ function BoardItemRendererComponent({
   };
   const isTable = item.type === 'table';
   const isInsideParent = item.parent_item_id !== null;
+
+  // Scale hit areas inversely with zoom so they remain usable when zoomed out.
+  // Cap at 6x to avoid covering large portions of small items.
+  const hitScale = Math.min(1 / viewportZoom, 6);
+  const edgeThickness = Math.round(14 * hitScale);
+  const handleSize = Math.round(12 * hitScale);
+  const handleOffset = -Math.round(6 * hitScale);
+
+  const cornerHandleStyle: React.CSSProperties = { width: handleSize, height: handleSize };
   const resizeHandles =
     !isStatic && isSelected && !isEditing && !isSegmentItem && !isInsideParent ? (
       <>
         <button
           type="button"
           className="board-item-resize-handle board-item-resize-handle-nw"
+          style={{ ...cornerHandleStyle, top: handleOffset, left: handleOffset }}
           onMouseDown={(e) => onResizeMouseDown(e, 'nw')}
           aria-label="Resize northwest"
         />
         <button
           type="button"
           className="board-item-resize-handle board-item-resize-handle-ne"
+          style={{ ...cornerHandleStyle, top: handleOffset, right: handleOffset }}
           onMouseDown={(e) => onResizeMouseDown(e, 'ne')}
           aria-label="Resize northeast"
         />
         <button
           type="button"
           className="board-item-resize-handle board-item-resize-handle-se"
+          style={{ ...cornerHandleStyle, bottom: handleOffset, right: handleOffset }}
           onMouseDown={(e) => onResizeMouseDown(e, 'se')}
           aria-label="Resize southeast"
         />
         <button
           type="button"
           className="board-item-resize-handle board-item-resize-handle-sw"
+          style={{ ...cornerHandleStyle, bottom: handleOffset, left: handleOffset }}
           onMouseDown={(e) => onResizeMouseDown(e, 'sw')}
           aria-label="Resize southwest"
         />
@@ -131,24 +146,28 @@ function BoardItemRendererComponent({
             <button
               type="button"
               className="board-item-resize-handle board-item-resize-handle-n"
+              style={{ ...cornerHandleStyle, top: handleOffset }}
               onMouseDown={(e) => onResizeMouseDown(e, 'n')}
               aria-label="Resize north"
             />
             <button
               type="button"
               className="board-item-resize-handle board-item-resize-handle-e"
+              style={{ ...cornerHandleStyle, right: handleOffset }}
               onMouseDown={(e) => onResizeMouseDown(e, 'e')}
               aria-label="Resize east"
             />
             <button
               type="button"
               className="board-item-resize-handle board-item-resize-handle-s"
+              style={{ ...cornerHandleStyle, bottom: handleOffset }}
               onMouseDown={(e) => onResizeMouseDown(e, 's')}
               aria-label="Resize south"
             />
             <button
               type="button"
               className="board-item-resize-handle board-item-resize-handle-w"
+              style={{ ...cornerHandleStyle, left: handleOffset }}
               onMouseDown={(e) => onResizeMouseDown(e, 'w')}
               aria-label="Resize west"
             />
@@ -237,6 +256,7 @@ function BoardItemRendererComponent({
               <button
                 type="button"
                 className="board-item-table-edge board-item-table-edge-top"
+                style={{ height: edgeThickness }}
                 aria-label="Move table"
                 tabIndex={-1}
                 onMouseDown={onMouseDown}
@@ -245,6 +265,7 @@ function BoardItemRendererComponent({
               <button
                 type="button"
                 className="board-item-table-edge board-item-table-edge-right"
+                style={{ width: edgeThickness }}
                 aria-label="Move table"
                 tabIndex={-1}
                 onMouseDown={onMouseDown}
@@ -253,6 +274,7 @@ function BoardItemRendererComponent({
               <button
                 type="button"
                 className="board-item-table-edge board-item-table-edge-bottom"
+                style={{ height: edgeThickness }}
                 aria-label="Move table"
                 tabIndex={-1}
                 onMouseDown={onMouseDown}
@@ -261,6 +283,7 @@ function BoardItemRendererComponent({
               <button
                 type="button"
                 className="board-item-table-edge board-item-table-edge-left"
+                style={{ width: edgeThickness }}
                 aria-label="Move table"
                 tabIndex={-1}
                 onMouseDown={onMouseDown}

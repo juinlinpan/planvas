@@ -376,15 +376,6 @@ export function useCanvasItemActions({
       }
       pushUndoSnapshot(snapshotBeforeDelete);
 
-      if (
-        deleteIds.some(
-          (itemId) =>
-            snapshotBeforeDelete.items.find((item) => item.id === itemId)
-              ?.type === ITEM_TYPE.note_paper,
-        )
-      ) {
-        onProjectNotesChanged?.();
-      }
       triggerSave?.(true);
     },
     [
@@ -584,10 +575,6 @@ export function useCanvasItemActions({
       );
       setEditingId(null);
 
-      const hasNotePaper = createdItems.some((item) => item.type === ITEM_TYPE.note_paper);
-      if (hasNotePaper) {
-        onProjectNotesChanged?.();
-      }
       triggerSave?.(true);
     } catch (err) {
       console.error('[Canvas] Failed to perform bulk paste', err);
@@ -670,9 +657,6 @@ export function useCanvasItemActions({
       setItemsAndSync((current) => [...current, newItem], true);
       setSelection([newItem.id]);
       setEditingId(isInlineEditable(newItem) ? newItem.id : null);
-      if (newItem.type === ITEM_TYPE.note_paper) {
-        onProjectNotesChanged?.();
-      }
       triggerSave?.(true);
     },
     [
@@ -866,7 +850,6 @@ export function useCanvasItemActions({
         current.map((it) => (it.id === itemId ? updated : it)),
         true,
       );
-      onProjectNotesChanged?.();
       triggerSave?.(true);
     },
     [

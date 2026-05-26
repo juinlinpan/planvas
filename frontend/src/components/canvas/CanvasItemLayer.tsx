@@ -28,6 +28,7 @@ type CanvasItemLayerProps = {
   deletingWaypointInfo: { itemId: string; waypointIndex: number } | null;
   tableCellSelectionResetKey: number;
   magnetEnabled: boolean;
+  viewportZoom: number;
   projectDefaultStyle: ProjectDefaultStyle;
   segmentDraft: SegmentDraftState | null;
   anchorIndicatorItems: BoardItem[];
@@ -58,6 +59,7 @@ export function CanvasItemLayer({
   deletingWaypointInfo,
   tableCellSelectionResetKey,
   magnetEnabled,
+  viewportZoom,
   projectDefaultStyle,
   segmentDraft,
   anchorIndicatorItems,
@@ -217,6 +219,7 @@ export function CanvasItemLayer({
             }}
             tableCellSelectionResetKey={tableCellSelectionResetKey}
             magnetEnabled={magnetEnabled}
+            viewportZoom={viewportZoom}
             tableDropTargetCellId={
               isTableDropTarget ? (activeTableDropTarget?.cellId ?? null) : null
             }
