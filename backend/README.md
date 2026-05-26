@@ -61,8 +61,9 @@ before other registered paths.
 Project path registration is keyed by canonical filesystem path rather than
 Project name. Opening the same folder again refreshes the existing entry, while
 different folders with the same name remain separate. If a copied folder carries
-a duplicated metadata id, the opened copy receives a new Project id so the
-original registration is not replaced.
+a duplicated metadata id, the opened copy receives new Project, Page, board
+item, and connector ids so the original registration is not replaced and later
+Page or note writes stay inside the copied folder.
 
 `note_paper` board items are markdown-file-backed. The HTTP API continues to
 send and accept the `content` field, while persistence writes that body to

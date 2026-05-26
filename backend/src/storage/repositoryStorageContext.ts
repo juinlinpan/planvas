@@ -301,6 +301,7 @@ export abstract class RepositoryStorageContext {
           entry.last_seen_at = timestamp;
         }
       }
+      await this.ensureUniquePageIdentities(index, timestamp);
       await this.writeProjectIndex(index);
       return index;
     });
@@ -409,17 +410,167 @@ export abstract class RepositoryStorageContext {
     };
     await writeJsonAtomic(this.metadataPath(projectDir), metadata);
 
-    for (const pageEntry of await this.pageEntriesFromProject(projectDir)) {
-      await this.replaceStoredPage(projectDir, pageEntry.pagePath, {
-        ...pageEntry.page,
-        project_id: nextProjectId,
-        updated_at: timestamp,
-      });
-    }
+    await this.reassignCopiedProjectPageData(
+      projectDir,
+      nextProjectId,
+      timestamp,
+    );
 
     appendLog(
       this.settings,
       `Reassigned copied project id ${oldProjectId} to ${nextProjectId} for ${path.resolve(projectDir)}`,
+    );
+  }
+
+  private async reassignCopiedProjectPageData(
+    projectDir: string,
+    nextProjectId: string,
+    timestamp: string,
+  ): Promise<void> {
+    for (const pageEntry of await this.pageEntriesFromProject(projectDir)) {
+      await this.reassignStoredPageData(
+        projectDir,
+        pageEntry,
+        nextProjectId,
+        timestamp,
+      );
+    }
+  }
+
+  private async ensureUniquePageIdentities(
+    index: ProjectIndex,
+    timestamp: string,
+  ): Promise<void> {
+    const owningLocationByPageId = new Map<string, string>();
+    for (const entry of index.projects) {
+      if (
+        !(await exists(entry.path)) ||
+        !(await fs.promises.stat(entry.path)).isDirectory() ||
+        (!(await exists(this.metadataPath(entry.path))) &&
+          !(await exists(this.legacyMetadataPath(entry.path))))
+      ) {
+        continue;
+      }
+      const metadata = await this.ensureProjectMetadata(entry.path, timestamp);
+      let reassignedPageCount = 0;
+      for (const pageEntry of await this.pageEntriesFromProject(entry.path)) {
+        const pageLocation = `${projectPathKey(entry.path)}:${pageEntry.pagePath}`;
+        const owningLocation = owningLocationByPageId.get(pageEntry.page.id);
+        if (!owningLocation) {
+          owningLocationByPageId.set(pageEntry.page.id, pageLocation);
+          continue;
+        }
+        const nextPageId = await this.reassignStoredPageData(
+          entry.path,
+          pageEntry,
+          metadata.project.id,
+          timestamp,
+        );
+        owningLocationByPageId.set(
+          nextPageId,
+          `${projectPathKey(entry.path)}:${pageEntry.pagePath}`,
+        );
+        reassignedPageCount += 1;
+        appendLog(
+          this.settings,
+          `Reassigned duplicated copied page id ${pageEntry.page.id} to ${nextPageId} for ${path.resolve(entry.path)}`,
+        );
+      }
+      if (reassignedPageCount > 0) {
+        this.touchProject(metadata, timestamp);
+        await writeJsonAtomic(this.metadataPath(entry.path), metadata);
+      }
+    }
+  }
+
+  private async reassignStoredPageData(
+    projectDir: string,
+    pageEntry: PageEntry,
+    nextProjectId: string,
+    timestamp: string,
+  ): Promise<string> {
+    const nextPageId = randomUUID();
+    const { boardItems, connectorLinks } = await this.readPageXmlFile(
+      pageEntry.pagePath,
+      pageEntry.page,
+      this.projectDataDir(projectDir),
+    );
+    const itemIdMap = new Map(
+      boardItems.map((item) => [item.id, randomUUID()]),
+    );
+    const nextBoardItems = boardItems.map((item) => ({
+      ...item,
+      id: itemIdMap.get(item.id) ?? randomUUID(),
+      page_id: nextPageId,
+      parent_item_id: item.parent_item_id
+        ? (itemIdMap.get(item.parent_item_id) ?? item.parent_item_id)
+        : null,
+      data_json: this.remapBoardItemDataJson(item.data_json, itemIdMap),
+      updated_at: timestamp,
+    }));
+    const nextConnectorLinks = connectorLinks.map((connector) => ({
+      ...connector,
+      id: randomUUID(),
+      connector_item_id:
+        itemIdMap.get(connector.connector_item_id) ??
+        connector.connector_item_id,
+      from_item_id: connector.from_item_id
+        ? (itemIdMap.get(connector.from_item_id) ?? connector.from_item_id)
+        : null,
+      to_item_id: connector.to_item_id
+        ? (itemIdMap.get(connector.to_item_id) ?? connector.to_item_id)
+        : null,
+    }));
+
+    await this.writePageXml(
+      pageEntry.pagePath,
+      {
+        ...pageEntry.page,
+        id: nextPageId,
+        project_id: nextProjectId,
+        updated_at: timestamp,
+      },
+      nextBoardItems,
+      nextConnectorLinks,
+    );
+    return nextPageId;
+  }
+
+  private remapBoardItemDataJson(
+    dataJson: string | null,
+    itemIdMap: Map<string, string>,
+  ): string | null {
+    if (!dataJson) return dataJson;
+    const parsed = parseJsonObject(dataJson);
+    if (Object.keys(parsed).length === 0) return dataJson;
+    return JSON.stringify(this.remapItemReferences(parsed, itemIdMap));
+  }
+
+  private remapItemReferences(
+    value: unknown,
+    itemIdMap: Map<string, string>,
+    key?: string,
+  ): unknown {
+    if (typeof value === 'string') {
+      if (key === 'itemId' || key === 'childItemId') {
+        return itemIdMap.get(value) ?? value;
+      }
+      return value;
+    }
+    if (Array.isArray(value)) {
+      return value.map((entry) => {
+        if (key === 'childItemIds' && typeof entry === 'string') {
+          return itemIdMap.get(entry) ?? entry;
+        }
+        return this.remapItemReferences(entry, itemIdMap);
+      });
+    }
+    if (typeof value !== 'object' || value === null) return value;
+    return Object.fromEntries(
+      Object.entries(value).map(([entryKey, entryValue]) => [
+        entryKey,
+        this.remapItemReferences(entryValue, itemIdMap, entryKey),
+      ]),
     );
   }
 

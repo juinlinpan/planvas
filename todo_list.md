@@ -105,7 +105,7 @@
 - [x] `Open Project` uses the Windows native folder picker, with manual path entry as fallback.
 - [x] Manual `Open Project` paths can be absolute, `~`-based, or relative to `<user_home>`.
 - [x] Make `Open Project` dedupe by canonical filesystem path instead of Project name, preserving separate projects with the same name.
-- [x] Keep copied Project folders with duplicated metadata ids from replacing the original Project registration.
+- [x] Keep copied Project folders with duplicated metadata ids from replacing the original Project registration, including rewriting copied Page ids, board item ids, connector link ids, and internal references so operations stay in the copied Project path.
 - [x] Home project list is grouped into `project_store` projects first and other registered paths second.
 - [x] Home missing-path projects can be removed from `project.json` after Refresh.
 - [x] Re-entering a Project from Home refreshes that Project's Pages and Notes from disk even when the selected Project id did not change.

@@ -72,7 +72,7 @@
 - `Open Project` should use the Windows native folder picker when available and fall back to manual path entry only if the picker is unavailable; manual paths may be absolute, `~`-based, or relative to `<user_home>`.
 - `Open Project` must identify already-opened projects by canonical filesystem path, not by Project name. Opening the same path again must reuse the same Project registration.
 - If two different Project paths have the same Project name, they must remain separate Common Projects.
-- If a copied Project folder has duplicated metadata ids, opening the copied path must assign that path a new Project id instead of replacing the original path's registration.
+- If a copied Project folder has duplicated metadata ids, opening the copied path must assign that path a new Project id instead of replacing the original path's registration, and must also rewrite copied Page ids, board item ids, connector link ids, and internal item references so later Page and note operations cannot resolve back to the source Project path.
 - The home screen project list is `Common Projects`: first projects under `project_store/`, then registered projects from other paths.
 - The home screen must provide `Refresh` to re-check whether registered project paths still exist.
 - After Refresh marks a registered project path as missing, the home screen must provide a remove button that deletes only the `project.json` entry.

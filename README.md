@@ -229,7 +229,8 @@ projects first, then registered projects from other paths.
 Opening the same folder again reuses the same project registration by canonical
 filesystem path. Projects with the same display name remain separate when their
 paths differ, and copied project folders with duplicated metadata ids are
-assigned a new id instead of replacing the original registration.
+assigned new Project, Page, board item, and connector ids instead of replacing
+the original registration or resolving edits back to the source folder.
 If the native folder picker is unavailable, the manual fallback accepts absolute
 paths, `~` paths, and paths relative to `<user_home>`.
 

@@ -415,6 +415,213 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: 'opens copied project data with new page and item ids',
+    run: async () => {
+      const { baseUrl, root } = await createTestServer();
+      const original = (
+        await requestJson<Project>(baseUrl, '/projects', {
+          method: 'POST',
+          ...jsonBody({ name: 'Coding Agent' }),
+        })
+      ).data;
+      if (!original.path) throw new Error('Original project path missing');
+      const originalPage = (
+        await requestJson<Page>(baseUrl, `/projects/${original.id}/pages`, {
+          method: 'POST',
+          ...jsonBody({ name: 'Backlog' }),
+        })
+      ).data;
+      const originalNote = await createBoardItem(baseUrl, {
+        page_id: originalPage.id,
+        parent_item_id: null,
+        category: 'small_item',
+        type: 'note_paper',
+        title: null,
+        content: '# Original note\n\nCoding agent only',
+        content_format: 'markdown',
+        x: 120,
+        y: 120,
+        width: 264,
+        height: 216,
+        rotation: 0,
+        z_index: 0,
+        is_collapsed: false,
+        style_json: null,
+        data_json: null,
+      });
+
+      const copiedPath = path.join(root, 'outside', 'Jira');
+      fs.cpSync(
+        path.join(original.path, '.pv_project'),
+        path.join(copiedPath, '.pv_project'),
+        { recursive: true },
+      );
+
+      const copied = (
+        await requestJson<Project>(baseUrl, '/projects/open-path', {
+          method: 'POST',
+          ...jsonBody({ path: copiedPath }),
+        })
+      ).data;
+      const copiedPages = (
+        await requestJson<Page[]>(baseUrl, `/projects/${copied.id}/pages`)
+      ).data;
+      const copiedPage = copiedPages[0];
+      if (!copiedPage) throw new Error('Copied project page missing');
+      assert.notEqual(copied.id, original.id);
+      assert.notEqual(copiedPage.id, originalPage.id);
+      assert.equal(copiedPage.project_id, copied.id);
+
+      const copiedBoard = (
+        await requestJson<PageBoardData>(
+          baseUrl,
+          `/pages/${copiedPage.id}/board-data`,
+        )
+      ).data;
+      assert.equal(copiedBoard.board_items.length, 1);
+      assert.notEqual(copiedBoard.board_items[0]?.id, originalNote.id);
+      assert.equal(copiedBoard.board_items[0]?.page_id, copiedPage.id);
+
+      await createBoardItem(baseUrl, {
+        page_id: copiedPage.id,
+        parent_item_id: null,
+        category: 'small_item',
+        type: 'note_paper',
+        title: null,
+        content: '# Jira note\n\nCopied project only',
+        content_format: 'markdown',
+        x: 360,
+        y: 120,
+        width: 264,
+        height: 216,
+        rotation: 0,
+        z_index: 1,
+        is_collapsed: false,
+        style_json: null,
+        data_json: null,
+      });
+
+      assert.equal(
+        fs.existsSync(
+          path.join(copiedPath, '.pv_project', 'Jira-note.md'),
+        ),
+        true,
+      );
+      assert.equal(
+        fs.existsSync(
+          path.join(original.path, '.pv_project', 'Jira-note.md'),
+        ),
+        false,
+      );
+      const originalBoardAfterCopyEdit = (
+        await requestJson<PageBoardData>(
+          baseUrl,
+          `/pages/${originalPage.id}/board-data`,
+        )
+      ).data;
+      assert.equal(originalBoardAfterCopyEdit.board_items.length, 1);
+    },
+  },
+  {
+    name: 'repairs copied projects that already have unique project ids but duplicated page ids',
+    run: async () => {
+      const { baseUrl, root } = await createTestServer();
+      const original = (
+        await requestJson<Project>(baseUrl, '/projects', {
+          method: 'POST',
+          ...jsonBody({ name: 'Coding Agent Legacy' }),
+        })
+      ).data;
+      if (!original.path) throw new Error('Original project path missing');
+      const originalPage = (
+        await requestJson<Page>(baseUrl, `/projects/${original.id}/pages`, {
+          method: 'POST',
+          ...jsonBody({ name: 'Tickets' }),
+        })
+      ).data;
+      await createBoardItem(baseUrl, {
+        page_id: originalPage.id,
+        parent_item_id: null,
+        category: 'small_item',
+        type: 'note_paper',
+        title: null,
+        content: '# Source note',
+        content_format: 'markdown',
+        x: 120,
+        y: 120,
+        width: 264,
+        height: 216,
+        rotation: 0,
+        z_index: 0,
+        is_collapsed: false,
+        style_json: null,
+        data_json: null,
+      });
+
+      const copiedPath = path.join(root, 'outside', 'Jira Legacy');
+      fs.cpSync(
+        path.join(original.path, '.pv_project'),
+        path.join(copiedPath, '.pv_project'),
+        { recursive: true },
+      );
+      const metadataPath = path.join(
+        copiedPath,
+        '.pv_project',
+        'metadata.json',
+      );
+      const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+      metadata.project.id = 'legacy-copy-project-id';
+      metadata.project.name = 'Jira Legacy';
+      fs.writeFileSync(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`);
+
+      const copied = (
+        await requestJson<Project>(baseUrl, '/projects/open-path', {
+          method: 'POST',
+          ...jsonBody({ path: copiedPath }),
+        })
+      ).data;
+      assert.equal(copied.id, 'legacy-copy-project-id');
+      const copiedPages = (
+        await requestJson<Page[]>(baseUrl, `/projects/${copied.id}/pages`)
+      ).data;
+      const copiedPage = copiedPages[0];
+      if (!copiedPage) throw new Error('Copied project page missing');
+      assert.notEqual(copiedPage.id, originalPage.id);
+      assert.equal(copiedPage.project_id, copied.id);
+
+      await createBoardItem(baseUrl, {
+        page_id: copiedPage.id,
+        parent_item_id: null,
+        category: 'small_item',
+        type: 'note_paper',
+        title: null,
+        content: '# Jira legacy note',
+        content_format: 'markdown',
+        x: 360,
+        y: 120,
+        width: 264,
+        height: 216,
+        rotation: 0,
+        z_index: 1,
+        is_collapsed: false,
+        style_json: null,
+        data_json: null,
+      });
+      assert.equal(
+        fs.existsSync(
+          path.join(copiedPath, '.pv_project', 'Jira-legacy-note.md'),
+        ),
+        true,
+      );
+      assert.equal(
+        fs.existsSync(
+          path.join(original.path, '.pv_project', 'Jira-legacy-note.md'),
+        ),
+        false,
+      );
+    },
+  },
+  {
     name: 'opens manual relative paths from the user home directory',
     run: async () => {
       const previousHome = process.env.HOME;
