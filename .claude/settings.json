@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\juinlin.pan\\\\Desktop\\\\llm\\\\side_pj\\\\whiteboard\\\\white_board\" -Recurse -Filter *.tsx)",
+      "Bash(Select-Object -ExpandProperty FullName)"
     ]
   }
 }

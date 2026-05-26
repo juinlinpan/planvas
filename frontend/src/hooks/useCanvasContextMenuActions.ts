@@ -14,6 +14,8 @@ type UseCanvasContextMenuActionsParams = {
   handleTransformToNote: (itemId: string) => void;
   handleDistributeSelectedTableRows: () => void;
   handleDistributeSelectedTableCols: () => void;
+  handleInsertTableRowBelow: () => void;
+  handleInsertTableColRight: () => void;
   handleLayerChange: (
     change: 'bringForward' | 'sendBackward' | 'bringToFront' | 'sendToBack',
   ) => void;
@@ -32,6 +34,8 @@ export function useCanvasContextMenuActions({
   handleTransformToNote,
   handleDistributeSelectedTableRows,
   handleDistributeSelectedTableCols,
+  handleInsertTableRowBelow,
+  handleInsertTableColRight,
   handleLayerChange,
 }: UseCanvasContextMenuActionsParams) {
   const handleContextMenuPaste = useCallback(() => {
@@ -118,6 +122,16 @@ export function useCanvasContextMenuActions({
     handleDistributeSelectedTableCols();
   }, [handleDistributeSelectedTableCols, setContextMenu]);
 
+  const handleContextMenuInsertTableRowBelow = useCallback(() => {
+    setContextMenu(null);
+    handleInsertTableRowBelow();
+  }, [handleInsertTableRowBelow, setContextMenu]);
+
+  const handleContextMenuInsertTableColRight = useCallback(() => {
+    setContextMenu(null);
+    handleInsertTableColRight();
+  }, [handleInsertTableColRight, setContextMenu]);
+
   return {
     handleContextMenuPaste,
     handleContextMenuCopy,
@@ -130,5 +144,7 @@ export function useCanvasContextMenuActions({
     handleContextMenuSendToBack,
     handleContextMenuDistributeTableRows,
     handleContextMenuDistributeTableCols,
+    handleContextMenuInsertTableRowBelow,
+    handleContextMenuInsertTableColRight,
   };
 }

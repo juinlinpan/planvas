@@ -13,6 +13,8 @@ export type CanvasContextMenuState = {
   isStickyNoteOnly: boolean;
   canDistributeTableRows: boolean;
   canDistributeTableCols: boolean;
+  canInsertTableRowBelow: boolean;
+  canInsertTableColRight: boolean;
 };
 
 export type CanvasContextMenuActionKey =
@@ -26,7 +28,9 @@ export type CanvasContextMenuActionKey =
   | 'sendToBack'
   | 'transformToNote'
   | 'distributeTableRows'
-  | 'distributeTableCols';
+  | 'distributeTableCols'
+  | 'insertTableRowBelow'
+  | 'insertTableColRight';
 
 const MENU_MARGIN = 12;
 const MENU_WIDTH = 220;
@@ -60,6 +64,12 @@ export function getCanvasContextMenuActionKeys(
     if (state.canDistributeTableCols) {
       actions.push('distributeTableCols');
     }
+    if (state.canInsertTableRowBelow) {
+      actions.push('insertTableRowBelow');
+    }
+    if (state.canInsertTableColRight) {
+      actions.push('insertTableColRight');
+    }
 
     return actions;
   }
@@ -92,6 +102,10 @@ export function isCanvasContextMenuActionDisabled(
       return !state.canDistributeTableRows;
     case 'distributeTableCols':
       return !state.canDistributeTableCols;
+    case 'insertTableRowBelow':
+      return !state.canInsertTableRowBelow;
+    case 'insertTableColRight':
+      return !state.canInsertTableColRight;
     default:
       return false;
   }

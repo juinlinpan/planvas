@@ -239,6 +239,28 @@ export function preserveOuterAddColLayout(
   };
 }
 
+export function preserveInnerAddColLayout(
+  previousData: TableData,
+  expandedData: TableData,
+  insertAt: number,
+  oldWidth: number,
+  newWidth: number,
+): TableData {
+  if (oldWidth <= 0 || newWidth <= 0 || newWidth <= oldWidth) {
+    return withoutDividerState(expandedData);
+  }
+  const oldAreaFraction = oldWidth / newWidth;
+
+  return {
+    ...withoutDividerState(expandedData),
+    colWidths: normalizeFractions([
+      ...previousData.colWidths.slice(0, insertAt).map((w) => w * oldAreaFraction),
+      1 - oldAreaFraction,
+      ...previousData.colWidths.slice(insertAt).map((w) => w * oldAreaFraction),
+    ]),
+  };
+}
+
 export function preserveOuterAddRowLayout(
   previousData: TableData,
   expandedData: TableData,
@@ -255,6 +277,28 @@ export function preserveOuterAddRowLayout(
     rowHeights: normalizeFractions([
       ...previousData.rowHeights.map((height) => height * oldAreaFraction),
       1 - oldAreaFraction,
+    ]),
+  };
+}
+
+export function preserveInnerAddRowLayout(
+  previousData: TableData,
+  expandedData: TableData,
+  insertAt: number,
+  oldHeight: number,
+  newHeight: number,
+): TableData {
+  if (oldHeight <= 0 || newHeight <= 0 || newHeight <= oldHeight) {
+    return withoutDividerState(expandedData);
+  }
+  const oldAreaFraction = oldHeight / newHeight;
+
+  return {
+    ...withoutDividerState(expandedData),
+    rowHeights: normalizeFractions([
+      ...previousData.rowHeights.slice(0, insertAt).map((h) => h * oldAreaFraction),
+      1 - oldAreaFraction,
+      ...previousData.rowHeights.slice(insertAt).map((h) => h * oldAreaFraction),
     ]),
   };
 }

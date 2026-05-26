@@ -17,4 +17,6 @@ export {
   preserveOuterAddRowLayout,
   preserveOuterPrependColLayout,
   preserveOuterPrependRowLayout,
+  preserveInnerAddColLayout,
+  preserveInnerAddRowLayout,
 } from './rowColOps';

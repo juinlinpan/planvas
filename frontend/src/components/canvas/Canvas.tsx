@@ -59,6 +59,8 @@ import { useCanvasMouseHandlers } from '../../hooks/useCanvasMouseHandlers';
 import { Inspector } from '../Inspector';
 import { type SegmentConnection } from '../../utils/export/segmentData';
 import {
+  addCol,
+  addRow,
   createTableData,
   clearTableCells,
   deleteCols,
@@ -73,6 +75,8 @@ import {
   distributeSelectedColumnWidths,
   distributeSelectedRowHeights,
   parseTableData,
+  preserveInnerAddColLayout,
+  preserveInnerAddRowLayout,
   serializeTableData,
   TABLE_MAX_DIMENSION,
   updateTableCell,
@@ -1046,6 +1050,62 @@ export function Canvas({
     });
   }, [handleItemUpdate, itemsRef, tableInspectorSelection]);
 
+  const handleInsertTableRowBelow = useCallback(() => {
+    const selection = tableInspectorSelection;
+    if (selection === null) return;
+
+    const tableItem = itemsRef.current.find(
+      (item) => item.id === selection.tableId && item.type === ITEM_TYPE.table,
+    );
+    if (tableItem === undefined) return;
+
+    const tableData = parseTableData(tableItem.data_json);
+    if (tableData.rows >= TABLE_MAX_DIMENSION) return;
+
+    const rowIndexes = getTableCellSelectionRowIndexes(tableData, selection.cellIds);
+    if (rowIndexes.length === 0) return;
+
+    const afterRowIndex = Math.max(...rowIndexes);
+    const insertAt = afterRowIndex + 1;
+    const nextHeight = Math.round((tableItem.height * (tableData.rows + 1)) / tableData.rows);
+    const insertedData = addRow(tableData, afterRowIndex);
+    const nextData = preserveInnerAddRowLayout(tableData, insertedData, insertAt, tableItem.height, nextHeight);
+
+    handleItemUpdate({
+      ...tableItem,
+      data_json: serializeTableData(nextData),
+      height: nextHeight,
+    });
+  }, [handleItemUpdate, itemsRef, tableInspectorSelection]);
+
+  const handleInsertTableColRight = useCallback(() => {
+    const selection = tableInspectorSelection;
+    if (selection === null) return;
+
+    const tableItem = itemsRef.current.find(
+      (item) => item.id === selection.tableId && item.type === ITEM_TYPE.table,
+    );
+    if (tableItem === undefined) return;
+
+    const tableData = parseTableData(tableItem.data_json);
+    if (tableData.cols >= TABLE_MAX_DIMENSION) return;
+
+    const colIndexes = getTableCellSelectionColIndexes(tableData, selection.cellIds);
+    if (colIndexes.length === 0) return;
+
+    const afterColIndex = Math.max(...colIndexes);
+    const insertAt = afterColIndex + 1;
+    const nextWidth = Math.round((tableItem.width * (tableData.cols + 1)) / tableData.cols);
+    const insertedData = addCol(tableData, afterColIndex);
+    const nextData = preserveInnerAddColLayout(tableData, insertedData, insertAt, tableItem.width, nextWidth);
+
+    handleItemUpdate({
+      ...tableItem,
+      data_json: serializeTableData(nextData),
+      width: nextWidth,
+    });
+  }, [handleItemUpdate, itemsRef, tableInspectorSelection]);
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === ' ' && !isSpaceRef.current) {
@@ -1251,6 +1311,8 @@ export function Canvas({
         isStickyNoteOnly: false,
         canDistributeTableRows: false,
         canDistributeTableCols: false,
+        canInsertTableRowBelow: false,
+        canInsertTableColRight: false,
       });
     },
     [hasClipboardData],
@@ -1314,6 +1376,16 @@ export function Canvas({
           tableData,
           tableCellSelection?.cellIds ?? [],
         ).length >= 2;
+      const canInsertTableRowBelow =
+        tableData !== null &&
+        tableCellSelection !== null &&
+        tableCellSelection.cellIds.length > 0 &&
+        tableData.rows < TABLE_MAX_DIMENSION;
+      const canInsertTableColRight =
+        tableData !== null &&
+        tableCellSelection !== null &&
+        tableCellSelection.cellIds.length > 0 &&
+        tableData.cols < TABLE_MAX_DIMENSION;
 
       setEditingId(null);
       setContextMenu({
@@ -1329,6 +1401,8 @@ export function Canvas({
         isStickyNoteOnly: isStickyNoteOnly ?? false,
         canDistributeTableRows,
         canDistributeTableCols,
+        canInsertTableRowBelow,
+        canInsertTableColRight,
       });
     },
     [hasClipboardData, setSelection, tableInspectorSelection],
@@ -1346,6 +1420,8 @@ export function Canvas({
     handleContextMenuSendToBack,
     handleContextMenuDistributeTableRows,
     handleContextMenuDistributeTableCols,
+    handleContextMenuInsertTableRowBelow,
+    handleContextMenuInsertTableColRight,
   } = useCanvasContextMenuActions({
     setContextMenu,
     hasClipboardData,
@@ -1359,6 +1435,8 @@ export function Canvas({
     handleTransformToNote: (itemId: string) => { void handleTransformToNote(itemId); },
     handleDistributeSelectedTableRows,
     handleDistributeSelectedTableCols,
+    handleInsertTableRowBelow,
+    handleInsertTableColRight,
     handleLayerChange,
   });
 
@@ -1799,6 +1877,8 @@ export function Canvas({
         onTransformToNote={handleContextMenuTransformToNote}
         onDistributeTableRows={handleContextMenuDistributeTableRows}
         onDistributeTableCols={handleContextMenuDistributeTableCols}
+        onInsertTableRowBelow={handleContextMenuInsertTableRowBelow}
+        onInsertTableColRight={handleContextMenuInsertTableColRight}
       />
     </div>
   );

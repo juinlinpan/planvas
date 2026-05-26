@@ -20,6 +20,8 @@ const CONTEXT_MENU_LABELS: Record<CanvasContextMenuActionKey, string> = {
   transformToNote: '轉成 Note',
   distributeTableRows: '平均分配高',
   distributeTableCols: '平均分配寬',
+  insertTableRowBelow: '下方插入列',
+  insertTableColRight: '右方插入行',
 };
 
 const CONTEXT_MENU_SHORTCUTS: Record<CanvasContextMenuActionKey, string> = {
@@ -34,6 +36,8 @@ const CONTEXT_MENU_SHORTCUTS: Record<CanvasContextMenuActionKey, string> = {
   transformToNote: '',
   distributeTableRows: '',
   distributeTableCols: '',
+  insertTableRowBelow: '',
+  insertTableColRight: '',
 };
 
 type Props = {
@@ -49,6 +53,8 @@ type Props = {
   onTransformToNote: () => void;
   onDistributeTableRows: () => void;
   onDistributeTableCols: () => void;
+  onInsertTableRowBelow: () => void;
+  onInsertTableColRight: () => void;
 };
 
 export function CanvasContextMenuLayer({
@@ -64,6 +70,8 @@ export function CanvasContextMenuLayer({
   onTransformToNote,
   onDistributeTableRows,
   onDistributeTableCols,
+  onInsertTableRowBelow,
+  onInsertTableColRight,
 }: Props) {
   const contextMenuActions = useMemo(
     () =>
@@ -107,6 +115,8 @@ export function CanvasContextMenuLayer({
       transformToNote: onTransformToNote,
       distributeTableRows: onDistributeTableRows,
       distributeTableCols: onDistributeTableCols,
+      insertTableRowBelow: onInsertTableRowBelow,
+      insertTableColRight: onInsertTableColRight,
     }),
     [
       onBringForward,
@@ -116,6 +126,8 @@ export function CanvasContextMenuLayer({
       onDelete,
       onDistributeTableCols,
       onDistributeTableRows,
+      onInsertTableRowBelow,
+      onInsertTableColRight,
       onPaste,
       onSendBackward,
       onSendToBack,
