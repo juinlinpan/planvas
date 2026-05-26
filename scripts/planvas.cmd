@@ -45,5 +45,5 @@ echo MCP:      http://127.0.0.1:18001/sse
 echo Log:      %LOG_FILE%
 echo Stop:     npm run dev:stop
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_ROOT%\scripts\start-dev-bg.ps1" -ProjectRoot "%PROJECT_ROOT%" -LogFile "%LOG_FILE%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_ROOT%\scripts\start-dev-bg.ps1" -ProjectRoot "%PROJECT_ROOT%" -LogFile "%LOG_FILE%" -Wait
 exit /b %ERRORLEVEL%
