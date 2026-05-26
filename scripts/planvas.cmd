@@ -41,6 +41,7 @@ if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 echo Starting Planvas from source in the background...
 echo Frontend: http://127.0.0.1:5173
 echo Backend:  http://127.0.0.1:18000
+echo MCP:      http://127.0.0.1:18001/sse
 echo Log:      %LOG_FILE%
 echo Stop:     npm run dev:stop
 

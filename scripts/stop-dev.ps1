@@ -1,5 +1,5 @@
 param(
-  [int[]]$Ports = @(5173, 18000),
+  [int[]]$Ports = @(5173, 18000, 18001),
   [switch]$WhatIf
 )
 
