@@ -90,7 +90,7 @@ The package includes:
 
 - Codex plugin manifest: `plugins/planvas-ai/.codex-plugin/plugin.json`
 - Gemini CLI extension manifest: `plugins/planvas-ai/gemini-extension.json`
-- Shared skill: `plugins/planvas-ai/skills/planvas-mcp/`
+- Shared skill: `plugins/planvas-ai/skills/planvas-skill/`
 - MCP config snippets for Planvas MCP at `http://127.0.0.1:18001/sse`
 - Install helper: `plugins/planvas-ai/scripts/install.ps1`
 

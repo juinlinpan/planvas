@@ -33,7 +33,6 @@ Rules:
 
 - `planvas_add_item`: add one board item. Required: `page_id`, `type`.
 - `planvas_update_item`: update an existing board item by full replacement. Required: `item_id`, `page_id`, `type`, `x`, `y`, `width`, `height`.
-- `planvas_remove_item`: input `{ "item_id": "..." }`; remove a board item and connected links.
 
 Supported item types:
 

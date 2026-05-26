@@ -1,13 +1,13 @@
 ---
-name: planvas-mcp
-description: Control local Planvas whiteboard projects through the planvas-mcp server. Use when Codex needs to inspect, summarize, create, or update Planvas projects, pages, markdown notes, board items, connector links, or AI-readable whiteboard structure through MCP tools.
+name: planvas-skill
+description: Control local Planvas whiteboard projects through the planvas-mcp server. Use when the AI needs to inspect, summarize, create, or update Planvas projects, pages, markdown notes, board items, connector links, or AI-readable whiteboard structure through MCP tools.
 ---
 
-# Planvas MCP
+# Planvas Skill
 
 ## Overview
 
-Use the `planvas-mcp` server to collaborate with the local Planvas whiteboard app. Prefer MCP tools for live project/page/note/item updates, and prefer direct file reads only when the MCP server is unavailable or when inspecting implementation details.
+Use the `planvas-skill` skill to collaborate with the local Planvas whiteboard app. Prefer MCP tools for live project/page/note/item updates, and prefer direct file reads only when the MCP server is unavailable or when inspecting implementation details.
 
 Default server endpoint: `http://127.0.0.1:18001/sse`. The app backend starts the MCP server with the normal backend process.
 
@@ -57,6 +57,8 @@ Load only the reference needed for the task:
 - When MCP tools are unavailable and direct XML editing is required, update the semantic and presentation XML together and follow `references/xml-write-schema.md`.
 
 ## Common Tasks
+
+---
 
 ### Summarize a Project or Page
 

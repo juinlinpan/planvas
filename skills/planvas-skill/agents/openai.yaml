@@ -1,0 +1,4 @@
+interface:
+  display_name: "Planvas Skill"
+  short_description: "Control Planvas whiteboards via AI tools."
+  default_prompt: "Use the planvas-skill skill to inspect the current Planvas project, summarize a page, update markdown notes, or make structured whiteboard changes through MCP tools."

@@ -73,7 +73,7 @@ Then install the skill into the project:
 .\plugins\planvas-ai\scripts\install.ps1 -Target claude-code -Scope project
 ```
 
-This creates `.claude/skills/planvas-mcp` and `.mcp.json`.
+This creates `.claude/skills/planvas-skill` and `.mcp.json`.
 If `.mcp.json` already exists, the installer merges or replaces only the `planvas` server entry.
 
 ### GitHub Copilot
@@ -84,7 +84,7 @@ Install the project skill and VS Code MCP config:
 .\plugins\planvas-ai\scripts\install.ps1 -Target github-copilot -Scope project
 ```
 
-This creates `.github/skills/planvas-mcp`, `.github/instructions/planvas-ai.instructions.md`, and merges the `planvas` server into `.vscode/mcp.json`.
+This creates `.github/skills/planvas-skill`, `.github/instructions/planvas-ai.instructions.md`, and merges the `planvas` server into `.vscode/mcp.json`.
 
 ### OpenCode
 

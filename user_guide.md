@@ -359,7 +359,7 @@ not install into the user-global tool directory.
 
 The plugin includes:
 
-- `skills/planvas-mcp/`: shared skill for supported AI tools.
+- `skills/planvas-skill/`: shared skill for supported AI tools.
 - `references/read-page.md`: use for read-only page analysis and ticket updates.
 - `references/mcp-tools.md`: use when calling Planvas MCP tools.
 - `references/xml-write-schema.md`: use only for direct XML fallback or schema repair.

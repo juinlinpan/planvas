@@ -10,7 +10,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $PluginRoot = Split-Path -Parent $PSScriptRoot
-$SkillSource = Join-Path $PluginRoot 'skills\planvas-mcp'
+$SkillSource = Join-Path $PluginRoot 'skills\planvas-skill'
 
 function Copy-Directory($Source, $Destination) {
   if (!(Test-Path $Source)) {
@@ -62,10 +62,10 @@ function New-PlanvasVsCodeMcpConfig {
 
 function Install-Codex {
   if ($Scope -eq 'global') {
-    Copy-Directory $SkillSource (Join-Path $HOME '.codex\skills\planvas-mcp')
+    Copy-Directory $SkillSource (Join-Path $HOME '.codex\skills\planvas-skill')
     Copy-Directory $PluginRoot (Join-Path $HOME '.codex\plugins\planvas-ai')
   } else {
-    Copy-Directory $SkillSource (Join-Path $ProjectPath '.agents\skills\planvas-mcp')
+    Copy-Directory $SkillSource (Join-Path $ProjectPath '.agents\skills\planvas-skill')
   }
 }
 
@@ -87,12 +87,12 @@ function Install-Antigravity {
 }
 
 function Install-Claude {
-  Copy-Directory $SkillSource (Join-Path $ProjectPath '.claude\skills\planvas-mcp')
+  Copy-Directory $SkillSource (Join-Path $ProjectPath '.claude\skills\planvas-skill')
   Merge-McpServer (Join-Path $ProjectPath '.mcp.json') 'mcpServers' 'planvas' (New-PlanvasMcpConfig)
 }
 
 function Install-Copilot {
-  Copy-Directory $SkillSource (Join-Path $ProjectPath '.github\skills\planvas-mcp')
+  Copy-Directory $SkillSource (Join-Path $ProjectPath '.github\skills\planvas-skill')
   New-Item -ItemType Directory -Force (Join-Path $ProjectPath '.github\instructions') | Out-Null
   Copy-Item -Path (Join-Path $PluginRoot 'adapters\copilot\planvas-ai.instructions.md') -Destination (Join-Path $ProjectPath '.github\instructions\planvas-ai.instructions.md') -Force
   Merge-McpServer (Join-Path $ProjectPath '.vscode\mcp.json') 'servers' 'planvas' (New-PlanvasVsCodeMcpConfig)
@@ -100,9 +100,9 @@ function Install-Copilot {
 
 function Install-OpenCode {
   if ($Scope -eq 'global') {
-    Copy-Directory $SkillSource (Join-Path $HOME '.config\opencode\skills\planvas-mcp')
+    Copy-Directory $SkillSource (Join-Path $HOME '.config\opencode\skills\planvas-skill')
   } else {
-    Copy-Directory $SkillSource (Join-Path $ProjectPath '.opencode\skills\planvas-mcp')
+    Copy-Directory $SkillSource (Join-Path $ProjectPath '.opencode\skills\planvas-skill')
     Copy-Item -Path (Join-Path $PluginRoot 'AGENTS.md') -Destination (Join-Path $ProjectPath 'AGENTS.planvas-ai.md') -Force
   }
 }

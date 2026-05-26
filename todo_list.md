@@ -77,7 +77,7 @@
 ## AI Tool Plugin Packaging Notes
 
 - [x] Package the Planvas AI collaboration instructions as an optional plugin under `plugins/planvas-ai/` instead of bundling it with MSI/exe app installation.
-- [x] Include the `planvas-mcp` skill inside the plugin package with split references for read-only page analysis, MCP tool usage, and direct XML write/schema repair.
+- [x] Include the `planvas-skill` skill inside the plugin package with split references for read-only page analysis, MCP tool usage, and direct XML write/schema repair.
 - [x] Add Codex plugin metadata, Gemini CLI extension metadata, MCP config snippets, and adapter files for Claude Code, GitHub Copilot, Antigravity CLI, and OpenCode.
 - [x] Add a PowerShell install helper for Codex, Gemini CLI, Antigravity CLI, Claude Code, GitHub Copilot, and OpenCode.
 - [x] Document optional AI plugin installation in `user_guide.md` and `README.md`.
