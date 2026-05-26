@@ -434,9 +434,7 @@ export function useCanvasItemActions({
 
   const handleCopySelection = useCallback(() => {
     const selectedItems = sortItemsForClipboard(
-      expandSelectionItemIds(itemsRef.current, selectedIdsRef.current, {
-        excludeArrows: true,
-      })
+      expandSelectionItemIds(itemsRef.current, selectedIdsRef.current)
         .map((itemId) => itemsRef.current.find((item) => item.id === itemId))
         .filter((item): item is BoardItem => item !== undefined),
     );
@@ -496,10 +494,13 @@ export function useCanvasItemActions({
       for (const [index, entry] of clipboard.items.entries()) {
         const newId = createdIdBySourceId.get(entry.sourceId)!;
         const sourceParentId = entry.payload.parent_item_id;
+        const parentItem = sourceParentId !== null ? itemsRef.current.find((it) => it.id === sourceParentId) : null;
+        const isParentTable = parentItem?.type === ITEM_TYPE.table;
+
         const nextParentId =
           sourceParentId !== null && createdIdBySourceId.has(sourceParentId)
             ? (createdIdBySourceId.get(sourceParentId) ?? null)
-            : sourceParentId !== null && existingItemIds.has(sourceParentId)
+            : sourceParentId !== null && existingItemIds.has(sourceParentId) && !isParentTable
               ? sourceParentId
               : null;
 
@@ -525,6 +526,40 @@ export function useCanvasItemActions({
             });
           } catch (tableErr) {
             console.error('[Canvas] Failed to remap table childItemIds during paste', tableErr);
+          }
+        } else if (
+          (entry.payload.type === ITEM_TYPE.line || entry.payload.type === ITEM_TYPE.arrow) &&
+          entry.payload.data_json
+        ) {
+          try {
+            const parsed = JSON.parse(entry.payload.data_json);
+            if (parsed && parsed.kind === 'segment') {
+              let changed = false;
+              for (const key of ['startConnection', 'endConnection'] as const) {
+                const connection = parsed[key];
+                if (connection && typeof connection === 'object') {
+                  const currentItemId = connection.itemId;
+                  if (typeof currentItemId === 'string' && currentItemId.trim().length > 0) {
+                    const remappedItemId =
+                      createdIdBySourceId.get(currentItemId.trim()) ??
+                      (existingItemIds.has(currentItemId.trim()) ? currentItemId.trim() : null);
+                    if (remappedItemId !== currentItemId) {
+                      if (remappedItemId === null) {
+                        parsed[key] = null;
+                      } else {
+                        parsed[key] = { ...connection, itemId: remappedItemId };
+                      }
+                      changed = true;
+                    }
+                  }
+                }
+              }
+              if (changed) {
+                nextDataJson = JSON.stringify(parsed);
+              }
+            }
+          } catch (segmentErr) {
+            console.error('[Canvas] Failed to remap segment connections during paste', segmentErr);
           }
         }
 

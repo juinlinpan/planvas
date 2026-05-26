@@ -885,7 +885,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
               // If the cell still has remaining children, relayout them
               if (cellHit) {
                 const remainingIds = cellHit.cell.childItemIds.filter(
-                  (id) => id !== movedItem.id,
+                  (id) => id !== movedItem.id && !movedItemIds.includes(id),
                 );
                 if (remainingIds.length > 0) {
                   const CELL_INSET = 8;
@@ -977,7 +977,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
                 const CELL_INSET = 8;
                 const oldRemainingIds =
                   originalCellHit?.cell.childItemIds.filter(
-                    (id) => id !== movedItem.id,
+                    (id) => id !== movedItem.id && !movedItemIds.includes(id),
                   ) ?? [];
                 const newTargetIds = [
                   ...hoverRoot.cell.childItemIds,
