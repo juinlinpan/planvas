@@ -209,4 +209,30 @@ describe('Inspector style palette', () => {
     expect(markup).toContain('Markdown file');
     expect(markup).toContain('value="Sprint-note.md"');
   });
+
+  it('renders style tab multi-select notice when multiple items are selected', () => {
+    const item1 = createBoardItem({ id: 'item-1' });
+    const item2 = createBoardItem({ id: 'item-2' });
+
+    const markup = renderToStaticMarkup(
+      <Inspector
+        item={item1}
+        selectedItems={[item1, item2]}
+        selectionCount={2}
+        childCount={0}
+        selectedTableCellIds={[]}
+        isCollapsed={false}
+        onUpdate={() => {}}
+        onDistributeTableRows={() => {}}
+        onDistributeTableCols={() => {}}
+        onUpdateTableCells={() => {}}
+        onDelete={() => {}}
+        onToggleInspector={() => {}}
+        onToggleCollapse={() => {}}
+      />,
+    );
+
+    expect(markup).toContain('2 selected');
+    expect(markup).toContain('多選時不支援編輯樣式');
+  });
 });

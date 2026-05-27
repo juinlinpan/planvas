@@ -652,6 +652,10 @@ export function Canvas({
     () => items.find((item) => item.id === primarySelectedId) ?? null,
     [items, primarySelectedId],
   );
+  const selectedItems = useMemo(
+    () => items.filter((item) => selectedIds.includes(item.id)),
+    [items, selectedIds],
+  );
 
   useEffect(() => {
     if (
@@ -700,6 +704,7 @@ export function Canvas({
     handlePasteSelection,
     handleLayerChange,
     handleItemUpdate,
+    handleItemsUpdate,
     handleTransformToNote,
   } = useCanvasItemActions({
     pageId: page.id,
@@ -1830,6 +1835,7 @@ export function Canvas({
 
         <Inspector
           item={selectedItem}
+          selectedItems={selectedItems}
           selectionCount={selectedIds.length}
           childCount={selectedChildCount}
           projectDefaultStyle={projectDefaultStyle}
@@ -1841,6 +1847,7 @@ export function Canvas({
           }
           isCollapsed={isInspectorCollapsed}
           onUpdate={handleItemUpdate}
+          onUpdateMultiple={handleItemsUpdate}
           onDistributeTableRows={handleDistributeSelectedTableRows}
           onDistributeTableCols={handleDistributeSelectedTableCols}
           onUpdateTableCells={(tableId, cellIds, patch) => {

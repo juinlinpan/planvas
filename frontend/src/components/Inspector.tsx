@@ -1,4 +1,4 @@
-﻿import { type BoardItem } from '../services/api';
+import { type BoardItem } from '../services/api';
 import { useState } from 'react';
 
 import {
@@ -19,14 +19,17 @@ import { ContentSection } from '../inspector/ContentSection';
 import { TextStylePanel } from '../inspector/TextStylePanel';
 import { SegmentPanel } from '../inspector/SegmentPanel';
 import { TablePanel } from '../inspector/TablePanel';
+import { MultiSelectTextPanel } from '../inspector/MultiSelectTextPanel';
 
 type Props = {
   item: BoardItem | null;
+  selectedItems?: BoardItem[];
   selectionCount: number;
   childCount: number;
   selectedTableCellIds: string[];
   isCollapsed: boolean;
   onUpdate: (item: BoardItem) => void;
+  onUpdateMultiple?: (items: BoardItem[]) => void;
   onDistributeTableRows: () => void;
   onDistributeTableCols: () => void;
   onUpdateTableCells: (
@@ -150,11 +153,13 @@ export function CommitNumberInput({
 
 export function Inspector({
   item,
+  selectedItems = [],
   selectionCount,
   childCount,
   selectedTableCellIds,
   isCollapsed,
   onUpdate,
+  onUpdateMultiple,
   onDistributeTableRows,
   onDistributeTableCols,
   onUpdateTableCells,
@@ -206,45 +211,7 @@ export function Inspector({
     );
   }
 
-  if (selectionCount > 1) {
-    return (
-      <aside className="canvas-inspector">
-        <div className="inspector-panel">
-          <div className="inspector-header-row">
-            <p className="eyebrow">Inspector</p>
-            <button
-              type="button"
-              className="ghost-button inspector-toggle-button"
-              aria-label="Collapse inspector"
-              onClick={onToggleInspector}
-              title="Collapse inspector"
-            >
-              &gt;
-            </button>
-          </div>
-          <div className="inspector-title-row">
-            <div>
-              <h3>{selectionCount} selected</h3>
-              <p className="inspector-meta">
-                Multi-select editing is limited to delete and layer actions.
-              </p>
-            </div>
-            <button className="ghost-button danger-button" onClick={onDelete}>
-              Delete
-            </button>
-          </div>
-
-          <section className="inspector-section">
-            <p className="meta-label">Primary Selection</p>
-            <p className="inspector-meta">
-              {ITEM_TYPE_LABEL[item.type as keyof typeof ITEM_TYPE_LABEL] ??
-                item.type}
-            </p>
-          </section>
-        </div>
-      </aside>
-    );
-  }
+  const isMultiSelect = selectionCount > 1;
   const selectedItem = item;
   const isArrow = selectedItem.type === ITEM_TYPE.arrow;
   const isLine = selectedItem.type === ITEM_TYPE.line;
@@ -339,14 +306,18 @@ export function Inspector({
         <div className="inspector-title-row">
           <div>
             <h3>
-              {ITEM_TYPE_LABEL[
-                selectedItem.type as keyof typeof ITEM_TYPE_LABEL
-              ] ?? selectedItem.type}
+              {isMultiSelect
+                ? `${selectionCount} selected`
+                : (ITEM_TYPE_LABEL[
+                    selectedItem.type as keyof typeof ITEM_TYPE_LABEL
+                  ] ?? selectedItem.type)}
             </h3>
             <p className="inspector-meta">
-              {isSegmentItem
-                ? 'Segment connector with editable endpoints and bends.'
-                : summarizeContent(selectedItem)}
+              {isMultiSelect
+                ? 'Multi-select editing'
+                : (isSegmentItem
+                    ? 'Segment connector with editable endpoints and bends.'
+                    : summarizeContent(selectedItem))}
             </p>
           </div>
           <button className="ghost-button danger-button" onClick={onDelete}>
@@ -384,73 +355,102 @@ export function Inspector({
           role="tabpanel"
           aria-label={activeTab === 'style' ? '樣式' : '文字'}
         >
-          {activeTab === 'style' ? (
+          {isMultiSelect ? (
+            activeTab === 'style' ? (
+              <div className="inspector-multi-select-notice">
+                <p>多選時不支援編輯樣式</p>
+              </div>
+            ) : (
+              (() => {
+                const textSupportingItems = (selectedItems || []).filter(isTextContentItem);
+                if (textSupportingItems.length > 0) {
+                  return (
+                    <MultiSelectTextPanel
+                      items={textSupportingItems}
+                      projectDefaultStyle={projectDefaultStyle}
+                      onUpdateMultiple={onUpdateMultiple || (() => {})}
+                    />
+                  );
+                } else {
+                  return (
+                    <div className="inspector-multi-select-notice">
+                      <p>選取的物件不支援文字編輯</p>
+                    </div>
+                  );
+                }
+              })()
+            )
+          ) : (
             <>
-              <PositionSizeSection
-                item={selectedItem}
-                isSegmentItem={isSegmentItem}
-                isLine={isLine}
-                onUpdate={onUpdate}
-              />
+              {activeTab === 'style' ? (
+                <>
+                  <PositionSizeSection
+                    item={selectedItem}
+                    isSegmentItem={isSegmentItem}
+                    isLine={isLine}
+                    onUpdate={onUpdate}
+                  />
 
-              {supportsContent || supportsTitle ? (
-                <ContentSection
+                  {supportsContent || supportsTitle ? (
+                    <ContentSection
+                      item={selectedItem}
+                      childCount={childCount}
+                      onUpdate={onUpdate}
+                      onToggleCollapse={onToggleCollapse}
+                    />
+                  ) : null}
+                </>
+              ) : null}
+
+              {isTable ? (
+                <TablePanel
+                  activeTab={activeTab}
                   item={selectedItem}
-                  childCount={childCount}
+                  tableData={tableData}
+                  selectedTableCells={selectedTableCells}
+                  selectedTableCellIds={selectedTableCellIds}
+                  selectedTableCellBackgroundColor={selectedTableCellBackgroundColor}
+                  selectedTableCellTextContent={selectedTableCellTextContent}
+                  selectedTableCellHorizontalAlign={selectedTableCellHorizontalAlign}
+                  selectedTableCellVerticalAlign={selectedTableCellVerticalAlign}
+                  selectedTableCellChildLayoutDirection={selectedTableCellChildLayoutDirection}
+                  tableChildLayoutDirection={tableChildLayoutDirection}
+                  projectDefaultStyle={projectDefaultStyle}
                   onUpdate={onUpdate}
-                  onToggleCollapse={onToggleCollapse}
+                  onDistributeRows={onDistributeTableRows}
+                  onDistributeCols={onDistributeTableCols}
+                  onUpdateTableCells={onUpdateTableCells}
+                />
+              ) : null}
+
+              {supportsTextStyling ? (
+                <TextStylePanel
+                  activeTab={activeTab}
+                  item={selectedItem}
+                  isTable={isTable}
+                  isSegmentItem={isSegmentItem}
+                  selectedTableCells={selectedTableCells}
+                  selectedTableCellIds={selectedTableCellIds}
+                  selectedTableCellBackgroundColor={selectedTableCellBackgroundColor}
+                  projectDefaultStyle={projectDefaultStyle}
+                  onUpdate={onUpdate}
+                  onUpdateTableCells={onUpdateTableCells}
+                />
+              ) : null}
+
+              {supportsLineStyling ? (
+                <SegmentPanel
+                  activeTab={activeTab}
+                  item={selectedItem}
+                  isArrow={isArrow}
+                  isLine={isLine}
+                  isSegmentItem={isSegmentItem}
+                  projectDefaultStyle={projectDefaultStyle}
+                  onUpdate={onUpdate}
                 />
               ) : null}
             </>
-          ) : null}
-
-        {isTable ? (
-          <TablePanel
-            activeTab={activeTab}
-            item={selectedItem}
-            tableData={tableData}
-            selectedTableCells={selectedTableCells}
-            selectedTableCellIds={selectedTableCellIds}
-            selectedTableCellBackgroundColor={selectedTableCellBackgroundColor}
-            selectedTableCellTextContent={selectedTableCellTextContent}
-            selectedTableCellHorizontalAlign={selectedTableCellHorizontalAlign}
-            selectedTableCellVerticalAlign={selectedTableCellVerticalAlign}
-            selectedTableCellChildLayoutDirection={selectedTableCellChildLayoutDirection}
-            tableChildLayoutDirection={tableChildLayoutDirection}
-            projectDefaultStyle={projectDefaultStyle}
-            onUpdate={onUpdate}
-            onDistributeRows={onDistributeTableRows}
-            onDistributeCols={onDistributeTableCols}
-            onUpdateTableCells={onUpdateTableCells}
-          />
-        ) : null}
-
-        {supportsTextStyling ? (
-          <TextStylePanel
-            activeTab={activeTab}
-            item={selectedItem}
-            isTable={isTable}
-            isSegmentItem={isSegmentItem}
-            selectedTableCells={selectedTableCells}
-            selectedTableCellIds={selectedTableCellIds}
-            selectedTableCellBackgroundColor={selectedTableCellBackgroundColor}
-            projectDefaultStyle={projectDefaultStyle}
-            onUpdate={onUpdate}
-            onUpdateTableCells={onUpdateTableCells}
-          />
-        ) : null}
-
-        {supportsLineStyling ? (
-          <SegmentPanel
-            activeTab={activeTab}
-            item={selectedItem}
-            isArrow={isArrow}
-            isLine={isLine}
-            isSegmentItem={isSegmentItem}
-            projectDefaultStyle={projectDefaultStyle}
-            onUpdate={onUpdate}
-          />
-        ) : null}
+          )}
         </div>
       </div>
     </aside>

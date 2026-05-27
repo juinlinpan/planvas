@@ -861,6 +861,87 @@ export function useCanvasItemActions({
     ],
   );
 
+  const handleItemsUpdate = useCallback(
+    (updatedItems: BoardItem[]) => {
+      if (updatedItems.length === 0) return;
+
+      pushUndoSnapshot(captureBoardSnapshot());
+
+      if (editSessionRef.current && updatedItems.some((item) => item.id === editSessionRef.current?.itemId)) {
+        editSessionRef.current = null;
+      }
+
+      const updatedMap = new Map(updatedItems.map((item) => [item.id, item]));
+
+      setItemsAndSync((current) => {
+        let nextItems = current.map((item) => {
+          const updatedItem = updatedMap.get(item.id);
+          if (updatedItem) {
+            return updatedItem;
+          }
+          return item;
+        });
+
+        updatedItems.forEach((updated) => {
+          const previousUpdated =
+            itemsRef.current.find((it) => it.id === updated.id) ?? null;
+          const previousNoteFile = previousUpdated
+            ? getNoteFileName(previousUpdated)
+            : null;
+          const nextNoteFile = getNoteFileName(updated);
+
+          const shouldPropagateNoteContent =
+            updated.type === ITEM_TYPE.note_paper &&
+            nextNoteFile !== null &&
+            updated.content !== previousUpdated?.content;
+
+          const shouldPropagateNoteRename =
+            updated.type === ITEM_TYPE.note_paper &&
+            previousNoteFile !== null &&
+            nextNoteFile !== null &&
+            previousNoteFile !== nextNoteFile;
+
+          if (shouldPropagateNoteContent || shouldPropagateNoteRename) {
+            nextItems = nextItems.map((item) => {
+              if (updatedMap.has(item.id)) {
+                return item;
+              }
+
+              const itemNoteFile = getNoteFileName(item);
+              if (shouldPropagateNoteContent && itemNoteFile === nextNoteFile) {
+                return {
+                  ...item,
+                  content: updated.content,
+                  content_format: 'markdown',
+                };
+              }
+
+              if (shouldPropagateNoteRename && itemNoteFile === previousNoteFile) {
+                return {
+                  ...item,
+                  content: updated.content,
+                  content_format: 'markdown',
+                  data_json: updated.data_json,
+                };
+              }
+
+              return item;
+            });
+          }
+        });
+
+        return nextItems;
+      });
+    },
+    [
+      captureBoardSnapshot,
+      editSessionRef,
+      itemsRef,
+      pushUndoSnapshot,
+      setItemsAndSync,
+    ],
+  );
+
   const handleTransformToNote = useCallback(
     (itemId: string) => {
       const item = itemsRef.current.find((it) => it.id === itemId);
@@ -912,6 +993,7 @@ export function useCanvasItemActions({
     handlePasteSelection,
     handleLayerChange,
     handleItemUpdate,
+    handleItemsUpdate,
     handleTransformToNote,
   };
 }

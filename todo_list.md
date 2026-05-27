@@ -190,6 +190,17 @@
 - [x] Move font size, bold/italic text style, text alignment, table label font size, table cell text alignment, and line/arrow label placement into `文字`.
 - [x] Update Inspector tests for the tabbed layout and font-size editing from the `文字` tab.
 
+## Multi-Select Inspector and Bulk Text Editing Update Notes
+
+- [ ] Render the tabbed `樣式` and `文字` layout in the right inspector when multiple items are selected (`selectionCount > 1`).
+- [ ] Show a style editing notice ("多選時不支援編輯樣式") under the `樣式` tab with no editable style controls.
+- [ ] Filter selected items to get text-supporting items (`text_box`, `sticky_note`, `note_paper`).
+- [ ] Render a notice if no text-supporting items are selected in the `文字` tab.
+- [ ] Create a `MultiSelectTextPanel` component to edit text content and style formats (font size, bold, italic, alignments) together.
+- [ ] Implement `handleItemsUpdate` in `useCanvasItemActions.ts` to bulk update items and propagate note updates/history snapshot.
+- [ ] Pass the list of selected items and `handleItemsUpdate` down to the inspector component from `Canvas.tsx`.
+- [ ] Write tests for multi-select inspector text editing.
+
 ## Line Text Update Notes
 
 - [x] Let `line` store an optional text label in `content`.

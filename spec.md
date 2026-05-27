@@ -162,6 +162,18 @@
 - Line and arrow label text content belongs in `樣式`; label font size and label placement belong in `文字`.
 - Table cell fill/text colors and cell text content belong in `樣式`; table/cell typography and text alignment belong in `文字`.
 
+## Multi-Select Inspector and Bulk Text Editing Update Notes
+
+- When multiple items are selected (selection count > 1), the right inspector must still render the tabbed layout with `樣式` and `文字` tabs.
+- Under the `樣式` tab, the inspector must not display any editable controls, showing a notice that style editing is not supported during multi-selection.
+- Under the `文字` tab, if at least one selected item supports text content (`text_box`, `sticky_note`, `note_paper`), the inspector must render controls for bulk editing text content and typography settings:
+  - Text Content: A textarea allowing the user to update the text content of all selected text-supporting items together. If the selected items have different text contents, it displays a placeholder or empty input indicating mixed content; editing it overwrites the content for all selected text items.
+  - Font Size: A number input allowing the user to update the font size of all selected text-supporting items together.
+  - Alignments: Alignments dropdowns (Horizontal and Vertical) allowing the user to update text alignment for all selected `text_box` items in the selection.
+  - Bold & Italic: Buttons to toggle bold/italic formatting for all selected text-supporting items together.
+- If none of the selected items support text, the `文字` tab displays a notice that text editing is not supported for the selected items.
+- Bulk updates to item content or styles must be pushed as a single action onto the undo/redo history stack.
+
 ## Line Text Update Notes
 
 - `line` supports an optional text label stored in the board item `content` field.
