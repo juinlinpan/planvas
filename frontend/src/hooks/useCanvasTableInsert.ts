@@ -30,6 +30,7 @@ export type UseCanvasTableInsertParams = {
     y: number;
     width: number;
     height: number;
+    content?: string | null;
     dataJson?: string | null;
   }) => void;
 };

@@ -10,6 +10,8 @@ describe('Toolbar', () => {
         activeTool="select"
         onToolChange={() => {}}
         onTableToolClick={() => {}}
+        selectedNoteTemplateId="blank"
+        onNoteTemplateChange={() => {}}
       />,
     );
 
@@ -23,6 +25,8 @@ describe('Toolbar', () => {
         activeTool="select"
         onToolChange={() => {}}
         onTableToolClick={() => {}}
+        selectedNoteTemplateId="blank"
+        onNoteTemplateChange={() => {}}
       />,
     );
 

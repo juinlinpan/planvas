@@ -94,7 +94,7 @@ import {
 } from '../../tableData/tableInsertPreview';
 import { Toolbar } from '../Toolbar';
 
-import { ITEM_TYPE, type ActiveTool, type Viewport } from '../../types/index';
+import { ITEM_TYPE, type ActiveTool, type Viewport, NOTE_TEMPLATES } from '../../types/index';
 import {
   CANVAS_BACKGROUND_STORAGE_KEY,
   DEFAULT_CANVAS_BACKGROUND_MODE,
@@ -193,6 +193,12 @@ export function Canvas({
   const [connectors, setConnectors] = useState<ConnectorLink[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeTool, setActiveTool] = useState<ActiveTool>('select');
+  const [selectedNoteTemplateId, setSelectedNoteTemplateId] = useState<string>('blank');
+
+  const selectedNoteTemplateContent = useMemo(() => {
+    return NOTE_TEMPLATES.find((t) => t.id === selectedNoteTemplateId)?.content ?? '';
+  }, [selectedNoteTemplateId]);
+
   const [backgroundMode, setBackgroundMode] = useState<CanvasBackgroundMode>(
     () => {
       if (typeof window === 'undefined') {
@@ -1530,6 +1536,7 @@ export function Canvas({
     segmentDraft,
     editingId,
     selectedItem,
+    selectedNoteTemplateContent,
     itemsRef,
     connectorsRef,
     selectedIdsRef,
@@ -1614,6 +1621,8 @@ export function Canvas({
         activeTool={activeTool}
         onToolChange={handleToolChange}
         onTableToolClick={handleToolbarTableClick}
+        selectedNoteTemplateId={selectedNoteTemplateId}
+        onNoteTemplateChange={setSelectedNoteTemplateId}
       />
       <CanvasRibbon
         autosaveEnabled={autosaveEnabled}

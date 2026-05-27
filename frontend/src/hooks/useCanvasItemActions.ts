@@ -637,6 +637,7 @@ export function useCanvasItemActions({
       y: number;
       width: number;
       height: number;
+      content?: string | null;
       dataJson?: string | null;
     }) => {
       const snapshotBeforeCreate = captureBoardSnapshot();
@@ -659,11 +660,13 @@ export function useCanvasItemActions({
         type: params.type,
         title: params.type === ITEM_TYPE.frame ? 'New Frame' : null,
         content:
-          params.type === ITEM_TYPE.note_paper
-            ? '# Untitled note\n'
-            : params.type === ITEM_TYPE.line
-              ? null
-              : '',
+          params.content !== undefined
+            ? params.content
+            : params.type === ITEM_TYPE.note_paper
+              ? '# Untitled note\n'
+              : params.type === ITEM_TYPE.line
+                ? null
+                : '',
         content_format:
           params.type === ITEM_TYPE.note_paper ? 'markdown' : null,
         x: params.x,

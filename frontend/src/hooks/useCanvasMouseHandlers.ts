@@ -105,6 +105,7 @@ export type UseCanvasMouseHandlersParams = {
   segmentDraft: SegmentDraftState | null;
   editingId: string | null;
   selectedItem: BoardItem | null;
+  selectedNoteTemplateContent?: string;
 
   // Refs
   itemsRef: RefObject<BoardItem[]>;
@@ -167,6 +168,7 @@ export type UseCanvasMouseHandlersParams = {
     y: number;
     width: number;
     height: number;
+    content?: string | null;
     dataJson?: string | null;
   }) => void;
   handleCreateSegmentItem: (draft: SegmentDraftState) => void;
@@ -190,6 +192,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     segmentDraft,
     editingId,
     selectedItem,
+    selectedNoteTemplateContent,
     itemsRef,
     connectorsRef,
     selectedIdsRef,
@@ -395,6 +398,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
         x: magnetEnabled ? snapValueToGrid(rawX, CANVAS_GRID_SIZE) : rawX,
         y: magnetEnabled ? snapValueToGrid(rawY, CANVAS_GRID_SIZE) : rawY,
         ...size,
+        content: activeTool === ITEM_TYPE.note_paper ? selectedNoteTemplateContent : undefined,
       });
       setActiveTool('select');
       return;

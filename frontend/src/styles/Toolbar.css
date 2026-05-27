@@ -407,3 +407,101 @@
   background: var(--line);
   margin: 4px 0;
 }
+
+/* ──────────────────────────────────────────────
+   Note templates custom dropdown selector
+   ────────────────────────────────────────────── */
+.note-paper-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.tool-dropdown-arrow {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 12px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--toolbar-control-bg, #f1f5f9);
+  border: 1px solid var(--toolbar-line, #cbd5e1);
+  border-radius: 3px;
+  color: var(--muted, #64748b);
+  cursor: pointer;
+  padding: 0;
+  z-index: 2;
+  transition: all 150ms ease;
+}
+
+.tool-dropdown-arrow:hover {
+  background: var(--accent, #2563eb);
+  color: #ffffff;
+  border-color: var(--accent, #2563eb);
+}
+
+.tool-dropdown-arrow svg {
+  display: block;
+}
+
+.note-type-dropdown {
+  position: absolute;
+  z-index: 100;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--toolbar-line, #cbd5e1);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px;
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(15, 23, 42, 0.15));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+}
+
+.toolbar-position-left .note-type-dropdown {
+  left: calc(100% + 8px);
+  top: 0;
+}
+
+.toolbar-position-right .note-type-dropdown {
+  right: calc(100% + 8px);
+  top: 0;
+}
+
+.toolbar-position-top .note-type-dropdown {
+  top: calc(100% + 8px);
+  left: 0;
+}
+
+.toolbar-position-bottom .note-type-dropdown {
+  bottom: calc(100% + 8px);
+  left: 0;
+}
+
+.note-type-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ink, #0f172a);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 100ms;
+}
+
+.note-type-item:hover {
+  background: var(--toolbar-control-hover, #f1f5f9);
+  color: var(--ink, #0f172a);
+}
+
+.note-type-item.is-selected {
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--accent, #2563eb);
+}
+

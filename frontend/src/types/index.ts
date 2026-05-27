@@ -95,3 +95,38 @@ export type ActiveTool =
   | 'note_paper'
   | 'frame'
   | 'arrow';
+
+// ──────────────────────────────────────────────
+// Note Template
+// ──────────────────────────────────────────────
+export type NoteTemplate = {
+  id: string;
+  name: string;
+  content: string;
+};
+
+export const NOTE_TEMPLATES: NoteTemplate[] = [
+  {
+    id: 'blank',
+    name: '空白筆記',
+    content: '# Untitled note\n',
+  },
+  {
+    id: 'jira',
+    name: 'Jira Ticket',
+    content: `# Title
+
+## Description
+
+
+## Criteria
+
+
+## Jira
+
+
+## Assign To
+`,
+  },
+];
+

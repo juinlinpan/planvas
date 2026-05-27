@@ -3,7 +3,7 @@ import {
   getTableInsertAnchorPoint,
   type TableInsertDockPosition,
 } from '../tableData/tableInsertPreview';
-import { type ActiveTool } from '../types/index';
+import { type ActiveTool, NOTE_TEMPLATES } from '../types/index';
 
 type ToolDef = {
   id: ActiveTool;
@@ -107,6 +107,8 @@ type Props = {
     clientY: number,
     position: TableInsertDockPosition,
   ) => void;
+  selectedNoteTemplateId: string;
+  onNoteTemplateChange: (templateId: string) => void;
 };
 export type ToolbarPosition = 'top' | 'bottom' | 'left' | 'right';
 
@@ -131,7 +133,13 @@ export function getToolbarDockPosition(
   ).position;
 }
 
-export function Toolbar({ activeTool, onToolChange, onTableToolClick }: Props) {
+export function Toolbar({
+  activeTool,
+  onToolChange,
+  onTableToolClick,
+  selectedNoteTemplateId,
+  onNoteTemplateChange,
+}: Props) {
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const [position, setPosition] = useState<ToolbarPosition>('left');
   const [previewPosition, setPreviewPosition] =
@@ -142,6 +150,27 @@ export function Toolbar({ activeTool, onToolChange, onTableToolClick }: Props) {
   const isDraggingRef = useRef(false);
   const dragOffsetRef = useRef<{ x: number; y: number } | null>(null);
   const pendingPositionRef = useRef<ToolbarPosition>('left');
+
+  const [noteDropdownOpen, setNoteDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!noteDropdownOpen) return;
+
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setNoteDropdownOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [noteDropdownOpen]);
 
   useEffect(() => {
     function handleEscape(event: KeyboardEvent) {
@@ -260,32 +289,111 @@ export function Toolbar({ activeTool, onToolChange, onTableToolClick }: Props) {
       </div>
       <div className="toolbar-left">
         <div className="toolbar-actions">
-          {TOOLS.map((tool) => (
-            <button
-              key={tool.id}
-              type="button"
-              data-tool-id={tool.id}
-              className={`tool-button ${activeTool === tool.id ? 'is-active' : ''}`}
-              title={`${tool.label} (${tool.shortcut})`}
-              onClick={(event) => {
-                if (tool.id === 'table') {
-                  const anchor = getTableInsertAnchorPoint(
-                    activePosition,
-                    event.currentTarget.getBoundingClientRect(),
-                  );
-                  onTableToolClick(anchor.x, anchor.y, activePosition);
-                  return;
-                }
+          {TOOLS.map((tool) => {
+            const isNotePaper = tool.id === 'note_paper';
+            const activeTemplate = isNotePaper
+              ? NOTE_TEMPLATES.find((t) => t.id === selectedNoteTemplateId) ||
+                NOTE_TEMPLATES[0]
+              : null;
+            const tooltip = isNotePaper
+              ? `${tool.label}: ${activeTemplate?.name} (${tool.shortcut})`
+              : `${tool.label} (${tool.shortcut})`;
 
-                onToolChange(tool.id);
-              }}
-            >
-              <span className="tool-icon">{tool.icon}</span>
-              {showToolbarText ? (
-                <span className="tool-label">{tool.label}</span>
-              ) : null}
-            </button>
-          ))}
+            const buttonElement = (
+              <button
+                key={tool.id}
+                type="button"
+                data-tool-id={tool.id}
+                className={`tool-button ${activeTool === tool.id ? 'is-active' : ''}`}
+                title={tooltip}
+                onClick={(event) => {
+                  if (tool.id === 'table') {
+                    const anchor = getTableInsertAnchorPoint(
+                      activePosition,
+                      event.currentTarget.getBoundingClientRect(),
+                    );
+                    onTableToolClick(anchor.x, anchor.y, activePosition);
+                    return;
+                  }
+
+                  onToolChange(tool.id);
+                }}
+              >
+                <span className="tool-icon">{tool.icon}</span>
+                {showToolbarText ? (
+                  <span className="tool-label">{tool.label}</span>
+                ) : null}
+              </button>
+            );
+
+            if (isNotePaper) {
+              return (
+                <div
+                  key={tool.id}
+                  className="tool-button-wrapper note-paper-wrapper"
+                >
+                  {buttonElement}
+                  <button
+                    type="button"
+                    className="tool-dropdown-arrow"
+                    title="切換筆記樣式"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setNoteDropdownOpen((open) => !open);
+                    }}
+                  >
+                    <svg
+                      width="6"
+                      height="6"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path d="M7 10l5 5 5-5z" />
+                    </svg>
+                  </button>
+                  {noteDropdownOpen && (
+                    <div className="note-type-dropdown" ref={dropdownRef}>
+                      {NOTE_TEMPLATES.map((tmpl) => (
+                        <button
+                          key={tmpl.id}
+                          type="button"
+                          className={`note-type-item ${
+                            selectedNoteTemplateId === tmpl.id
+                              ? 'is-selected'
+                              : ''
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onNoteTemplateChange(tmpl.id);
+                            onToolChange('note_paper');
+                            setNoteDropdownOpen(false);
+                          }}
+                        >
+                          <span>{tmpl.name}</span>
+                          {selectedNoteTemplateId === tmpl.id && (
+                            <svg
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            return buttonElement;
+          })}
         </div>
       </div>
     </div>
