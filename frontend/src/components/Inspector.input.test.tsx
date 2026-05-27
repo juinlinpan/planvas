@@ -174,12 +174,20 @@ describe('Inspector font size input', () => {
     expect(textarea).toBeInstanceOf(HTMLTextAreaElement);
 
     act(() => {
+      textarea?.focus();
+    });
+
+    act(() => {
       const nativeValueSetter = Object.getOwnPropertyDescriptor(
         HTMLTextAreaElement.prototype,
         'value'
       )?.set;
       nativeValueSetter?.call(textarea, 'New Bulk Text');
       textarea?.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    act(() => {
+      textarea?.blur();
     });
 
     expect(handleUpdateMultiple).toHaveBeenCalledTimes(1);

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { BoardItem } from '../services/api';
 import { ITEM_TYPE } from '../types/index';
 
@@ -49,6 +50,23 @@ type Props = {
  * Extracted from Inspector.tsx.
  */
 export function ContentSection({ item, childCount, onUpdate, onToggleCollapse }: Props) {
+  const [localTitle, setLocalTitle] = useState(item.title ?? '');
+  const [localContent, setLocalContent] = useState(item.content ?? '');
+  const [isTitleFocused, setIsTitleFocused] = useState(false);
+  const [isContentFocused, setIsContentFocused] = useState(false);
+
+  useEffect(() => {
+    if (!isTitleFocused) {
+      setLocalTitle(item.title ?? '');
+    }
+  }, [item.title, isTitleFocused, item.id]);
+
+  useEffect(() => {
+    if (!isContentFocused) {
+      setLocalContent(item.content ?? '');
+    }
+  }, [item.content, isContentFocused, item.id]);
+
   const supportsContent =
     item.type === ITEM_TYPE.text_box ||
     item.type === ITEM_TYPE.sticky_note ||
@@ -57,14 +75,14 @@ export function ContentSection({ item, childCount, onUpdate, onToggleCollapse }:
 
   if (!supportsContent && !supportsTitle) return null;
 
-  function handleTitleChange(rawValue: string) {
-    onUpdate({ ...item, title: rawValue });
+  function handleTitleCommit() {
+    onUpdate({ ...item, title: localTitle });
   }
 
-  function handleContentChange(rawValue: string) {
+  function handleContentCommit() {
     onUpdate({
       ...item,
-      content: rawValue,
+      content: localContent,
       content_format:
         item.type === ITEM_TYPE.note_paper ? 'markdown' : item.content_format,
     });
@@ -94,8 +112,18 @@ export function ContentSection({ item, childCount, onUpdate, onToggleCollapse }:
           標題
           <input
             type="text"
-            value={item.title ?? ''}
-            onChange={(e) => handleTitleChange(e.target.value)}
+            value={localTitle}
+            onChange={(e) => setLocalTitle(e.target.value)}
+            onFocus={() => setIsTitleFocused(true)}
+            onBlur={() => {
+              setIsTitleFocused(false);
+              handleTitleCommit();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.currentTarget.blur();
+              }
+            }}
           />
         </label>
       ) : null}
@@ -104,8 +132,13 @@ export function ContentSection({ item, childCount, onUpdate, onToggleCollapse }:
           {item.type === ITEM_TYPE.note_paper ? 'Markdown' : '內文'}
           <textarea
             className="inspector-textarea"
-            value={item.content ?? ''}
-            onChange={(e) => handleContentChange(e.target.value)}
+            value={localContent}
+            onChange={(e) => setLocalContent(e.target.value)}
+            onFocus={() => setIsContentFocused(true)}
+            onBlur={() => {
+              setIsContentFocused(false);
+              handleContentCommit();
+            }}
           />
         </label>
       ) : null}

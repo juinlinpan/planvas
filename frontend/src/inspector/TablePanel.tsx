@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { BoardItem } from '../services/api';
 import {
   BACKGROUND_COLOR_OPTIONS,
@@ -84,6 +85,17 @@ export function TablePanel({
   onUpdateTableCells,
 }: Props) {
   if (item.type !== ITEM_TYPE.table) return null;
+
+  const [localCellContent, setLocalCellContent] = useState(selectedTableCellTextContent);
+  const [isCellContentFocused, setIsCellContentFocused] = useState(false);
+
+  const selectedCellIdsKey = selectedTableCellIds.join(',');
+
+  useEffect(() => {
+    if (!isCellContentFocused) {
+      setLocalCellContent(selectedTableCellTextContent);
+    }
+  }, [selectedTableCellTextContent, isCellContentFocused, selectedCellIdsKey]);
 
   const resolvedStyle = resolveBoardItemStyle(item, projectDefaultStyle);
   const hasCustomStyle =
@@ -228,7 +240,7 @@ export function TablePanel({
             Cell text
             <textarea
               className="inspector-textarea"
-              value={selectedTableCellTextContent}
+              value={localCellContent}
               disabled={selectedTableCells.length === 0}
               placeholder={
                 selectedTableCells.length === 0
@@ -237,11 +249,14 @@ export function TablePanel({
                     ? `Editing ${selectedTableCells.length} selected cells`
                     : undefined
               }
-              onChange={(e) =>
+              onChange={(e) => setLocalCellContent(e.target.value)}
+              onFocus={() => setIsCellContentFocused(true)}
+              onBlur={() => {
+                setIsCellContentFocused(false);
                 onUpdateTableCells(item.id, selectedTableCellIds, {
-                  content: e.target.value,
-                })
-              }
+                  content: localCellContent,
+                });
+              }}
             />
           </label>
           <div className="inspector-color-grid">

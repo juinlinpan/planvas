@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { BoardItem } from '../services/api';
 import { ITEM_TYPE } from '../types/index';
 import {
@@ -38,6 +39,18 @@ export function MultiSelectTextPanel({
   const firstItem = items[0];
   const allSameContent = items.every((it) => it.content === firstItem.content);
   const contentValue = allSameContent ? (firstItem.content ?? '') : '';
+
+  const [localContent, setLocalContent] = useState(contentValue);
+  const [isContentFocused, setIsContentFocused] = useState(false);
+
+  const itemsKey = items.map((it) => it.id).join(',');
+
+  useEffect(() => {
+    if (!isContentFocused) {
+      setLocalContent(contentValue);
+    }
+  }, [contentValue, isContentFocused, itemsKey]);
+
   const contentPlaceholder = allSameContent
     ? ''
     : '(多種內容，編輯將套用至所有選取項目)';
@@ -93,11 +106,11 @@ export function MultiSelectTextPanel({
     handleStyleChange({ fontSize: value });
   }
 
-  function handleContentChange(rawValue: string) {
+  function handleContentCommit() {
     const updatedItems = items.map((item) => {
       return {
         ...item,
-        content: rawValue,
+        content: localContent,
         content_format:
           item.type === ITEM_TYPE.note_paper ? 'markdown' : item.content_format,
       };
@@ -123,9 +136,14 @@ export function MultiSelectTextPanel({
         {hasMarkdown ? 'Markdown' : '內文'}
         <textarea
           className="inspector-textarea"
-          value={contentValue}
+          value={localContent}
           placeholder={contentPlaceholder}
-          onChange={(e) => handleContentChange(e.target.value)}
+          onChange={(e) => setLocalContent(e.target.value)}
+          onFocus={() => setIsContentFocused(true)}
+          onBlur={() => {
+            setIsContentFocused(false);
+            handleContentCommit();
+          }}
         />
       </label>
 
