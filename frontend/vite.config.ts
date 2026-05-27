@@ -8,5 +8,17 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 5173,
     strictPort: true,
+    watch: {
+      ignored: (p: string) => {
+        const normalized = p.replace(/\\/g, '/');
+        return (
+          normalized.includes('/.pv_project/') ||
+          normalized.includes('/.planvas/') ||
+          normalized.endsWith('.semantic.xml') ||
+          normalized.endsWith('.presentation.xml') ||
+          normalized.endsWith('.md')
+        );
+      },
+    },
   },
 });

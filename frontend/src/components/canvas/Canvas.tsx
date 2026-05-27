@@ -190,6 +190,12 @@ export function Canvas({
     zoom: page.zoom,
   });
   const [items, setItems] = useState<BoardItem[]>([]);
+  const lastSavedItemsRef = useRef<BoardItem[]>([]);
+  useEffect(() => {
+    if (items.length > 0 && lastSavedItemsRef.current.length === 0) {
+      lastSavedItemsRef.current = items;
+    }
+  }, [items]);
   const [connectors, setConnectors] = useState<ConnectorLink[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeTool, setActiveTool] = useState<ActiveTool>('select');
@@ -358,9 +364,21 @@ export function Canvas({
           return item;
         });
 
+        // Check if any note paper content changed compared to what we last saved
+        const hasNotePaperChanges = itemsRef.current.some((item) => {
+          if (item.type !== ITEM_TYPE.note_paper) return false;
+          const lastSaved = lastSavedItemsRef.current.find((it) => it.id === item.id);
+          return lastSaved === undefined || lastSaved.content !== item.content;
+        });
+
+        lastSavedItemsRef.current = itemsRef.current;
+
         if (serverNoteMetadataChanged) {
           itemsRef.current = nextItems;
           setItems(nextItems);
+        }
+
+        if (serverNoteMetadataChanged || hasNotePaperChanges) {
           onProjectNotesChanged?.();
         }
       } catch (err) {
@@ -368,7 +386,7 @@ export function Canvas({
         setSaveStatus('unsaved');
       }
     },
-    [page.id, onBoardDataCacheChange, onProjectNotesChanged],
+    [page.id, onBoardDataCacheChange, onProjectNotesChanged, lastSavedItemsRef],
   );
 
   const triggerSave = useCallback(
