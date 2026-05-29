@@ -75,14 +75,17 @@ describe('viewport helpers', () => {
     ).toEqual({ x: 12, y: 18 });
   });
 
-  it('keeps mouse wheel input on zoom by default', () => {
+  it('uses unmodified wheel input as viewport pan', () => {
     expect(
       shouldPanViewportFromWheel({
         deltaX: 0,
         deltaY: 100,
         deltaMode: 0,
       }),
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  it('computes the modified wheel zoom multiplier', () => {
     expect(getWheelZoomMultiplier({ deltaX: 0, deltaY: 100, deltaMode: 0 }))
       .toBe(0.9);
   });

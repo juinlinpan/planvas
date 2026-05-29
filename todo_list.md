@@ -137,8 +137,9 @@
 - [x] Keep the left page list zoom indicator in sync with live canvas zoom changes.
 - [x] Add toolbar zoom controls for `-`, `+`, current zoom readout, and reset to `1.0x`.
 - [x] Add a compact zoom reset-target control so reset can be changed in `0.1x` increments, for example `0.5x` or `1.5x`.
-- [x] Make precision trackpad two-finger wheel input pan the canvas viewport instead of treating every wheel event as zoom.
-- [x] Keep mouse-wheel zoom and `Ctrl` / `Meta` pinch-style zoom behavior while adding `Shift` + wheel horizontal pan.
+- [x] Make all unmodified wheel input pan the canvas viewport so trackpad two-finger scrolling never changes zoom.
+- [x] Keep `Ctrl` / `Meta` wheel zoom behavior while adding `Shift` + wheel horizontal pan.
+- [x] Block browser overscroll navigation from canvas trackpad swipes, including Chrome back / forward on horizontal swipes.
 - [x] Keep `magnet` enabled by default when the canvas loads.
 - [x] Remove nearby-item alignment and keep `magnet` for background-grid edge snapping during move / resize.
 - [x] Snap newly created items and freeform `line` / `arrow` points to the background grid when `magnet` is enabled.

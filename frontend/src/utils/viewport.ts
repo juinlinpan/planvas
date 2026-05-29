@@ -30,7 +30,6 @@ const DOM_DELTA_LINE = 1;
 const DOM_DELTA_PAGE = 2;
 const WHEEL_LINE_HEIGHT_PX = 16;
 const WHEEL_PAGE_HEIGHT_PX = 800;
-const PRECISION_WHEEL_ZOOM_THRESHOLD_PX = 80;
 const MAX_WHEEL_ZOOM_DELTA = 0.25;
 
 function roundToStep(value: number, step: number): number {
@@ -111,17 +110,7 @@ export function shouldPanViewportFromWheel(input: WheelViewportInput): boolean {
     return false;
   }
 
-  if (input.shiftKey) {
-    return true;
-  }
-
-  if (input.deltaMode !== DOM_DELTA_PIXEL) {
-    return false;
-  }
-
-  const absX = Math.abs(input.deltaX);
-  const absY = Math.abs(input.deltaY);
-  return absX > 0 || absY < PRECISION_WHEEL_ZOOM_THRESHOLD_PX;
+  return true;
 }
 
 export function getViewportWheelPanDelta(
