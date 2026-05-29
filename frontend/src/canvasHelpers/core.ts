@@ -151,8 +151,8 @@ export function summarizeFrameChild(item: BoardItem): FrameSummaryEntry {
     return {
       id: item.id,
       type: item.type,
-      title: '文字框',
-      body: text.length > 0 ? text : '尚未輸入文字',
+      title: '',
+      body: text,
     };
   }
 
@@ -160,7 +160,7 @@ export function summarizeFrameChild(item: BoardItem): FrameSummaryEntry {
     return {
       id: item.id,
       type: item.type,
-      title: '便利貼',
+      title: '',
       body: text.length > 0 ? ellipsize(text, 80) : '尚未輸入內容',
     };
   }

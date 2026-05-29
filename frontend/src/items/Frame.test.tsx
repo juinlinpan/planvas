@@ -36,7 +36,7 @@ const childSummaries: FrameSummaryEntry[] = [
   {
     id: 'text-1',
     type: ITEM_TYPE.text_box,
-    title: '文字框',
+    title: '',
     body: '完整文字內容',
   },
   {
@@ -59,8 +59,8 @@ describe('Frame', () => {
     );
 
     expect(markup).toContain('縮回');
-    expect(markup).toContain('拖曳文字框、便利貼或筆記紙進入這個 frame。');
-    expect(markup).toContain('目前已收納 2 個物件。');
+    expect(markup).not.toContain('拖曳文字框、便利貼或筆記紙進入這個 frame。');
+    expect(markup).not.toContain('目前已收納 2 個物件。');
   });
 
   it('renders collapsed summaries and expand control', () => {
@@ -75,6 +75,7 @@ describe('Frame', () => {
 
     expect(markup).toContain('展開');
     expect(markup).toContain('完整文字內容');
+    expect(markup).not.toContain('文字框');
     expect(markup).toContain('Roadmap');
     expect(markup).toContain('Markdown H1 摘要');
   });

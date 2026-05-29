@@ -4,7 +4,6 @@ import {
   type ProjectDefaultStyle,
   resolveBoardItemStyle,
 } from './itemStyles';
-import { ITEM_TYPE_LABEL } from '../types/index';
 
 export type FrameSummaryEntry = {
   id: string;
@@ -88,22 +87,18 @@ export function Frame({
                 key={entry.id}
                 className={`frame-summary-card tone-${entry.type}`}
               >
-                <p className="frame-summary-label">
-                  {ITEM_TYPE_LABEL[
-                    entry.type as keyof typeof ITEM_TYPE_LABEL
-                  ] ?? entry.type}
-                </p>
-                <strong style={typographyStyle}>{entry.title}</strong>
-                <p style={typographyStyle}>{entry.body}</p>
+                {entry.title.length > 0 ? (
+                  <strong style={typographyStyle}>{entry.title}</strong>
+                ) : null}
+                {entry.body.length > 0 ? (
+                  <p style={typographyStyle}>{entry.body}</p>
+                ) : null}
               </article>
             ))
           )}
         </div>
       ) : (
-        <div className="frame-body" style={typographyStyle}>
-          <p>拖曳文字框、便利貼或筆記紙進入這個 frame。</p>
-          <p>目前已收納 {childCount} 個物件。</p>
-        </div>
+        <div className="frame-body" style={typographyStyle} />
       )}
     </div>
   );

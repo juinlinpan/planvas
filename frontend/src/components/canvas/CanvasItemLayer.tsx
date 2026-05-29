@@ -117,6 +117,22 @@ export function CanvasItemLayer({
     return summariesById;
   }, [frameChildrenById]);
 
+  const renderZIndexById = useMemo(() => {
+    const itemById = new Map(items.map((item) => [item.id, item]));
+    const zIndexById = new Map<string, number>();
+    for (const item of items) {
+      const parent =
+        item.parent_item_id === null ? null : itemById.get(item.parent_item_id);
+      zIndexById.set(
+        item.id,
+        parent === undefined || parent === null
+          ? item.z_index
+          : Math.max(item.z_index, parent.z_index + 1),
+      );
+    }
+    return zIndexById;
+  }, [items]);
+
   const segmentDraftPreviewItem = useMemo(() => {
     if (segmentDraft === null) {
       return null;
@@ -175,6 +191,7 @@ export function CanvasItemLayer({
           <BoardItemRenderer
             key={item.id}
             item={item}
+            renderZIndex={renderZIndexById.get(item.id)}
             childCount={childItems.length}
             childSummaries={frameChildSummariesById.get(item.id) ?? []}
             className={itemClassName}

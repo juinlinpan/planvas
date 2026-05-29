@@ -15,6 +15,7 @@ type Props = {
   childSummaries: FrameSummaryEntry[];
   childCount: number;
   className?: string;
+  renderZIndex?: number;
   renderMode?: 'interactive' | 'static';
   isSelected: boolean;
   isEditing: boolean;
@@ -54,6 +55,7 @@ function BoardItemRendererComponent({
   childSummaries,
   childCount,
   className = '',
+  renderZIndex,
   renderMode = 'interactive',
   isSelected,
   isEditing,
@@ -86,7 +88,7 @@ function BoardItemRendererComponent({
     top: item.y,
     width: item.width,
     height: item.height,
-    zIndex: item.z_index,
+    zIndex: renderZIndex ?? item.z_index,
     userSelect: 'none',
     pointerEvents: isSegmentItem ? 'none' : undefined,
   };
@@ -410,6 +412,7 @@ export const BoardItemRenderer = memo(
     prev.item === next.item &&
     prev.childCount === next.childCount &&
     prev.className === next.className &&
+    prev.renderZIndex === next.renderZIndex &&
     prev.renderMode === next.renderMode &&
     prev.isSelected === next.isSelected &&
     prev.isEditing === next.isEditing &&
