@@ -94,7 +94,7 @@ describe('summarizeFrameChild', () => {
     expect(summary).toEqual({
       id: 'text-1',
       type: ITEM_TYPE.text_box,
-      title: '文字框',
+      title: '',
       body: '完整顯示的文字框內容',
     });
   });
@@ -108,7 +108,7 @@ describe('summarizeFrameChild', () => {
       }),
     );
 
-    expect(summary.title).toBe('便利貼');
+    expect(summary.title).toBe('');
     expect(summary.body).toBe(`${'A'.repeat(80)}…`);
   });
 
