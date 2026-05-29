@@ -90,7 +90,12 @@ import {
   type ActiveTool,
   type Viewport,
 } from '../types/index';
-import { zoomViewportAroundPoint } from '../utils/viewport';
+import {
+  getViewportWheelPanDelta,
+  getWheelZoomMultiplier,
+  shouldPanViewportFromWheel,
+  zoomViewportAroundPoint,
+} from '../utils/viewport';
 import { isScrollableWheelTarget } from '../canvasHelpers/scrollTarget';
 import { useCanvasPan } from './useCanvasPan';
 import { useCanvasMarquee } from './useCanvasMarquee';
@@ -323,11 +328,47 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
 
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-    const delta = -e.deltaY * 0.001;
     const vp = viewportRef.current;
+    if (
+      shouldPanViewportFromWheel({
+        deltaX: e.deltaX,
+        deltaY: e.deltaY,
+        deltaMode: e.deltaMode,
+        ctrlKey: e.ctrlKey,
+        metaKey: e.metaKey,
+        shiftKey: e.shiftKey,
+      })
+    ) {
+      const panDelta = getViewportWheelPanDelta({
+        deltaX: e.deltaX,
+        deltaY: e.deltaY,
+        deltaMode: e.deltaMode,
+        shiftKey: e.shiftKey,
+      });
+      const nextViewport = {
+        ...vp,
+        x: vp.x - panDelta.x,
+        y: vp.y - panDelta.y,
+      };
+      setViewportAndSync(nextViewport);
+      scheduleViewportSave(nextViewport);
+      return;
+    }
+
     const nextViewport = zoomViewportAroundPoint(
       vp,
-      Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, vp.zoom * (1 + delta))),
+      Math.min(
+        MAX_ZOOM,
+        Math.max(
+          MIN_ZOOM,
+          vp.zoom *
+            getWheelZoomMultiplier({
+              deltaX: e.deltaX,
+              deltaY: e.deltaY,
+              deltaMode: e.deltaMode,
+            }),
+        ),
+      ),
       { x: mouseX, y: mouseY },
     );
 

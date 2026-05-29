@@ -11,6 +11,28 @@ type ScreenPoint = {
   y: number;
 };
 
+type WheelViewportInput = {
+  deltaX: number;
+  deltaY: number;
+  deltaMode: number;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+  shiftKey?: boolean;
+};
+
+export type WheelPanDelta = {
+  x: number;
+  y: number;
+};
+
+const DOM_DELTA_PIXEL = 0;
+const DOM_DELTA_LINE = 1;
+const DOM_DELTA_PAGE = 2;
+const WHEEL_LINE_HEIGHT_PX = 16;
+const WHEEL_PAGE_HEIGHT_PX = 800;
+const PRECISION_WHEEL_ZOOM_THRESHOLD_PX = 80;
+const MAX_WHEEL_ZOOM_DELTA = 0.25;
+
 function roundToStep(value: number, step: number): number {
   return Number((Math.round(value / step) * step).toFixed(4));
 }
@@ -67,4 +89,65 @@ export function zoomViewportAroundPoint(
     y: point.y - scale * (point.y - viewport.y),
     zoom: nextZoom,
   };
+}
+
+export function normalizeWheelDeltaToPixels(
+  delta: number,
+  deltaMode: number,
+): number {
+  if (deltaMode === DOM_DELTA_LINE) {
+    return delta * WHEEL_LINE_HEIGHT_PX;
+  }
+
+  if (deltaMode === DOM_DELTA_PAGE) {
+    return delta * WHEEL_PAGE_HEIGHT_PX;
+  }
+
+  return delta;
+}
+
+export function shouldPanViewportFromWheel(input: WheelViewportInput): boolean {
+  if (input.ctrlKey || input.metaKey) {
+    return false;
+  }
+
+  if (input.shiftKey) {
+    return true;
+  }
+
+  if (input.deltaMode !== DOM_DELTA_PIXEL) {
+    return false;
+  }
+
+  const absX = Math.abs(input.deltaX);
+  const absY = Math.abs(input.deltaY);
+  return absX > 0 || absY < PRECISION_WHEEL_ZOOM_THRESHOLD_PX;
+}
+
+export function getViewportWheelPanDelta(
+  input: WheelViewportInput,
+): WheelPanDelta {
+  const deltaX = normalizeWheelDeltaToPixels(input.deltaX, input.deltaMode);
+  const deltaY = normalizeWheelDeltaToPixels(input.deltaY, input.deltaMode);
+
+  if (input.shiftKey && Math.abs(deltaX) < Math.abs(deltaY)) {
+    return {
+      x: deltaY,
+      y: 0,
+    };
+  }
+
+  return {
+    x: deltaX,
+    y: deltaY,
+  };
+}
+
+export function getWheelZoomMultiplier(input: WheelViewportInput): number {
+  const deltaY = normalizeWheelDeltaToPixels(input.deltaY, input.deltaMode);
+  const zoomDelta = Math.max(
+    -MAX_WHEEL_ZOOM_DELTA,
+    Math.min(MAX_WHEEL_ZOOM_DELTA, -deltaY * 0.001),
+  );
+  return 1 + zoomDelta;
 }

@@ -1,7 +1,7 @@
 {
   "name": "@planvas/backend",
   "private": true,
-  "version": "0.1.9",
+  "version": "0.1.10",
   "type": "module",
   "scripts": {
     "dev": "npm run build && concurrently --kill-others -n backend-tsc,backend-node -c yellow,green \"tsc -p tsconfig.json --watch --preserveWatchOutput\" \"node --watch --watch-preserve-output dist/src/server.js --host 127.0.0.1 --port 18000\"",
