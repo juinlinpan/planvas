@@ -64,23 +64,51 @@ export type ResolvedBoardItemStyle = {
 };
 
 export const BACKGROUND_COLOR_OPTIONS = [
-  { name: 'Pearl', value: '#f9f8f5' },
-  { name: 'Butter', value: '#fef5b3' },
-  { name: 'Apricot', value: '#fdddd0' },
-  { name: 'Wheat', value: '#f4e8d0' },
-  { name: 'Sage', value: '#c8d9c4' },
-  { name: 'Periwinkle', value: '#d6e4fa' },
-  { name: 'Rose', value: '#f5d8e8' },
-  { name: 'Stone', value: '#e2e4ea' },
+  // Row 1: Grayscale (左淺右深)
+  { name: 'Pearl', value: '#f1f2f4' },
+  { name: 'Alabaster', value: '#e2e5e8' },
+  { name: 'Snow', value: '#cbd1d6' },
+  { name: 'Ash', value: '#b4bcc3' },
+  { name: 'Stone', value: '#9da8b1' },
+  { name: 'Slate Light', value: '#86939f' },
+  { name: 'Slate Dark', value: '#6e7e8d' },
+
+  // Row 2: Yellow -> Orange -> Red (左淺右深, 粉嫩色系)
+  { name: 'Cream', value: '#faf5d6' },
+  { name: 'Butter', value: '#faefbd' },
+  { name: 'Peach', value: '#fadba3' },
+  { name: 'Apricot', value: '#f8c390' },
+  { name: 'Coral', value: '#f4aa86' },
+  { name: 'Rose', value: '#f0927a' },
+  { name: 'Red', value: '#eb7c7c' },
+
+  // Row 3: Greens (左淺右深, 粉嫩色系)
+  { name: 'Mint Ice', value: '#dcf5de' },
+  { name: 'Mint Cream', value: '#caebcd' },
+  { name: 'Pale Mint', value: '#b7dfbc' },
+  { name: 'Mint', value: '#a5d2ab' },
+  { name: 'Celadon', value: '#96c59d' },
+  { name: 'Sage Light', value: '#84b68c' },
+  { name: 'Sage Deep', value: '#73a77c' },
+
+  // Row 4: Blues (左淺右深, 粉嫩色系)
+  { name: 'Near White Blue', value: '#d8edf9' },
+  { name: 'Ice Cream Blue', value: '#c6e3f4' },
+  { name: 'Pale Blue', value: '#b4daf0' },
+  { name: 'Ice Blue', value: '#a2d0eb' },
+  { name: 'Sky Blue', value: '#93c6e6' },
+  { name: 'Ocean Light', value: '#83badb' },
+  { name: 'Ocean Deep', value: '#73aed1' },
 ] as const satisfies readonly ColorOption[];
 
 export const TEXT_COLOR_OPTIONS = [
   { name: 'Ink', value: '#1f2937' },
-  { name: 'Blue', value: '#1d4ed8' },
-  { name: 'Teal', value: '#0f766e' },
-  { name: 'Green', value: '#15803d' },
-  { name: 'Orange', value: '#c2410c' },
-  { name: 'Rose', value: '#be123c' },
+  { name: 'Gray', value: '#6b7280' },
+  { name: 'Red', value: '#dc2626' },
+  { name: 'Orange', value: '#ea580c' },
+  { name: 'Green', value: '#16a34a' },
+  { name: 'Blue', value: '#2563eb' },
+  { name: 'Purple', value: '#7c3aed' },
 ] as const satisfies readonly ColorOption[];
 
 export const STROKE_COLOR_OPTIONS = [
@@ -95,11 +123,11 @@ export const STROKE_COLOR_OPTIONS = [
 ] as const satisfies readonly ColorOption[];
 
 const DEFAULT_BACKGROUND_COLOR = BACKGROUND_COLOR_OPTIONS[0].value;
-const DEFAULT_FRAME_BACKGROUND_COLOR = BACKGROUND_COLOR_OPTIONS[5].value;
+const DEFAULT_FRAME_BACKGROUND_COLOR = BACKGROUND_COLOR_OPTIONS[22].value;
 const DEFAULT_TEXT_COLOR = TEXT_COLOR_OPTIONS[0].value;
 const DEFAULT_STROKE_COLOR = STROKE_COLOR_OPTIONS[0].value;
 const DEFAULT_ARROW_HEAD_SIZE = 14;
-const STICKY_COLORS = BACKGROUND_COLOR_OPTIONS.slice(1).map(
+const STICKY_COLORS = BACKGROUND_COLOR_OPTIONS.slice(7).map(
   (option) => option.value,
 );
 
@@ -118,23 +146,36 @@ const BACKGROUND_COLOR_LOOKUP = createPaletteLookup(BACKGROUND_COLOR_OPTIONS, {
   '#ffffff': DEFAULT_BACKGROUND_COLOR,
   '#fffdf7': DEFAULT_BACKGROUND_COLOR,
   '#f8fafc': DEFAULT_BACKGROUND_COLOR,
-  '#fef08a': BACKGROUND_COLOR_OPTIONS[1].value,
-  '#fde68a': BACKGROUND_COLOR_OPTIONS[1].value,
-  '#fed7aa': BACKGROUND_COLOR_OPTIONS[2].value,
-  '#bbf7d0': BACKGROUND_COLOR_OPTIONS[4].value,
-  '#dcfce7': BACKGROUND_COLOR_OPTIONS[4].value,
+  '#fef08a': BACKGROUND_COLOR_OPTIONS[9].value,
+  '#fde68a': BACKGROUND_COLOR_OPTIONS[9].value,
+  '#fed7aa': BACKGROUND_COLOR_OPTIONS[10].value,
+  '#bbf7d0': BACKGROUND_COLOR_OPTIONS[17].value,
+  '#dcfce7': BACKGROUND_COLOR_OPTIONS[17].value,
   '#ecfeff': DEFAULT_FRAME_BACKGROUND_COLOR,
   '#eff6ff': DEFAULT_FRAME_BACKGROUND_COLOR,
   '#bfdbfe': DEFAULT_FRAME_BACKGROUND_COLOR,
-  '#fecaca': BACKGROUND_COLOR_OPTIONS[6].value,
-  '#ede9fe': BACKGROUND_COLOR_OPTIONS[7].value,
-  '#e9d5ff': BACKGROUND_COLOR_OPTIONS[7].value,
+  '#fecaca': BACKGROUND_COLOR_OPTIONS[13].value,
+  '#ede9fe': BACKGROUND_COLOR_OPTIONS[24].value,
+  '#e9d5ff': BACKGROUND_COLOR_OPTIONS[24].value,
+  // Backward compatibility with the old default palette
+  '#f9f8f5': BACKGROUND_COLOR_OPTIONS[0].value,
+  '#fef5b3': BACKGROUND_COLOR_OPTIONS[9].value,
+  '#fdddd0': BACKGROUND_COLOR_OPTIONS[10].value,
+  '#f4e8d0': BACKGROUND_COLOR_OPTIONS[11].value,
+  '#f5d8e8': BACKGROUND_COLOR_OPTIONS[8].value,
+  '#e2e4ea': BACKGROUND_COLOR_OPTIONS[2].value,
 });
 
 const TEXT_COLOR_LOOKUP = createPaletteLookup(TEXT_COLOR_OPTIONS, {
   '#1d1d1f': DEFAULT_TEXT_COLOR,
   '#0f172a': DEFAULT_TEXT_COLOR,
-  '#164e63': TEXT_COLOR_OPTIONS[2].value,
+  '#164e63': TEXT_COLOR_OPTIONS[5].value,
+  // Backward compatibility with the old text colors
+  '#1d4ed8': TEXT_COLOR_OPTIONS[5].value, // old Blue -> new Blue
+  '#0f766e': TEXT_COLOR_OPTIONS[4].value, // old Teal -> new Green
+  '#15803d': TEXT_COLOR_OPTIONS[4].value, // old Green -> new Green
+  '#c2410c': TEXT_COLOR_OPTIONS[3].value, // old Orange -> new Orange
+  '#be123c': TEXT_COLOR_OPTIONS[2].value, // old Rose -> new Red
 });
 
 const STROKE_COLOR_LOOKUP = createPaletteLookup(STROKE_COLOR_OPTIONS, {

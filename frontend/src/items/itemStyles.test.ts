@@ -46,17 +46,17 @@ describe('itemStyles palette restrictions', () => {
       '{"backgroundColor":"#ecfeff","textColor":"#164e63"}',
     );
 
-    expect(parsed.backgroundColor).toBe(BACKGROUND_COLOR_OPTIONS[5].value);
-    expect(parsed.textColor).toBe(TEXT_COLOR_OPTIONS[2].value);
+    expect(parsed.backgroundColor).toBe(BACKGROUND_COLOR_OPTIONS[22].value);
+    expect(parsed.textColor).toBe(TEXT_COLOR_OPTIONS[5].value);
   });
 
   it('remaps old green and purple backgrounds to the new neutral palette', () => {
     const legacyGreen = parseBoardItemStyle('{"backgroundColor":"#bbf7d0"}');
     const legacyPurple = parseBoardItemStyle('{"backgroundColor":"#e9d5ff"}');
 
-    expect(legacyGreen.backgroundColor).toBe(BACKGROUND_COLOR_OPTIONS[4].value);
+    expect(legacyGreen.backgroundColor).toBe(BACKGROUND_COLOR_OPTIONS[17].value);
     expect(legacyPurple.backgroundColor).toBe(
-      BACKGROUND_COLOR_OPTIONS[7].value,
+      BACKGROUND_COLOR_OPTIONS[24].value,
     );
   });
 
@@ -67,7 +67,7 @@ describe('itemStyles palette restrictions', () => {
         textColor: '#0f172a',
         fontSize: 16,
       }),
-    ).toBe('{"backgroundColor":"#f9f8f5","textColor":"#1f2937","fontSize":16}');
+    ).toBe('{"backgroundColor":"#f1f2f4","textColor":"#1f2937","fontSize":16}');
   });
 
   it('allows transparent backgrounds for line text labels', () => {
@@ -105,7 +105,7 @@ describe('itemStyles palette restrictions', () => {
   });
 
   it('uses curated sticky note colors for default note backgrounds', () => {
-    const stickyPalette = BACKGROUND_COLOR_OPTIONS.slice(1).map(
+    const stickyPalette = BACKGROUND_COLOR_OPTIONS.slice(7).map(
       (option) => option.value,
     );
 
@@ -117,7 +117,7 @@ describe('itemStyles palette restrictions', () => {
       serializeProjectDefaultStyle({
         textColor: TEXT_COLOR_OPTIONS[1].value,
         smallItemBackgroundColor: BACKGROUND_COLOR_OPTIONS[2].value,
-        largeObjectBackgroundColor: BACKGROUND_COLOR_OPTIONS[5].value,
+        largeObjectBackgroundColor: BACKGROUND_COLOR_OPTIONS[22].value,
         linkColor: '#ef4444',
         linkTextColor: TEXT_COLOR_OPTIONS[3].value,
       }),
@@ -141,7 +141,7 @@ describe('itemStyles palette restrictions', () => {
 
     expect(textBox.backgroundColor).toBe(BACKGROUND_COLOR_OPTIONS[2].value);
     expect(textBox.textColor).toBe(TEXT_COLOR_OPTIONS[1].value);
-    expect(frame.backgroundColor).toBe(BACKGROUND_COLOR_OPTIONS[5].value);
+    expect(frame.backgroundColor).toBe(BACKGROUND_COLOR_OPTIONS[22].value);
     expect(arrow.strokeColor).toBe('#ef4444');
     expect(arrow.textColor).toBe(TEXT_COLOR_OPTIONS[3].value);
     expect(arrow.backgroundColor).toBe('transparent');

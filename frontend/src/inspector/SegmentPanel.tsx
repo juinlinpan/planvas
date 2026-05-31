@@ -15,7 +15,7 @@ import { ColorPaletteField, CommitNumberInput } from '../components/Inspector';
 
 const SEGMENT_TEXT_BACKGROUND_OPTIONS = [
   { name: 'Transparent', value: 'transparent' },
-  ...BACKGROUND_COLOR_OPTIONS,
+  ...STROKE_COLOR_OPTIONS,
 ] as const;
 
 function summarizeContent(item: BoardItem): string {
@@ -185,24 +185,6 @@ export function SegmentPanel({
                 onChange={(e) => handleContentChange(e.target.value)}
               />
             </label>
-            <div className="inspector-color-grid">
-              <ColorPaletteField
-                label="Label background"
-                options={SEGMENT_TEXT_BACKGROUND_OPTIONS}
-                selectedValue={segmentTextBackgroundColor}
-                tone="background"
-                onSelect={(value) =>
-                  handleStyleChange({ backgroundColor: value })
-                }
-              />
-              <ColorPaletteField
-                label="Text color"
-                options={TEXT_COLOR_OPTIONS}
-                selectedValue={resolvedStyle.textColor}
-                tone="text"
-                onSelect={(value) => handleStyleChange({ textColor: value })}
-              />
-            </div>
           </section>
         ) : null}
       </>
@@ -214,6 +196,22 @@ export function SegmentPanel({
       <div className="inspector-title-row">
         <p className="meta-label">Label Text</p>
       </div>
+      <ColorPaletteField
+        label="Label background"
+        options={SEGMENT_TEXT_BACKGROUND_OPTIONS}
+        selectedValue={segmentTextBackgroundColor}
+        tone="background"
+        onSelect={(value) =>
+          handleStyleChange({ backgroundColor: value })
+        }
+      />
+      <ColorPaletteField
+        label="Text color"
+        options={TEXT_COLOR_OPTIONS}
+        selectedValue={resolvedStyle.textColor}
+        tone="text"
+        onSelect={(value) => handleStyleChange({ textColor: value })}
+      />
       <div className="inspector-grid">
         <label className="inspector-field">
           Horizontal position
@@ -242,9 +240,9 @@ export function SegmentPanel({
               })
             }
           >
-            <option value="above">Above</option>
-            <option value="center">Center</option>
-            <option value="below">Below</option>
+            <option value="top">Above</option>
+            <option value="middle">Center</option>
+            <option value="bottom">Below</option>
           </select>
         </label>
       </div>

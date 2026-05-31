@@ -259,26 +259,17 @@ export function TablePanel({
               }}
             />
           </label>
-          <div className="inspector-color-grid">
-            <ColorPaletteField
-              label="Background color"
-              options={BACKGROUND_COLOR_OPTIONS}
-              selectedValue={selectedTableCellBackgroundColor}
-              tone="background"
-              onSelect={(value) =>
-                onUpdateTableCells(item.id, selectedTableCellIds, {
-                  backgroundColor: value,
-                })
-              }
-            />
-            <ColorPaletteField
-              label="Text color"
-              options={TEXT_COLOR_OPTIONS}
-              selectedValue={resolvedStyle.textColor}
-              tone="text"
-              onSelect={(value) => handleStyleChange({ textColor: value })}
-            />
-          </div>
+          <ColorPaletteField
+            label="Background color"
+            options={BACKGROUND_COLOR_OPTIONS}
+            selectedValue={selectedTableCellBackgroundColor}
+            tone="background"
+            onSelect={(value) =>
+              onUpdateTableCells(item.id, selectedTableCellIds, {
+                backgroundColor: value,
+              })
+            }
+          />
         </section>
       </>
     );
@@ -306,6 +297,13 @@ export function TablePanel({
 
       <section className="inspector-section">
         <p className="meta-label">Cell Text</p>
+        <ColorPaletteField
+          label="Text color"
+          options={TEXT_COLOR_OPTIONS}
+          selectedValue={resolvedStyle.textColor}
+          tone="text"
+          onSelect={(value) => handleStyleChange({ textColor: value })}
+        />
         <div className="inspector-grid">
           <label>
             Font size

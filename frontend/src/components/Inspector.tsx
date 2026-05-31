@@ -83,7 +83,12 @@ export function ColorPaletteField({
   return (
     <div className="inspector-color-field">
       <span>{label}</span>
-      <div className="inspector-palette-grid" aria-label={label}>
+      <div
+        className={`inspector-palette-grid ${
+          tone === 'background' && options.length >= 28 ? 'is-bg-grid' : ''
+        }`}
+        aria-label={label}
+      >
         {options.map((option) => {
           const isActive = option.value === selectedValue;
 
@@ -97,19 +102,10 @@ export function ColorPaletteField({
               title={`${option.name} ${option.value}`}
               onClick={() => onSelect(option.value)}
             >
-              {tone === 'background' ? (
-                <span
-                  className="inspector-swatch-chip"
-                  style={{ backgroundColor: option.value }}
-                />
-              ) : (
-                <span
-                  className="inspector-swatch-letter"
-                  style={{ color: option.value }}
-                >
-                  A
-                </span>
-              )}
+              <span
+                className="inspector-swatch-chip"
+                style={{ backgroundColor: option.value }}
+              />
             </button>
           );
         })}

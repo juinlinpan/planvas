@@ -308,7 +308,7 @@ export function ProjectSettingsDialog({
                   options={BACKGROUND_COLOR_OPTIONS}
                   selectedValue={
                     selectedProjectDefaultStyle.largeObjectBackgroundColor ??
-                    BACKGROUND_COLOR_OPTIONS[5].value
+                    BACKGROUND_COLOR_OPTIONS[22].value
                   }
                   tone="background"
                   onSelect={(value) =>

@@ -79,7 +79,7 @@ describe('Table', () => {
       <Table
         item={createTableItem({
           style_json: JSON.stringify({
-            textColor: '#1d4ed8',
+            textColor: '#2563eb',
             fontSize: 22,
             fontWeight: 'bold',
             fontStyle: 'italic',
@@ -92,7 +92,7 @@ describe('Table', () => {
       />,
     );
 
-    expect(markup).toContain('color:#1d4ed8');
+    expect(markup).toContain('color:#2563eb');
     expect(markup).toContain('font-size:22px');
     expect(markup).toContain('font-weight:bold');
     expect(markup).toContain('font-style:italic');

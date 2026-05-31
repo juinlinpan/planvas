@@ -229,6 +229,23 @@
   padding: 4px 0;
 }
 
+.inspector-palette-grid.is-bg-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.inspector-palette-grid.is-bg-grid .inspector-swatch-button {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.inspector-palette-grid.is-bg-grid .inspector-swatch-chip {
+  width: calc(100% - 6px);
+  height: calc(100% - 6px);
+}
+
 .inspector-swatch-button {
   display: inline-flex;
   align-items: center;

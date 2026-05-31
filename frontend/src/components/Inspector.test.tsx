@@ -96,7 +96,7 @@ describe('Inspector style palette', () => {
 
     expect(markup).not.toContain('type="color"');
     expect(swatchCount).toBe(
-      BACKGROUND_COLOR_OPTIONS.length + TEXT_COLOR_OPTIONS.length,
+      BACKGROUND_COLOR_OPTIONS.length,
     );
   });
 

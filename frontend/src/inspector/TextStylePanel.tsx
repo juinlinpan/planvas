@@ -98,34 +98,23 @@ export function TextStylePanel({
             Reset
           </button>
         </div>
-        <div className="inspector-color-grid">
-          <ColorPaletteField
-            label="Background color"
-            options={BACKGROUND_COLOR_OPTIONS}
-            selectedValue={
-              isTable && selectedTableCells.length > 0
-                ? selectedTableCellBackgroundColor
-                : resolvedStyle.backgroundColor
-            }
-            tone="background"
-            onSelect={(value) =>
-              isTable && selectedTableCells.length > 0
-                ? onUpdateTableCells(item.id, selectedTableCellIds, {
-                    backgroundColor: value,
-                  })
-                : handleStyleChange({ backgroundColor: value })
-            }
-          />
-          {!isTable ? (
-            <ColorPaletteField
-              label="Text color"
-              options={TEXT_COLOR_OPTIONS}
-              selectedValue={resolvedStyle.textColor}
-              tone="text"
-              onSelect={(value) => handleStyleChange({ textColor: value })}
-            />
-          ) : null}
-        </div>
+        <ColorPaletteField
+          label="Background color"
+          options={BACKGROUND_COLOR_OPTIONS}
+          selectedValue={
+            isTable && selectedTableCells.length > 0
+              ? selectedTableCellBackgroundColor
+              : resolvedStyle.backgroundColor
+          }
+          tone="background"
+          onSelect={(value) =>
+            isTable && selectedTableCells.length > 0
+              ? onUpdateTableCells(item.id, selectedTableCellIds, {
+                  backgroundColor: value,
+                })
+              : handleStyleChange({ backgroundColor: value })
+          }
+        />
         <p className="inspector-meta">
           {isSegmentItem
             ? 'Segment connector with editable endpoints and bends.'
@@ -142,6 +131,13 @@ export function TextStylePanel({
       </div>
       {!isTable ? (
         <>
+          <ColorPaletteField
+            label="Text color"
+            options={TEXT_COLOR_OPTIONS}
+            selectedValue={resolvedStyle.textColor}
+            tone="text"
+            onSelect={(value) => handleStyleChange({ textColor: value })}
+          />
           <div className="inspector-grid">
             <label>
               Font size
