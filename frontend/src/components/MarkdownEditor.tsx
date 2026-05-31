@@ -456,9 +456,6 @@ export function MarkdownEditor({
               {fileNameError}
             </span>
           ) : null}
-        </div>
-
-        <div className="markdown-editor-view-toggle">
           <button
             type="button"
             className="markdown-editor-save-btn"
@@ -468,6 +465,9 @@ export function MarkdownEditor({
           >
             Save
           </button>
+        </div>
+
+        <div className="markdown-editor-view-toggle">
           {(['edit', 'split', 'preview'] as ViewMode[]).map((mode) => (
             <button
               key={mode}

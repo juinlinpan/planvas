@@ -140,6 +140,7 @@
   cursor: pointer;
   font-size: 0.78rem;
   font-weight: 700;
+  flex-shrink: 0;
 }
 
 .markdown-editor-save-btn:hover:not(:disabled) {
