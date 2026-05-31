@@ -2,6 +2,7 @@ import type { BoardItem } from '../services/api';
 import { ITEM_TYPE } from '../types/index';
 import { ITEM_MIN_SIZE } from '../types/index';
 import { getTableMinSizeFromDataJson } from '../tableData/tableData';
+import { CommitNumberInput } from '../components/Inspector';
 
 function clampDimension(
   item: BoardItem,
@@ -58,18 +59,18 @@ export function PositionSizeSection({ item, isSegmentItem, isLine, onUpdate }: P
         <div className="inspector-grid">
           <label>
             X
-            <input
-              type="number"
+            <CommitNumberInput
+              inputKey={`${item.id}-pos-x-${Math.round(item.x)}`}
               value={Math.round(item.x)}
-              onChange={(e) => handleNumberChange('x', e.target.value)}
+              onCommit={(val) => handleNumberChange('x', val)}
             />
           </label>
           <label>
             Y
-            <input
-              type="number"
+            <CommitNumberInput
+              inputKey={`${item.id}-pos-y-${Math.round(item.y)}`}
               value={Math.round(item.y)}
-              onChange={(e) => handleNumberChange('y', e.target.value)}
+              onCommit={(val) => handleNumberChange('y', val)}
             />
           </label>
         </div>
@@ -81,30 +82,30 @@ export function PositionSizeSection({ item, isSegmentItem, isLine, onUpdate }: P
           <div className="inspector-grid">
             <label>
               Width
-              <input
-                type="number"
+              <CommitNumberInput
+                inputKey={`${item.id}-size-width-${Math.round(item.width)}`}
                 value={Math.round(item.width)}
-                onChange={(e) => handleNumberChange('width', e.target.value)}
+                onCommit={(val) => handleNumberChange('width', val)}
               />
             </label>
             <label>
               Height
-              <input
-                type="number"
+              <CommitNumberInput
+                inputKey={`${item.id}-size-height-${Math.round(item.height)}`}
                 value={Math.round(item.height)}
-                onChange={(e) => handleNumberChange('height', e.target.value)}
+                onCommit={(val) => handleNumberChange('height', val)}
               />
             </label>
           </div>
           {isLine ? (
             <label className="inspector-field">
               旋轉
-              <input
-                type="number"
+              <CommitNumberInput
+                inputKey={`${item.id}-rot-${item.rotation}`}
                 min={-180}
                 max={180}
                 value={item.rotation}
-                onChange={(e) => handleRotationChange(e.target.value)}
+                onCommit={handleRotationChange}
               />
             </label>
           ) : null}

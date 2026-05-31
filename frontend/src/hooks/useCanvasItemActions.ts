@@ -848,13 +848,14 @@ export function useCanvasItemActions({
         return relayoutResult.items;
       });
 
-      if (editSessionRef.current?.itemId === updated.id) {
+      if (editSessionRef.current?.itemId === updated.id && editingId !== updated.id) {
         editSessionRef.current = null;
       }
     },
     [
       captureBoardSnapshot,
       editSessionRef,
+      editingId,
       itemsRef,
       pushUndoSnapshot,
       setItemsAndSync,

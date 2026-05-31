@@ -123,8 +123,8 @@ export function CommitNumberInput({
   onCommit,
 }: {
   inputKey: string;
-  min: number;
-  max: number;
+  min?: number;
+  max?: number;
   value: number;
   disabled?: boolean;
   onCommit: (rawValue: string) => void;
