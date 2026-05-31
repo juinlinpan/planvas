@@ -91,6 +91,7 @@ export function App() {
     selectedPageIdRef,
     loadProjectSidebarData,
     refreshProjectNotes,
+    updateProjectNotesState,
     handlePageViewportChange,
     goHome,
     openProject,
@@ -248,15 +249,7 @@ export function App() {
     previousNoteFile: string,
     renamedNote: ProjectNote,
   ): void {
-    const nextNoteFile = renamedNote.note_file;
-    setProjectNotes((current) => {
-      const replaced = current.map((note) =>
-        note.note_file === previousNoteFile ? renamedNote : note,
-      );
-      return replaced.some((note) => note.note_file === nextNoteFile)
-        ? replaced
-        : [...replaced, renamedNote];
-    });
+    updateProjectNotesState([renamedNote], previousNoteFile);
     handleNoteRenamedInTabs(previousNoteFile, renamedNote);
     if (selectedPageId !== null) {
       clearCachedPageBoardData(selectedPageId);
@@ -269,16 +262,9 @@ export function App() {
 
   const handleNoteSaved = useCallback(
     (savedNote: ProjectNote): void => {
-      setProjectNotes((current) => {
-        const replaced = current.map((note) =>
-          note.note_file === savedNote.note_file ? savedNote : note,
-        );
-        return replaced.some((note) => note.note_file === savedNote.note_file)
-          ? replaced
-          : [...replaced, savedNote];
-      });
+      updateProjectNotesState([savedNote]);
     },
-    [setProjectNotes],
+    [updateProjectNotesState],
   );
 
   function openCreateProjectDialog(): void {
@@ -986,8 +972,11 @@ export function App() {
                 }
                 onBoardDataCacheChange={updateCachedPageBoardData}
                 onOpenNote={openNoteTab}
-                onProjectNotesChanged={() => {
+                onProjectNotesChanged={(updatedNotes) => {
                   if (selectedProjectId !== null) {
+                    if (updatedNotes) {
+                      updateProjectNotesState(updatedNotes);
+                    }
                     void refreshProjectNotes(selectedProjectId);
                   }
                 }}

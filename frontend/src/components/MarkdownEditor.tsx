@@ -16,8 +16,11 @@ type ViewMode = 'edit' | 'split' | 'preview';
 const AUTOSAVE_DELAY_MS = 5000;
 
 // Persists unsaved drafts across unmount/remount cycles (e.g. tab switches).
-// Keyed by `${projectId}:${noteFile}`.
 const draftCache = new Map<string, string>();
+
+export function hasUnsavedDraft(projectId: string, noteFile: string): boolean {
+  return draftCache.has(`${projectId}:${noteFile}`);
+}
 
 function IconBold() {
   return (

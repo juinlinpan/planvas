@@ -20,6 +20,10 @@ export type Project = {
   path_exists?: boolean;
 };
 
+export type StoredProject = Omit<Project, 'updated_at'> & {
+  updated_at?: string;
+};
+
 export type Page = {
   id: string;
   project_id: string;
@@ -143,7 +147,7 @@ export type PageBoardStatePayload = {
 };
 
 export type ProjectMetadata = {
-  project: Project;
+  project: StoredProject;
 };
 
 export type ProjectIndexEntry = {

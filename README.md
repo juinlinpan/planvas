@@ -310,9 +310,10 @@ Projects opened from other folders use the same `.pv_project/` data directory
 inside the selected folder, with metadata, page XML files, and markdown note
 files under it. Their paths are tracked in `project.json`.
 
-`metadata.json` stores only project-level settings and timestamps. Page lists
-are derived from the sibling Page XML files, Project notes are derived from
-`.pv_project/*.md`, and each Page XML root stores that Page's viewport fields.
+`metadata.json` stores only stable project-level settings and creation metadata;
+it does not store volatile `updated_at`. Page lists are derived from the sibling
+Page XML files, Project notes are derived from `.pv_project/*.md`, and each Page
+XML root stores that Page's viewport fields.
 
 Page XML uses the release-versioned Planvas layout. Each page is stored as a
 semantic XML file and a presentation XML file. The semantic file stores board objects, frame
@@ -337,13 +338,16 @@ the semantic note reference plus the visual board placement. Select a
 backing `.md` file. The workspace sidebar lists those project notes and supports
 dragging a note onto any Page row to add a placement that references the same
 markdown file. The note list refreshes after markdown-backed notes are created,
-renamed, updated, or deleted in the canvas. It also refreshes from disk when
-the workspace regains focus or the browser tab becomes visible, so external
-edits to `.pv_project/*.md` files are reflected in the sidebar and on visible
-`note_paper` placements. Deleting a note from a Page removes only that board
-placement; the `.md` file remains in the Project and stays in the left Notes
-list. The same note file can be placed multiple times on one Page or across
-Pages, and every placement reads and writes the same backing markdown file.
+renamed, updated, or deleted in the canvas. When the workspace regains focus or
+the browser tab becomes visible, Planvas checks whether `.pv_project/*.md`
+content differs from the current in-app note snapshot and marks the Notes
+refresh button only when a real filename/title/body change exists. Routine Page
+autosaves do not rewrite unchanged markdown bodies, so moving or resizing a
+`note_paper` cannot overwrite an external `.md` edit. Deleting a note from a
+Page removes only that board placement; the `.md` file remains in the Project
+and stays in the left Notes list. The same note file can be placed multiple
+times on one Page or across Pages, and every placement reads and writes the same
+backing markdown file.
 
 You can override the project storage root with `WHITEBOARD_PLANVAS_ROOT`:
 

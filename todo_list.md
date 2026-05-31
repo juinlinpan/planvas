@@ -161,8 +161,10 @@
 - [x] Update project-note state immediately after a successful Markdown note save so tab switches cannot reload stale note content while the background notes refresh is pending.
 - [x] Stop Markdown note saves from triggering project-note refresh cycles; use the save API response to update local note state instead.
 - [x] Stop Canvas board autosave from replacing the item array or refreshing project notes unless backend-managed note metadata actually changed.
-- [x] Change background project-note refresh on focus/visibility return into a diff check that only marks the Notes refresh button when updates are available.
-- [x] Add a Notes refresh-button update indicator and apply changed project notes only when the user clicks refresh.
+- [x] Stop Canvas board autosave from writing unchanged `note_paper` markdown bodies, preserving external `.md` edits until the user explicitly refreshes or edits the note in-app.
+- [x] Remove volatile project and page `updated_at` persistence from `.pv_project/metadata.json` and page XML files so routine page and note saves do not create diffs.
+- [x] Change background project-note refresh on focus/visibility return to automatically apply changes silently for notes without active unsaved drafts, only showing the refresh indicator when a draft conflict exists.
+- [x] Sync note content immediately after saving from the canvas/inspector to prevent race conditions during focus return.
 - [x] Make remounted unsaved Markdown drafts schedule autosave without requiring another edit, and retry failed note autosaves on the normal interval.
 
 ## Table And Small-Item Sizing Update Notes

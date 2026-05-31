@@ -206,9 +206,15 @@ const tests: TestCase[] = [
       );
       const metadataPayload = JSON.parse(
         fs.readFileSync(metadataPath, 'utf8'),
-      ) as { project?: unknown; pages?: unknown };
+      ) as { project?: Record<string, unknown>; pages?: unknown };
       assert.equal('project' in metadataPayload, true);
       assert.equal('pages' in metadataPayload, false);
+      assert.equal(
+        metadataPayload.project
+          ? 'updated_at' in metadataPayload.project
+          : false,
+        false,
+      );
       const semanticXml = fs.readFileSync(semanticPath, 'utf8');
       assert.match(semanticXml, /viewport_x="240"/);
       assert.match(semanticXml, /viewport_y="160"/);
@@ -1352,22 +1358,64 @@ const tests: TestCase[] = [
 
       const persistedNote = boardData.board_items[0];
       if (!persistedNote) throw new Error('Missing markdown-backed note');
+      const metadataBeforeBoardSave = fs.readFileSync(
+        path.join(projectDataDir, 'metadata.json'),
+        'utf8',
+      );
+      fs.writeFileSync(
+        path.join(projectDataDir, 'Created-note.md'),
+        '# External edit\n\nBody text',
+        'utf8',
+      );
+      const savedWithoutMarkdownWrite = (
+        await requestJson<PageBoardData>(
+          baseUrl,
+          `/pages/${page.id}/board-state`,
+          {
+            method: 'PUT',
+            ...jsonBody({
+              board_items: [
+                {
+                  ...persistedNote,
+                  x: persistedNote.x + 24,
+                  content: null,
+                },
+              ],
+              connector_links: [],
+            }),
+          },
+        )
+      ).data;
+      assert.equal(
+        fs.readFileSync(path.join(projectDataDir, 'Created-note.md'), 'utf8'),
+        '# External edit\n\nBody text',
+      );
+      assert.equal(
+        savedWithoutMarkdownWrite.board_items[0]?.content,
+        '# External edit\n\nBody text',
+      );
+      assert.equal(
+        fs.readFileSync(path.join(projectDataDir, 'metadata.json'), 'utf8'),
+        metadataBeforeBoardSave,
+      );
+      const currentPersistedNote = savedWithoutMarkdownWrite.board_items[0];
+      if (!currentPersistedNote) throw new Error('Missing saved note');
       await createBoardItem(baseUrl, {
-        ...persistedNote,
+        ...currentPersistedNote,
         page_id: page.id,
         x: 420,
         y: 120,
         z_index: 1,
       });
       await createBoardItem(baseUrl, {
-        ...persistedNote,
+        ...currentPersistedNote,
         page_id: otherPage.id,
         x: 120,
         y: 120,
         z_index: 0,
       });
       const renamedNoteData = {
-        ...(JSON.parse(persistedNote.data_json ?? '{}') as Record<
+        ...(JSON.parse(currentPersistedNote.data_json ?? '{}') as Record<
           string,
           unknown
         >),
@@ -1376,11 +1424,11 @@ const tests: TestCase[] = [
       const renamedNote = (
         await requestJson<BoardItem>(
           baseUrl,
-          `/board-items/${persistedNote.id}`,
+          `/board-items/${currentPersistedNote.id}`,
           {
             method: 'PATCH',
             ...jsonBody({
-              ...persistedNote,
+              ...currentPersistedNote,
               data_json: JSON.stringify(renamedNoteData),
             }),
           },
@@ -1393,7 +1441,7 @@ const tests: TestCase[] = [
       );
       assert.equal(
         fs.readFileSync(path.join(projectDataDir, 'Renamed-note.md'), 'utf8'),
-        '# Created note\n\nBody text',
+        '# External edit\n\nBody text',
       );
       const mainBoardAfterRename = (
         await requestJson<PageBoardData>(
@@ -1419,7 +1467,7 @@ const tests: TestCase[] = [
       );
 
       const deletePlacement = await fetch(
-        `${baseUrl}/board-items/${persistedNote.id}`,
+        `${baseUrl}/board-items/${currentPersistedNote.id}`,
         { method: 'DELETE' },
       );
       assert.equal(deletePlacement.status, 204);
@@ -1432,7 +1480,7 @@ const tests: TestCase[] = [
       assert.equal(mainBoardAfterDelete.board_items.length, 1);
       assert.equal(
         fs.readFileSync(path.join(projectDataDir, 'Renamed-note.md'), 'utf8'),
-        '# Created note\n\nBody text',
+        '# External edit\n\nBody text',
       );
 
       assert.equal(note.type, 'note_paper');

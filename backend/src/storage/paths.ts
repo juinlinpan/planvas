@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { HttpError, StorageInitializationError } from '../httpError.js';
-import type { Project, ProjectIndexEntry } from '../types.js';
+import type { ProjectIndexEntry, StoredProject } from '../types.js';
 
 export const metadataFilename = 'metadata.json';
 export const projectIndexFilename = 'project.json';
@@ -239,9 +239,9 @@ export function dedupeProjectIndexEntriesByPath(
   });
 }
 
-export function isProject(value: unknown): value is Project {
+export function isProject(value: unknown): value is StoredProject {
   if (typeof value !== 'object' || value === null) return false;
-  const candidate = value as Partial<Project>;
+  const candidate = value as Partial<StoredProject>;
   return (
     typeof candidate.id === 'string' &&
     typeof candidate.name === 'string' &&
@@ -251,7 +251,8 @@ export function isProject(value: unknown): value is Project {
       typeof candidate.default_style_json === 'string') &&
     typeof candidate.sort_order === 'number' &&
     typeof candidate.created_at === 'string' &&
-    typeof candidate.updated_at === 'string'
+    (candidate.updated_at === undefined ||
+      typeof candidate.updated_at === 'string')
   );
 }
 

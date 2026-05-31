@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { BoardItem, ConnectorLink, ProjectNote } from '../../services/api';
-import { Canvas } from './Canvas';
+import { prepareBoardItemsForSave } from './Canvas';
 import { resolveSidebarNoteDragFile } from '../../hooks/useCanvasNoteDrop';
 import {
   buildClipboardPayload,
@@ -21,6 +21,7 @@ import {
 import { parseBoardItemStyle, resolveBoardItemStyle } from '../../items/itemStyles';
 import { syncMarkdownBackedItems } from '../../services/noteSync';
 import { normalizeLoadedBoardItems } from '../../hooks/useCanvasBoardLoader';
+import { areProjectNotesEqual } from '../../hooks/useWorkspaceData';
 import { serializeTableData, type TableData } from '../../tableData/tableData';
 import { ITEM_CATEGORY, ITEM_TYPE } from '../../types/index';
 
@@ -227,6 +228,104 @@ describe('syncMarkdownBackedItems', () => {
     );
 
     expect(synced).toBe(items);
+  });
+});
+
+describe('areProjectNotesEqual', () => {
+  it('ignores note updated_at when filename, title, and content match', () => {
+    expect(
+      areProjectNotesEqual(
+        [createProjectNote({ updated_at: '2026-01-01T00:00:00.000Z' })],
+        [createProjectNote({ updated_at: '2026-01-02T00:00:00.000Z' })],
+      ),
+    ).toBe(true);
+  });
+
+  it('detects note content changes', () => {
+    expect(
+      areProjectNotesEqual(
+        [createProjectNote({ content: '# Old' })],
+        [createProjectNote({ content: '# New' })],
+      ),
+    ).toBe(false);
+  });
+
+  it('is order-independent', () => {
+    const noteA = createProjectNote({ note_file: 'a.md', title: 'Note A', content: 'A' });
+    const noteB = createProjectNote({ note_file: 'b.md', title: 'Note B', content: 'B' });
+    expect(
+      areProjectNotesEqual([noteA, noteB], [noteB, noteA]),
+    ).toBe(true);
+  });
+});
+
+describe('prepareBoardItemsForSave', () => {
+  it('omits unchanged markdown content so board autosave cannot overwrite external edits', () => {
+    const savedNote = createBoardItem({
+      id: 'note-1',
+      type: ITEM_TYPE.note_paper,
+      content: '# Existing',
+      content_format: 'markdown',
+      data_json: JSON.stringify({ noteFile: 'sprint-plan.md' }),
+    });
+    const movedNote = {
+      ...savedNote,
+      x: savedNote.x + 40,
+    };
+
+    const prepared = prepareBoardItemsForSave([movedNote], [savedNote]);
+
+    expect(prepared[0]).toMatchObject({
+      id: 'note-1',
+      x: savedNote.x + 40,
+      content: null,
+    });
+  });
+
+  it('keeps markdown content when the page edited the note body', () => {
+    const savedNote = createBoardItem({
+      id: 'note-1',
+      type: ITEM_TYPE.note_paper,
+      content: '# Existing',
+      content_format: 'markdown',
+      data_json: JSON.stringify({ noteFile: 'sprint-plan.md' }),
+    });
+    const editedNote = {
+      ...savedNote,
+      content: '# Edited',
+    };
+
+    const prepared = prepareBoardItemsForSave([editedNote], [savedNote]);
+
+    expect(prepared[0]?.content).toBe('# Edited');
+  });
+
+  it('does not rewrite an existing note when adding another placement', () => {
+    const placement = createBoardItem({
+      id: 'note-2',
+      type: ITEM_TYPE.note_paper,
+      content: '# Existing',
+      content_format: 'markdown',
+      data_json: JSON.stringify({ noteFile: 'sprint-plan.md' }),
+    });
+
+    const prepared = prepareBoardItemsForSave([placement], []);
+
+    expect(prepared[0]?.content).toBeNull();
+  });
+
+  it('keeps content for new notes that still need a backing markdown file', () => {
+    const newNote = createBoardItem({
+      id: 'note-1',
+      type: ITEM_TYPE.note_paper,
+      content: '# New note',
+      content_format: 'markdown',
+      data_json: null,
+    });
+
+    const prepared = prepareBoardItemsForSave([newNote], []);
+
+    expect(prepared[0]?.content).toBe('# New note');
   });
 });
 

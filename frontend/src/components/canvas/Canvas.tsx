@@ -127,7 +127,7 @@ type Props = {
   draggedProjectNoteFile?: string | null;
   onViewportChange?: (viewport: Viewport) => void;
   onBoardDataCacheChange?: (data: PageBoardData) => void;
-  onProjectNotesChanged?: () => void;
+  onProjectNotesChanged?: (updatedNotes?: ProjectNote[]) => void;
   onOpenNote?: (noteFile: string) => void;
   onImportPage: (format: 'mermaid') => void;
   onImportFromProject: () => void;
@@ -156,6 +156,53 @@ function readStoredNumber(key: string, fallbackValue: number): number {
 
   const storedValue = Number(rawValue);
   return Number.isFinite(storedValue) ? storedValue : fallbackValue;
+}
+
+function noteFileNameFromItem(item: BoardItem): string | null {
+  if (item.type !== ITEM_TYPE.note_paper || item.data_json === null) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(item.data_json) as unknown;
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      !Array.isArray(parsed) &&
+      typeof (parsed as { noteFile?: unknown }).noteFile === 'string'
+    ) {
+      return (parsed as { noteFile: string }).noteFile;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+export function prepareBoardItemsForSave(
+  currentItems: BoardItem[],
+  lastSavedItems: BoardItem[],
+): BoardItem[] {
+  const lastSavedById = new Map(lastSavedItems.map((item) => [item.id, item]));
+
+  return currentItems.map((item) => {
+    if (item.type !== ITEM_TYPE.note_paper) {
+      return item;
+    }
+
+    const lastSaved = lastSavedById.get(item.id);
+    const itemNoteFile = noteFileNameFromItem(item);
+    const lastSavedNoteFile =
+      lastSaved === undefined ? null : noteFileNameFromItem(lastSaved);
+    const shouldWriteMarkdown =
+      itemNoteFile === null ||
+      (lastSaved !== undefined &&
+        (itemNoteFile !== lastSavedNoteFile ||
+          item.content !== lastSaved.content));
+
+    return shouldWriteMarkdown ? item : { ...item, content: null };
+  });
 }
 
 import { useCanvasEditSession } from '../../hooks/useCanvasEditSession';
@@ -332,8 +379,12 @@ export function Canvas({
         setSaveStatus('saving');
       }
       try {
+        const itemsToPersist = prepareBoardItemsForSave(
+          itemsRef.current,
+          lastSavedItemsRef.current,
+        );
         const persisted = await replacePageBoardState(page.id, {
-          board_items: itemsRef.current,
+          board_items: itemsToPersist,
           connector_links: connectorsRef.current,
         });
         onBoardDataCacheChange?.(persisted);
@@ -350,6 +401,7 @@ export function Canvas({
           if (serverItem && item.type === ITEM_TYPE.note_paper) {
             if (
               item.title === serverItem.title &&
+              item.content === serverItem.content &&
               item.data_json === serverItem.data_json
             ) {
               return item;
@@ -358,6 +410,7 @@ export function Canvas({
             return {
               ...item,
               title: serverItem.title,
+              content: serverItem.content,
               data_json: serverItem.data_json,
             };
           }
@@ -368,18 +421,40 @@ export function Canvas({
         const hasNotePaperChanges = itemsRef.current.some((item) => {
           if (item.type !== ITEM_TYPE.note_paper) return false;
           const lastSaved = lastSavedItemsRef.current.find((it) => it.id === item.id);
-          return lastSaved === undefined || lastSaved.content !== item.content;
+          return (
+            lastSaved === undefined ||
+            lastSaved.content !== item.content ||
+            noteFileNameFromItem(lastSaved) !== noteFileNameFromItem(item)
+          );
         });
-
-        lastSavedItemsRef.current = itemsRef.current;
 
         if (serverNoteMetadataChanged) {
           itemsRef.current = nextItems;
           setItems(nextItems);
         }
 
+        lastSavedItemsRef.current = serverNoteMetadataChanged
+          ? nextItems
+          : itemsRef.current;
+
+        const updatedNotes: ProjectNote[] = [];
+        for (const item of persisted.board_items) {
+          if (item.type === ITEM_TYPE.note_paper) {
+            const noteFile = noteFileNameFromItem(item);
+            if (noteFile) {
+              updatedNotes.push({
+                note_file: noteFile,
+                title: item.title ?? '',
+                content: item.content ?? '',
+                content_format: 'markdown',
+                updated_at: item.updated_at,
+              });
+            }
+          }
+        }
+
         if (serverNoteMetadataChanged || hasNotePaperChanges) {
-          onProjectNotesChanged?.();
+          onProjectNotesChanged?.(updatedNotes);
         }
       } catch (err) {
         console.error('[Canvas] Failed to save board state', err);

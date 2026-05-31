@@ -76,12 +76,16 @@ referenced the previous filename.
 
 `GET /projects/{project_id}/notes` returns every `.md` file under the Project's
 `.pv_project/` directory with its title, markdown body, backing filename, and
-update timestamp. The frontend uses this project-level list for the left
-sidebar Notes box and creates Page placements that reference the same markdown
-file. Deleting a `note_paper` board item removes only that placement; markdown
-note files are not deleted by Page item deletion. If a placement renames its
-`data_json.noteFile`, the repository moves the backing file and updates all
-Page placements that referenced the previous filename.
+file mtime. The frontend uses this project-level list for the left sidebar
+Notes box and creates Page placements that reference the same markdown file.
+Note refresh checks compare filename, title, and markdown body; mtime-only
+changes do not require a user refresh. Page board-state saves may send
+`note_paper.content` as `null` for unchanged markdown-backed notes, and the
+repository preserves the existing `.md` body in that case. Deleting a
+`note_paper` board item removes only that placement; markdown note files are not
+deleted by Page item deletion. If a placement renames its `data_json.noteFile`,
+the repository moves the backing file and updates all Page placements that
+referenced the previous filename.
 
 Page XML is written in the release-versioned Planvas layout. The repository
 keeps the HTTP API shape stable, but persists each page as two sibling files:
@@ -100,10 +104,10 @@ The backend strips per-segment table divider offsets before writing Page XML,
 because a cell boundary that does not align to the pivot axes cannot be mapped
 to a stable semantic cell.
 
-`metadata.json` no longer stores page lists, note lists, or page viewport
-fields. The backend derives Pages from the sibling XML files, derives Project
-notes from `.pv_project/*.md`, and keeps `viewport_x`, `viewport_y`, and `zoom`
-on each Page XML root.
+`metadata.json` no longer stores volatile `updated_at`, page lists, note lists,
+or page viewport fields. The backend derives Pages from the sibling XML files,
+derives Project notes from `.pv_project/*.md`, and keeps `viewport_x`,
+`viewport_y`, and `zoom` on each Page XML root.
 
 If `frontend/dist/index.html` exists, the backend also serves the built frontend
 bundle from `/` so the app can run on a single local port after `npm run build`.

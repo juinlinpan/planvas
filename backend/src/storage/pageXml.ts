@@ -113,7 +113,7 @@ export async function writePageXmlFile(
   );
   const connectionIndexes = buildConnectionIndexes(connectors);
   const frameChildren = buildFrameChildren(persistedItems);
-  const pageAttributes = `schema_version="${CURRENT_PAGE_XML_SCHEMA_VERSION}" id="${escapeAttribute(page.id)}" project_id="${escapeAttribute(page.project_id)}" name="${escapeAttribute(page.name)}" sort_order="${page.sort_order}" viewport_x="${page.viewport_x}" viewport_y="${page.viewport_y}" zoom="${page.zoom}" created_at="${escapeAttribute(page.created_at)}" updated_at="${escapeAttribute(page.updated_at)}"`;
+  const pageAttributes = `schema_version="${CURRENT_PAGE_XML_SCHEMA_VERSION}" id="${escapeAttribute(page.id)}" project_id="${escapeAttribute(page.project_id)}" name="${escapeAttribute(page.name)}" sort_order="${page.sort_order}" viewport_x="${page.viewport_x}" viewport_y="${page.viewport_y}" zoom="${page.zoom}" created_at="${escapeAttribute(page.created_at)}"`;
   const semanticLines = [
     '<?xml version="1.0" encoding="utf-8"?>',
     `<page_semantic ${pageAttributes}>`,
@@ -239,7 +239,7 @@ export async function readPageRecordFromSemanticXml(
     viewport_y: numberAttribute(attributes, 'viewport_y'),
     zoom: numberAttribute(attributes, 'zoom'),
     created_at: requiredAttribute(attributes, 'created_at'),
-    updated_at: requiredAttribute(attributes, 'updated_at'),
+    updated_at: attributes.updated_at || attributes.created_at || new Date().toISOString(),
   };
 }
 

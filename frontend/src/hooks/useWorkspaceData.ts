@@ -28,6 +28,7 @@ import {
 } from '../utils/workspaceNavigation';
 import { syncPageViewport } from '../utils/pageViewport';
 import { getErrorMessage } from '../utils/index';
+import { hasUnsavedDraft } from '../components/MarkdownEditor';
 
 export const UNLOADED_PAGE_BOARD_CACHE = Symbol('unloaded-page-board-cache');
 
@@ -71,6 +72,7 @@ export interface UseWorkspaceDataResult {
     signal?: AbortSignal,
   ) => Promise<void>;
   refreshProjectNotes: (projectId: string) => Promise<void>;
+  updateProjectNotesState: (updatedNotes: ProjectNote[], previousNoteFile?: string) => void;
   checkProjectNotesChanged: (projectId: string) => Promise<void>;
   refreshCurrentProjectFromDisk: () => Promise<void>;
   handlePageViewportChange: (
@@ -106,23 +108,27 @@ function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError';
 }
 
-function areProjectNotesEqual(
+export function areProjectNotesEqual(
   left: ProjectNote[],
   right: ProjectNote[],
 ): boolean {
-  return (
-    left.length === right.length &&
-    left.every((note, index) => {
-      const rightNote = right[index];
-      return (
-        rightNote !== undefined &&
-        note.note_file === rightNote.note_file &&
-        note.title === rightNote.title &&
-        note.content === rightNote.content &&
-        note.updated_at === rightNote.updated_at
-      );
-    })
-  );
+  if (left.length !== right.length) {
+    return false;
+  }
+  const rightMap = new Map(right.map((note) => [note.note_file, note] as const));
+  for (const leftNote of left) {
+    const rightNote = rightMap.get(leftNote.note_file);
+    if (rightNote === undefined) {
+      return false;
+    }
+    if (
+      leftNote.title !== rightNote.title ||
+      leftNote.content !== rightNote.content
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 
@@ -365,16 +371,7 @@ export function useWorkspaceData({
         // array reference that would cause downstream re-renders (Canvas sync
         // useEffect, sidebar list, etc.).
         setProjectNotes((prev) => {
-          if (
-            prev.length === nextNotes.length &&
-            prev.every(
-              (n, i) =>
-                n.note_file === nextNotes[i].note_file &&
-                n.title === nextNotes[i].title &&
-                n.content === nextNotes[i].content &&
-                n.updated_at === nextNotes[i].updated_at,
-            )
-          ) {
+          if (areProjectNotesEqual(prev, nextNotes)) {
             return prev; // same reference → no re-render
           }
           return nextNotes;
@@ -387,12 +384,80 @@ export function useWorkspaceData({
     [],
   );
 
+  const updateProjectNotesState = useCallback((updatedNotes: ProjectNote[], previousNoteFile?: string) => {
+    setProjectNotes((current) => {
+      let next = [...current];
+      if (previousNoteFile) {
+        next = next.filter((note) => note.note_file !== previousNoteFile);
+      }
+      next = next.map((note) => {
+        const found = updatedNotes.find((u) => u.note_file === note.note_file);
+        return found ? found : note;
+      });
+      // also add any new ones
+      for (const u of updatedNotes) {
+        if (!next.some((n) => n.note_file === u.note_file)) {
+          next.push(u);
+        }
+      }
+      projectNotesRef.current = next; // Update ref synchronously!
+      return next;
+    });
+  }, []);
+
   const checkProjectNotesChanged = useCallback(
     async (projectId: string): Promise<void> => {
       const nextNotes = await listProjectNotes(projectId);
-      setHasProjectNoteUpdates(
-        !areProjectNotesEqual(projectNotesRef.current, nextNotes),
-      );
+
+      let hasUpdatesForUnsavedDrafts = false;
+      const updatedNotesToApply: ProjectNote[] = [];
+
+      setProjectNotes((current) => {
+        const next = [...current];
+        for (const diskNote of nextNotes) {
+          const currentNote = next.find((n) => n.note_file === diskNote.note_file);
+          if (!currentNote) {
+            // New note created externally, apply automatically
+            next.push(diskNote);
+            updatedNotesToApply.push(diskNote);
+            continue;
+          }
+
+          if (
+            currentNote.title !== diskNote.title ||
+            currentNote.content !== diskNote.content
+          ) {
+            // Note has changed on disk
+            if (hasUnsavedDraft(projectId, diskNote.note_file)) {
+              // User has an unsaved draft in the app, do not overwrite automatically.
+              // Show the refresh indicator.
+              hasUpdatesForUnsavedDrafts = true;
+            } else {
+              // No unsaved draft, update in-memory state automatically!
+              const idx = next.findIndex((n) => n.note_file === diskNote.note_file);
+              if (idx !== -1) {
+                next[idx] = diskNote;
+              }
+              updatedNotesToApply.push(diskNote);
+            }
+          }
+        }
+
+        // Also check if any notes were deleted on disk
+        const nextFiltered = next.filter((note) => {
+          const existsOnDisk = nextNotes.some((n) => n.note_file === note.note_file);
+          if (!existsOnDisk && hasUnsavedDraft(projectId, note.note_file)) {
+            hasUpdatesForUnsavedDrafts = true;
+            return true;
+          }
+          return existsOnDisk;
+        });
+
+        projectNotesRef.current = nextFiltered;
+        return nextFiltered;
+      });
+
+      setHasProjectNoteUpdates(hasUpdatesForUnsavedDrafts);
     },
     [],
   );
@@ -605,6 +670,7 @@ export function useWorkspaceData({
     loadWorkspace,
     loadProjectSidebarData,
     refreshProjectNotes,
+    updateProjectNotesState,
     checkProjectNotesChanged,
     refreshCurrentProjectFromDisk,
     handlePageViewportChange,

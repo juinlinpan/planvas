@@ -198,11 +198,14 @@ export abstract class RepositoryStorageContext {
         default_style_json: null,
         sort_order: (await this.listProjects()).length,
         created_at: timestamp,
-        updated_at: timestamp,
       };
       changed = true;
     } else if (!projectThemeColors.includes(metadata.project.theme_color)) {
       metadata.project.theme_color = 'default';
+      changed = true;
+    }
+    if ('updated_at' in metadata.project) {
+      delete metadata.project.updated_at;
       changed = true;
     }
     if (metadata.project.default_style_json === undefined) {
@@ -406,7 +409,6 @@ export abstract class RepositoryStorageContext {
     metadata.project = {
       ...metadata.project,
       id: nextProjectId,
-      updated_at: timestamp,
     };
     await writeJsonAtomic(this.metadataPath(projectDir), metadata);
 
@@ -452,7 +454,6 @@ export abstract class RepositoryStorageContext {
         continue;
       }
       const metadata = await this.ensureProjectMetadata(entry.path, timestamp);
-      let reassignedPageCount = 0;
       for (const pageEntry of await this.pageEntriesFromProject(entry.path)) {
         const pageLocation = `${projectPathKey(entry.path)}:${pageEntry.pagePath}`;
         const owningLocation = owningLocationByPageId.get(pageEntry.page.id);
@@ -470,15 +471,10 @@ export abstract class RepositoryStorageContext {
           nextPageId,
           `${projectPathKey(entry.path)}:${pageEntry.pagePath}`,
         );
-        reassignedPageCount += 1;
         appendLog(
           this.settings,
           `Reassigned duplicated copied page id ${pageEntry.page.id} to ${nextPageId} for ${path.resolve(entry.path)}`,
         );
-      }
-      if (reassignedPageCount > 0) {
-        this.touchProject(metadata, timestamp);
-        await writeJsonAtomic(this.metadataPath(entry.path), metadata);
       }
     }
   }
@@ -633,12 +629,25 @@ export abstract class RepositoryStorageContext {
       project.theme_color = 'default';
     if (project.default_style_json === undefined)
       project.default_style_json = null;
+    const apiProject: Project = {
+      ...project,
+      updated_at: project.updated_at ?? project.created_at,
+    };
     if (projectDir) {
-      project.path = projectDir;
-      project.storage_kind = storageKind ?? this.storageKindForPath(projectDir);
-      project.path_exists = pathExists;
+      apiProject.path = projectDir;
+      apiProject.storage_kind = storageKind ?? this.storageKindForPath(projectDir);
+      apiProject.path_exists = pathExists;
     }
-    return project;
+    return apiProject;
+  }
+
+  protected storedProjectFromProject(project: Project): ProjectMetadata['project'] {
+    const storedProject: Partial<Project> = { ...project };
+    delete storedProject.updated_at;
+    delete storedProject.path;
+    delete storedProject.storage_kind;
+    delete storedProject.path_exists;
+    return storedProject as ProjectMetadata['project'];
   }
 
   protected async pagesFromProject(projectDir: string): Promise<Page[]> {
@@ -701,11 +710,10 @@ export abstract class RepositoryStorageContext {
     });
   }
 
-  protected touchProject(metadata: ProjectMetadata, timestamp: string): void {
-    metadata.project = {
-      ...this.projectFromMetadata(metadata),
-      updated_at: timestamp,
-    };
+  protected touchProject(metadata: ProjectMetadata, _timestamp: string): void {
+    metadata.project = this.storedProjectFromProject(
+      this.projectFromMetadata(metadata),
+    );
   }
 
   protected async persistPageBoard(
@@ -715,13 +723,10 @@ export abstract class RepositoryStorageContext {
   ): Promise<void> {
     const {
       projectDir,
-      metadata,
       page: currentPage,
       pagePath,
     } = await this.findPageMetadata(page.id);
     const nextPage = { ...currentPage, updated_at: utcTimestamp() };
-    this.touchProject(metadata, nextPage.updated_at);
-    await writeJsonAtomic(this.metadataPath(projectDir), metadata);
     await this.writePageXml(pagePath, nextPage, boardItems, connectorLinks);
   }
 
@@ -801,7 +806,6 @@ export abstract class RepositoryStorageContext {
     previousNoteFile: string,
     nextNoteFile: string,
   ): Promise<void> {
-    const metadata = await this.ensureProjectMetadata(projectDir, utcTimestamp());
     const projectDataDir = this.projectDataDir(projectDir);
     const previousPath = this.notePath(projectDataDir, previousNoteFile);
     const nextPath = this.notePath(projectDataDir, nextNoteFile);
@@ -817,7 +821,6 @@ export abstract class RepositoryStorageContext {
 
     const pages = await this.pagesFromProject(projectDir);
     const timestamp = utcTimestamp();
-    let changed = false;
     for (const page of pages) {
       const pagePath = (await this.findPageMetadata(page.id)).pagePath;
       const { boardItems } = await this.readPageXmlFile(
@@ -843,7 +846,6 @@ export abstract class RepositoryStorageContext {
       });
 
       if (!pageChanged) continue;
-      changed = true;
       const { connectorLinks } = await this.readPageXmlFile(
         pagePath,
         page,
@@ -853,10 +855,6 @@ export abstract class RepositoryStorageContext {
       await this.writePageXml(pagePath, nextPage, nextBoardItems, connectorLinks);
     }
 
-    if (changed) {
-      this.touchProject(metadata, timestamp);
-      await writeJsonAtomic(this.metadataPath(projectDir), metadata);
-    }
     if (await exists(previousPath)) await fs.promises.rm(previousPath, { force: true });
   }
 

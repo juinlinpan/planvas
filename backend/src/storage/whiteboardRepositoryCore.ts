@@ -168,7 +168,9 @@ export class WhiteboardRepository extends RepositoryStorageContext {
       this.projectStoreDir(),
       slugify(payload.name),
     );
-    const metadata: ProjectMetadata = { project };
+    const metadata: ProjectMetadata = {
+      project: this.storedProjectFromProject(project),
+    };
     await fs.promises.mkdir(projectDir, { recursive: true });
     await this.writeProjectMarker(projectDir);
     await writeJsonAtomic(this.metadataPath(projectDir), metadata);
@@ -219,15 +221,13 @@ export class WhiteboardRepository extends RepositoryStorageContext {
       payload.default_style_json === undefined
         ? project.default_style_json
         : payload.default_style_json;
-    const timestamp = utcTimestamp();
     const nextProject: Project = {
       ...project,
       name: nextName,
       theme_color: nextThemeColor,
       default_style_json: nextDefaultStyleJson,
-      updated_at: timestamp,
     };
-    metadata.project = nextProject;
+    metadata.project = this.storedProjectFromProject(nextProject);
     let nextDir = projectDir;
     if (
       nextName !== project.name &&
@@ -266,17 +266,15 @@ export class WhiteboardRepository extends RepositoryStorageContext {
       .filter((entry) => entry.metadata)
       .map((entry) => entry.project.id);
     this.validateReorderIds(existingIds, orderedIds, 'Project');
-    const timestamp = utcTimestamp();
     const orderById = new Map(orderedIds.map((id, index) => [id, index]));
     const projects: Project[] = [];
     for (const { projectDir, metadata, project } of entries) {
       if (!metadata) continue;
-      const nextProject = {
+      const nextProject: Project = {
         ...project,
         sort_order: orderById.get(project.id) ?? project.sort_order,
-        updated_at: timestamp,
       };
-      metadata.project = nextProject;
+      metadata.project = this.storedProjectFromProject(nextProject);
       await writeJsonAtomic(this.metadataPath(projectDir), metadata);
       projects.push(
         this.projectFromMetadata(
@@ -432,7 +430,7 @@ export class WhiteboardRepository extends RepositoryStorageContext {
   }
 
   async createPage(projectId: string, payload: PageCreatePayload): Promise<Page> {
-    const { projectDir, metadata } = await this.findProjectMetadata(projectId);
+    const { projectDir } = await this.findProjectMetadata(projectId);
     const timestamp = utcTimestamp();
     const pages = await this.pagesFromProject(projectDir);
     const page: Page = {
@@ -450,14 +448,12 @@ export class WhiteboardRepository extends RepositoryStorageContext {
       this.projectDataDir(projectDir),
       slugify(payload.name, 'page'),
     );
-    this.touchProject(metadata, timestamp);
-    await writeJsonAtomic(this.metadataPath(projectDir), metadata);
     await this.writePageXml(pageFile, page, [], []);
     return page;
   }
 
   async updatePage(pageId: string, payload: PageUpdatePayload): Promise<Page> {
-    const { projectDir, metadata, page, pagePath } =
+    const { projectDir, page, pagePath } =
       await this.findPageMetadata(pageId);
     const nextPage = {
       ...page,
@@ -469,8 +465,6 @@ export class WhiteboardRepository extends RepositoryStorageContext {
       pagePath,
       payload.name,
     );
-    this.touchProject(metadata, nextPage.updated_at);
-    await writeJsonAtomic(this.metadataPath(projectDir), metadata);
     const board = await this.getPageBoardData(pageId);
     await this.writePageXml(
       nextPagePath,
@@ -485,15 +479,13 @@ export class WhiteboardRepository extends RepositoryStorageContext {
   }
 
   async deletePage(pageId: string): Promise<void> {
-    const { projectDir, metadata, pagePath } = await this.findPageMetadata(pageId);
+    const { projectDir, pagePath } = await this.findPageMetadata(pageId);
     await deletePageXmlFiles(pagePath);
     await this.renumberProjectPages(projectDir);
-    this.touchProject(metadata, utcTimestamp());
-    await writeJsonAtomic(this.metadataPath(projectDir), metadata);
   }
 
   async reorderPages(projectId: string, orderedIds: string[]): Promise<Page[]> {
-    const { projectDir, metadata } = await this.findProjectMetadata(projectId);
+    const { projectDir } = await this.findProjectMetadata(projectId);
     const pageEntries = await this.pageEntriesFromProject(projectDir);
     const pages = pageEntries.map((entry) => entry.page);
     this.validateReorderIds(
@@ -511,8 +503,6 @@ export class WhiteboardRepository extends RepositoryStorageContext {
       },
       pagePath,
     }));
-    this.touchProject(metadata, timestamp);
-    await writeJsonAtomic(this.metadataPath(projectDir), metadata);
     for (const entry of nextPages) {
       const { boardItems, connectorLinks } = await this.readPageXmlFile(
         entry.pagePath,
@@ -529,7 +519,6 @@ export class WhiteboardRepository extends RepositoryStorageContext {
   async duplicatePage(pageId: string): Promise<Page> {
     const {
       projectDir,
-      metadata,
       page: sourcePage,
     } = await this.findPageMetadata(pageId);
     const sourceBoard = await this.getPageBoardData(pageId);
@@ -599,8 +588,6 @@ export class WhiteboardRepository extends RepositoryStorageContext {
       this.projectDataDir(projectDir),
       slugify(duplicatedName, 'page'),
     );
-    this.touchProject(metadata, timestamp);
-    await writeJsonAtomic(this.metadataPath(projectDir), metadata);
     for (const shiftedPage of shiftedPages) {
       const { boardItems, connectorLinks } = await this.readPageXmlFile(
         shiftedPage.pagePath,
@@ -629,8 +616,7 @@ export class WhiteboardRepository extends RepositoryStorageContext {
     pageIds: string[],
     noteFiles: string[],
   ): Promise<{ pages: Page[]; notes: ProjectNote[] }> {
-    const { projectDir: targetDir, metadata: targetMetadata } =
-      await this.findProjectMetadata(targetProjectId);
+    const { projectDir: targetDir } = await this.findProjectMetadata(targetProjectId);
     const { projectDir: sourceDir } = await this.findProjectMetadata(sourceProjectId);
 
     const targetDataDir = this.projectDataDir(targetDir);
@@ -766,16 +752,11 @@ export class WhiteboardRepository extends RepositoryStorageContext {
       });
     }
 
-    if (importedPages.length > 0 || importedNotes.length > 0) {
-      this.touchProject(targetMetadata, timestamp);
-      await writeJsonAtomic(this.metadataPath(targetDir), targetMetadata);
-    }
-
     return { pages: importedPages, notes: importedNotes };
   }
 
   async updatePageViewport(pageId: string, payload: PageViewportPayload): Promise<Page> {
-    const { projectDir, metadata, page, pagePath } =
+    const { page, pagePath } =
       await this.findPageMetadata(pageId);
     const nextPage = {
       ...page,
@@ -785,8 +766,6 @@ export class WhiteboardRepository extends RepositoryStorageContext {
       updated_at: utcTimestamp(),
     };
     const board = await this.getPageBoardData(pageId);
-    this.touchProject(metadata, nextPage.updated_at);
-    await writeJsonAtomic(this.metadataPath(projectDir), metadata);
     await this.writePageXml(
       pagePath,
       nextPage,
