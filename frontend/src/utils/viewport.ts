@@ -20,10 +20,6 @@ type WheelViewportInput = {
   shiftKey?: boolean;
 };
 
-export type WheelPanDelta = {
-  x: number;
-  y: number;
-};
 
 const DOM_DELTA_PIXEL = 0;
 const DOM_DELTA_LINE = 1;
@@ -105,32 +101,26 @@ export function normalizeWheelDeltaToPixels(
   return delta;
 }
 
-export function shouldPanViewportFromWheel(input: WheelViewportInput): boolean {
+// Returns true when the wheel event looks like a trackpad scroll (should be ignored).
+// Mouse wheel: deltaMode=LINE/PAGE, or large pure-vertical pixel delta (~100 px in Chrome).
+// Trackpad: DOM_DELTA_PIXEL with small deltaY or any deltaX.
+export function isTrackpadWheelEvent(input: WheelViewportInput): boolean {
   if (input.ctrlKey || input.metaKey) {
-    return false;
+    return false; // pinch gesture → treat as mouse wheel zoom
   }
 
-  return true;
-}
-
-export function getViewportWheelPanDelta(
-  input: WheelViewportInput,
-): WheelPanDelta {
-  const deltaX = normalizeWheelDeltaToPixels(input.deltaX, input.deltaMode);
-  const deltaY = normalizeWheelDeltaToPixels(input.deltaY, input.deltaMode);
-
-  if (input.shiftKey && Math.abs(deltaX) < Math.abs(deltaY)) {
-    return {
-      x: deltaY,
-      y: 0,
-    };
+  if (input.deltaMode !== DOM_DELTA_PIXEL) {
+    return false; // DOM_DELTA_LINE/PAGE = physical scroll wheel
   }
 
-  return {
-    x: deltaX,
-    y: deltaY,
-  };
+  if (Math.abs(input.deltaX) > 0) {
+    return true; // horizontal component = trackpad
+  }
+
+  // Chrome normalises a mouse-wheel notch to ~100 px; trackpad is usually < 30 px
+  return Math.abs(input.deltaY) < 40;
 }
+
 
 export function getWheelZoomMultiplier(input: WheelViewportInput): number {
   const deltaY = normalizeWheelDeltaToPixels(input.deltaY, input.deltaMode);

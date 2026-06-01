@@ -1,7 +1,7 @@
 {
   "name": "planvas",
   "private": true,
-  "version": "0.1.13",
+  "version": "0.1.14",
   "bin": {
     "planvas": "./scripts/planvas.cmd"
   },
