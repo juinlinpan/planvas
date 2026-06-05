@@ -86,7 +86,7 @@
 ## Navigation Update Notes
 
 - The workspace left page sidebar and right inspector must both support collapse / expand toggles while keeping a visible restore handle.
-- The home screen greeting should read `你好~{user_name}` when a local user profile name exists, and should provide a way to enter, save, and later change that name.
+- The home screen host-name row should read `host name: {user_name} [Save]`, with `用戶` prefilled when no local user profile name exists.
 - Opening a `Project` from the dedicated home screen must create a browser history entry, enter the workspace, and load the Project's Pages list without opening any Page by default.
 - The home screen left action area must show `Create Project`, `Open Project`, and a cloud publish target action; the previous project JSON import action is removed from the home screen.
 - In a company-hosted cloud deployment, the cloud publish target action must copy a publish URL that local desktop/browser instances can paste into Project Settings.

@@ -239,7 +239,7 @@ The app now opens on a dedicated home page. From there you can:
 - open an existing `Project` folder with the Windows native folder picker
 - refresh common projects to re-check whether registered paths still exist
 - remove missing registered projects from the common project list
-- save or update the local user name shown in the `你好~{name}` greeting
+- save or update the local host name shown in the `host name: {name}` row
 - copy this server's cloud publish URL for use from another Planvas instance
 
 New projects are created under `<user_home>/.planvas/project_store/`. Opened

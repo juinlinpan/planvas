@@ -430,36 +430,44 @@
   font-weight: 600;
 }
 
-.home-heading-group {
+.home-action-cluster {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+  align-items: flex-start;
+  width: min(100%, 360px);
 }
 
 .home-user-panel {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-width: 360px;
-}
-
-.home-user-label {
-  color: #657277;
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  gap: 6px;
+  width: 100%;
 }
 
 .home-user-row {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+}
+
+.home-greeting-row {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.home-greeting-label {
+  flex: 0 0 auto;
+  color: #18262b;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.2;
 }
 
 .home-user-input {
   min-width: 0;
-  flex: 1;
+  flex: 1 1 auto;
   height: 38px;
   padding: 0 11px;
   border: 1px solid rgba(22, 50, 56, 0.18);
@@ -480,6 +488,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 76px;
   min-height: 38px;
   padding: 8px 14px;
   border: 1px solid rgba(22, 50, 56, 0.18);
@@ -672,15 +681,15 @@
 }
 
 .home-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  width: 100%;
 }
 
 .home-publish-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  display: grid;
+  width: 100%;
 }
 
 .home-create-button,
@@ -690,11 +699,13 @@
   justify-content: center;
   gap: 8px;
   min-height: 42px;
-  padding: 10px 18px;
+  width: 100%;
+  padding: 10px 14px;
   border-radius: 8px;
   font: inherit;
   font-size: 0.86rem;
   font-weight: 750;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     background 120ms ease,

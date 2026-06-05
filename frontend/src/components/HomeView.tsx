@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { type Project } from '../services/api';
 
 const HERO_IMAGE_SRC = '/assets/home-whiteboard-hero.png';
+const DEFAULT_USER_NAME = '\u7528\u6236';
 
 function IconPlus() {
   return (
@@ -167,7 +168,9 @@ export function HomeView({
   onRemoveProject,
   onRefreshProjects,
 }: Props) {
-  const [userNameDraft, setUserNameDraft] = useState(userName);
+  const [userNameDraft, setUserNameDraft] = useState(
+    userName.trim() || DEFAULT_USER_NAME,
+  );
   const [previousUserName, setPreviousUserName] = useState(userName);
   const [userStatus, setUserStatus] = useState<string | null>(null);
   const [publishUrlStatus, setPublishUrlStatus] = useState<string | null>(null);
@@ -181,7 +184,7 @@ export function HomeView({
 
   if (userName !== previousUserName) {
     setPreviousUserName(userName);
-    setUserNameDraft(userName);
+    setUserNameDraft(userName.trim() || DEFAULT_USER_NAME);
   }
 
   const normalizedUserNameDraft = userNameDraft.trim();
@@ -273,81 +276,75 @@ export function HomeView({
             </div>
           </div>
 
-          <div className="home-heading-group">
-            <p className="home-eyebrow">Projects</p>
-            <h1 className="home-title">
-              {userName.trim() ? `你好~${userName.trim()}` : 'Plan your local workspaces'}
-            </h1>
-          </div>
-
-          <div className="home-user-panel">
-            <label className="home-user-label" htmlFor="home-user-name-input">
-              Name
-            </label>
-            <div className="home-user-row">
-              <input
-                id="home-user-name-input"
-                className="home-user-input"
-                disabled={isBusy}
-                value={userNameDraft}
-                onChange={(event) => {
-                  setUserNameDraft(event.target.value);
-                  setUserStatus(null);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    void handleSaveUserName();
+          <div className="home-action-cluster">
+            <div className="home-user-panel">
+              <div className="home-user-row home-greeting-row">
+                <span className="home-greeting-label">host name:</span>
+                <input
+                  id="home-user-name-input"
+                  className="home-user-input"
+                  aria-label="User name"
+                  disabled={isBusy}
+                  value={userNameDraft}
+                  onChange={(event) => {
+                    setUserNameDraft(event.target.value);
+                    setUserStatus(null);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      void handleSaveUserName();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="home-secondary-action"
+                  disabled={
+                    isBusy ||
+                    normalizedUserNameDraft.length === 0 ||
+                    normalizedUserNameDraft === userName
                   }
-                }}
-              />
+                  onClick={() => void handleSaveUserName()}
+                >
+                  Save
+                </button>
+              </div>
+              {userStatus ? <p className="home-action-status">{userStatus}</p> : null}
+            </div>
+
+            <div className="home-actions">
               <button
-                type="button"
-                className="home-secondary-action"
-                disabled={
-                  isBusy ||
-                  normalizedUserNameDraft.length === 0 ||
-                  normalizedUserNameDraft === userName
-                }
-                onClick={() => void handleSaveUserName()}
+                className="home-create-button"
+                disabled={isBusy}
+                onClick={onCreateProject}
               >
-                Save
+                <IconPlus />
+                Create Project
+              </button>
+              <button
+                className="home-import-button"
+                disabled={isBusy}
+                onClick={onOpenProject}
+              >
+                <IconFolder />
+                Open Project
               </button>
             </div>
-            {userStatus ? <p className="home-action-status">{userStatus}</p> : null}
+            <div className="home-publish-actions">
+              <button
+                className="home-import-button"
+                disabled={isBusy}
+                onClick={() => void handleCopyCloudPublishUrl()}
+              >
+                <IconArrow />
+                Copy Publish URL
+              </button>
+            </div>
+            {publishUrlStatus ? (
+              <p className="home-action-status">{publishUrlStatus}</p>
+            ) : null}
           </div>
-
-          <div className="home-actions">
-            <button
-              className="home-create-button"
-              disabled={isBusy}
-              onClick={onCreateProject}
-            >
-              <IconPlus />
-              Create Project
-            </button>
-            <button
-              className="home-import-button"
-              disabled={isBusy}
-              onClick={onOpenProject}
-            >
-              <IconFolder />
-              Open Project
-            </button>
-          </div>
-          <div className="home-publish-actions">
-            <button
-              className="home-import-button"
-              disabled={isBusy}
-              onClick={() => void handleCopyCloudPublishUrl()}
-            >
-              <IconArrow />
-              Copy Publish URL
-            </button>
-          </div>
-          {publishUrlStatus ? (
-            <p className="home-action-status">{publishUrlStatus}</p>
-          ) : null}
         </div>
 
         <div className="home-visual" aria-hidden="true">

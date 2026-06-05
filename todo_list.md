@@ -20,7 +20,7 @@
 
 - [x] Add `<user_home>/.planvas/user.json` with a local user display name used for Home greeting and publish ownership.
 - [x] Add backend user profile APIs to read and save the display name, validating it and storing only stable user profile fields.
-- [x] Update Home to show `你好~{user_name}` when a name exists, and let the user enter, save, and later change the name.
+- [x] Update Home to show one inline `host name: {user_name} [Save]` row, prefilled with `用戶` when no local profile name exists.
 - [x] Add a cloud-mode Home action that copies the current cloud server publish URL for use from a local Planvas instance.
 - [x] Add a Project Settings `Publish` panel where the user pastes a company cloud publish URL and uploads the selected local Project.
 - [x] Define the publish URL format so it identifies the cloud publish endpoint and optional token, without accepting arbitrary target filesystem paths.

@@ -380,9 +380,9 @@ See `plugins/planvas-ai/INSTALL.md` for tool-specific details.
 
 ## Company Cloud Publish
 
-Home lets the user save a local display name in
-`<user_home>/.planvas/user.json`. After saving, Home shows a personalized
-greeting. On a company-hosted Planvas server, `Copy Publish URL` copies the
+Home lets the user save a local host name in
+`<user_home>/.planvas/user.json`. After saving, Home shows it in the
+`host name: <name>` row. On a company-hosted Planvas server, `Copy Publish URL` copies the
 server publish URL. Paste that URL into a local Project's Settings > Publish
 panel to upload the selected Project.
 
