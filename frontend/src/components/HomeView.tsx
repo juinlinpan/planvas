@@ -334,6 +334,8 @@ export function HomeView({
               <IconFolder />
               Open Project
             </button>
+          </div>
+          <div className="home-publish-actions">
             <button
               className="home-import-button"
               disabled={isBusy}

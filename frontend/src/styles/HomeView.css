@@ -677,6 +677,12 @@
   gap: 10px;
 }
 
+.home-publish-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .home-create-button,
 .home-import-button {
   display: inline-flex;
