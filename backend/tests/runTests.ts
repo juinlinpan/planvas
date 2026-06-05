@@ -1512,22 +1512,65 @@ const tests: TestCase[] = [
       );
       const currentPersistedNote = savedWithoutMarkdownWrite.board_items[0];
       if (!currentPersistedNote) throw new Error('Missing saved note');
+      const boardStateRenamedNoteData = {
+        ...(JSON.parse(currentPersistedNote.data_json ?? '{}') as Record<
+          string,
+          unknown
+        >),
+        noteFile: 'Board-state-renamed-note.md',
+      };
+      const savedWithBoardStateRename = (
+        await requestJson<PageBoardData>(
+          baseUrl,
+          `/pages/${page.id}/board-state`,
+          {
+            method: 'PUT',
+            ...jsonBody({
+              board_items: [
+                {
+                  ...currentPersistedNote,
+                  data_json: JSON.stringify(boardStateRenamedNoteData),
+                  content: null,
+                },
+              ],
+              connector_links: [],
+            }),
+          },
+        )
+      ).data;
+      assert.equal(
+        fs.existsSync(path.join(projectDataDir, 'Created-note.md')),
+        false,
+      );
+      assert.equal(
+        fs.readFileSync(
+          path.join(projectDataDir, 'Board-state-renamed-note.md'),
+          'utf8',
+        ),
+        '# External edit\n\nBody text',
+      );
+      assert.match(
+        savedWithBoardStateRename.board_items[0]?.data_json ?? '',
+        /"noteFile":"Board-state-renamed-note\.md"/,
+      );
+      const renamedPersistedNote = savedWithBoardStateRename.board_items[0];
+      if (!renamedPersistedNote) throw new Error('Missing renamed saved note');
       await createBoardItem(baseUrl, {
-        ...currentPersistedNote,
+        ...renamedPersistedNote,
         page_id: page.id,
         x: 420,
         y: 120,
         z_index: 1,
       });
       await createBoardItem(baseUrl, {
-        ...currentPersistedNote,
+        ...renamedPersistedNote,
         page_id: otherPage.id,
         x: 120,
         y: 120,
         z_index: 0,
       });
       const renamedNoteData = {
-        ...(JSON.parse(currentPersistedNote.data_json ?? '{}') as Record<
+        ...(JSON.parse(renamedPersistedNote.data_json ?? '{}') as Record<
           string,
           unknown
         >),
@@ -1536,11 +1579,11 @@ const tests: TestCase[] = [
       const renamedNote = (
         await requestJson<BoardItem>(
           baseUrl,
-          `/board-items/${currentPersistedNote.id}`,
+          `/board-items/${renamedPersistedNote.id}`,
           {
             method: 'PATCH',
             ...jsonBody({
-              ...currentPersistedNote,
+              ...renamedPersistedNote,
               data_json: JSON.stringify(renamedNoteData),
             }),
           },
@@ -1548,7 +1591,7 @@ const tests: TestCase[] = [
       ).data;
       assert.equal(renamedNote.type, 'note_paper');
       assert.equal(
-        fs.existsSync(path.join(projectDataDir, 'Created-note.md')),
+        fs.existsSync(path.join(projectDataDir, 'Board-state-renamed-note.md')),
         false,
       );
       assert.equal(
@@ -1579,7 +1622,7 @@ const tests: TestCase[] = [
       );
 
       const deletePlacement = await fetch(
-        `${baseUrl}/board-items/${currentPersistedNote.id}`,
+        `${baseUrl}/board-items/${renamedPersistedNote.id}`,
         { method: 'DELETE' },
       );
       assert.equal(deletePlacement.status, 204);

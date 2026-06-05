@@ -65,7 +65,7 @@ export type ResolvedBoardItemStyle = {
 
 export const BACKGROUND_COLOR_OPTIONS = [
   // Row 1: Grayscale (左淺右深)
-  { name: 'Pearl', value: '#f1f2f4' },
+  { name: 'White', value: '#ffffff' },
   { name: 'Alabaster', value: '#e2e5e8' },
   { name: 'Snow', value: '#cbd1d6' },
   { name: 'Ash', value: '#b4bcc3' },
@@ -143,7 +143,7 @@ function createPaletteLookup(
 
 const BACKGROUND_COLOR_LOOKUP = createPaletteLookup(BACKGROUND_COLOR_OPTIONS, {
   transparent: 'transparent',
-  '#ffffff': DEFAULT_BACKGROUND_COLOR,
+  '#f1f2f4': BACKGROUND_COLOR_OPTIONS[1].value, // old Pearl -> Alabaster
   '#fffdf7': DEFAULT_BACKGROUND_COLOR,
   '#f8fafc': DEFAULT_BACKGROUND_COLOR,
   '#fef08a': BACKGROUND_COLOR_OPTIONS[9].value,

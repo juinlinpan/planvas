@@ -88,6 +88,7 @@ export type Viewport = {
 // ──────────────────────────────────────────────
 export type ActiveTool =
   | 'select'
+  | 'pan'
   | 'line'
   | 'table'
   | 'text_box'

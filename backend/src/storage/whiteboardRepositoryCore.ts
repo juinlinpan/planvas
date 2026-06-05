@@ -1138,10 +1138,47 @@ export class WhiteboardRepository extends RepositoryStorageContext {
     boardItems: BoardItem[],
     connectorLinks: ConnectorLink[],
   ): Promise<PageBoardData> {
-    const page = await this.getPage(pageId);
+    const { page, projectDir } = await this.findPageMetadata(pageId);
     await this.validateBoardStatePayload(pageId, boardItems, connectorLinks);
+    const { boardItems: previousBoardItems } = await this.readPageXml(pageId);
+    await this.renameChangedBoardStateNoteFiles(
+      projectDir,
+      previousBoardItems,
+      boardItems,
+    );
     await this.persistPageBoard(page, boardItems, connectorLinks);
     return this.getPageBoardData(pageId);
+  }
+
+  private async renameChangedBoardStateNoteFiles(
+    projectDir: string,
+    previousBoardItems: BoardItem[],
+    nextBoardItems: BoardItem[],
+  ): Promise<void> {
+    const previousNoteFileById = new Map<string, string>();
+    for (const item of previousBoardItems) {
+      if (item.type !== 'note_paper') continue;
+      const noteFile = this.noteFileFromDataJson(item.data_json);
+      if (noteFile) previousNoteFileById.set(item.id, noteFile);
+    }
+
+    const renamedFiles = new Map<string, string>();
+    for (const item of nextBoardItems) {
+      if (item.type !== 'note_paper') continue;
+      const previousNoteFile = previousNoteFileById.get(item.id);
+      const nextNoteFile = this.noteFileFromDataJson(item.data_json);
+      if (
+        previousNoteFile &&
+        nextNoteFile &&
+        previousNoteFile !== nextNoteFile
+      ) {
+        renamedFiles.set(previousNoteFile, nextNoteFile);
+      }
+    }
+
+    for (const [previousNoteFile, nextNoteFile] of renamedFiles) {
+      await this.renameProjectNoteFile(projectDir, previousNoteFile, nextNoteFile);
+    }
   }
 
   async regulatePage(pageId: string): Promise<PageRegulateResult> {

@@ -153,6 +153,8 @@ export function Toolbar({
 
   const [noteDropdownOpen, setNoteDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const [selectDropdownOpen, setSelectDropdownOpen] = useState(false);
+  const selectDropdownRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!noteDropdownOpen) return;
@@ -171,6 +173,24 @@ export function Toolbar({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [noteDropdownOpen]);
+
+  useEffect(() => {
+    if (!selectDropdownOpen) return;
+
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        selectDropdownRef.current &&
+        !selectDropdownRef.current.contains(event.target as Node)
+      ) {
+        setSelectDropdownOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [selectDropdownOpen]);
 
   useEffect(() => {
     function handleEscape(event: KeyboardEvent) {
@@ -290,6 +310,7 @@ export function Toolbar({
       <div className="toolbar-left">
         <div className="toolbar-actions">
           {TOOLS.map((tool) => {
+            const isSelect = tool.id === 'select';
             const isNotePaper = tool.id === 'note_paper';
             const activeTemplate = isNotePaper
               ? NOTE_TEMPLATES.find((t) => t.id === selectedNoteTemplateId) ||
@@ -299,12 +320,24 @@ export function Toolbar({
               ? `${tool.label}: ${activeTemplate?.name} (${tool.shortcut})`
               : `${tool.label} (${tool.shortcut})`;
 
+            const isSelectSlotActive =
+              isSelect && (activeTool === 'select' || activeTool === 'pan');
+            const panIcon = (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 11V8a2 2 0 0 0-4 0v3" />
+                <path d="M14 10V6a2 2 0 0 0-4 0v4" />
+                <path d="M10 9.5V4a2 2 0 0 0-4 0v13a6 6 0 0 0 12 0v-4a2 2 0 0 0-4 0" />
+              </svg>
+            );
+            const selectSlotIcon = isSelect && activeTool === 'pan' ? panIcon : tool.icon;
+            const selectSlotLabel = isSelect && activeTool === 'pan' ? '移動視角' : tool.label;
+
             const buttonElement = (
               <button
                 key={tool.id}
                 type="button"
                 data-tool-id={tool.id}
-                className={`tool-button ${activeTool === tool.id ? 'is-active' : ''}`}
+                className={`tool-button ${isSelectSlotActive || activeTool === tool.id ? 'is-active' : ''}`}
                 title={tooltip}
                 onClick={(event) => {
                   if (tool.id === 'table') {
@@ -316,15 +349,72 @@ export function Toolbar({
                     return;
                   }
 
-                  onToolChange(tool.id);
+                  onToolChange(isSelect && activeTool === 'pan' ? 'pan' : tool.id);
                 }}
               >
-                <span className="tool-icon">{tool.icon}</span>
+                <span className="tool-icon">{isSelect ? selectSlotIcon : tool.icon}</span>
                 {showToolbarText ? (
-                  <span className="tool-label">{tool.label}</span>
+                  <span className="tool-label">{isSelect ? selectSlotLabel : tool.label}</span>
                 ) : null}
               </button>
             );
+
+            if (isSelect) {
+              return (
+                <div key={tool.id} className="tool-button-wrapper note-paper-wrapper">
+                  {buttonElement}
+                  <button
+                    type="button"
+                    className="tool-dropdown-arrow"
+                    title="切換工具"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectDropdownOpen((open) => !open);
+                    }}
+                  >
+                    <svg width="6" height="6" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M7 10l5 5 5-5z" />
+                    </svg>
+                  </button>
+                  {selectDropdownOpen && (
+                    <div className="note-type-dropdown" ref={selectDropdownRef}>
+                      <button
+                        type="button"
+                        className={`note-type-item ${activeTool === 'select' ? 'is-selected' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToolChange('select');
+                          setSelectDropdownOpen(false);
+                        }}
+                      >
+                        <span>選取 (V)</span>
+                        {activeTool === 'select' && (
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        className={`note-type-item ${activeTool === 'pan' ? 'is-selected' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToolChange('pan');
+                          setSelectDropdownOpen(false);
+                        }}
+                      >
+                        <span>移動視角 (H)</span>
+                        {activeTool === 'pan' && (
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            }
 
             if (isNotePaper) {
               return (

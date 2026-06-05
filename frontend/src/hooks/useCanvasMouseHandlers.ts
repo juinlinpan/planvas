@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useRef } from 'react';
 import type { MutableRefObject, RefObject } from 'react';
 import type { BoardItem, ConnectorLink } from '../services/api';
 import {
@@ -91,9 +92,8 @@ import {
   type Viewport,
 } from '../types/index';
 import {
-  getViewportWheelPanDelta,
   getWheelZoomMultiplier,
-  shouldPanViewportFromWheel,
+  isTrackpadWheelEvent,
   zoomViewportAroundPoint,
 } from '../utils/viewport';
 import { isScrollableWheelTarget } from '../canvasHelpers/scrollTarget';
@@ -241,9 +241,13 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     triggerSave,
   } = params;
 
+  const activeToolRef = useRef(activeTool);
+  activeToolRef.current = activeTool;
+
   const { startViewportPan, handlePanMove, handlePanEnd } = useCanvasPan({
     viewportRef,
     isSpaceRef,
+    activeToolRef,
     panRef,
     setViewportAndSync,
     scheduleViewportSave,
@@ -321,6 +325,19 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     }
 
     e.preventDefault();
+
+    if (
+      isTrackpadWheelEvent({
+        deltaX: e.deltaX,
+        deltaY: e.deltaY,
+        deltaMode: e.deltaMode,
+        ctrlKey: e.ctrlKey,
+        metaKey: e.metaKey,
+      })
+    ) {
+      return;
+    }
+
     const rect = container?.getBoundingClientRect();
     if (!rect) {
       return;
@@ -329,32 +346,6 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     const vp = viewportRef.current;
-    if (
-      shouldPanViewportFromWheel({
-        deltaX: e.deltaX,
-        deltaY: e.deltaY,
-        deltaMode: e.deltaMode,
-        ctrlKey: e.ctrlKey,
-        metaKey: e.metaKey,
-        shiftKey: e.shiftKey,
-      })
-    ) {
-      const panDelta = getViewportWheelPanDelta({
-        deltaX: e.deltaX,
-        deltaY: e.deltaY,
-        deltaMode: e.deltaMode,
-        shiftKey: e.shiftKey,
-      });
-      const nextViewport = {
-        ...vp,
-        x: vp.x - panDelta.x,
-        y: vp.y - panDelta.y,
-      };
-      setViewportAndSync(nextViewport);
-      scheduleViewportSave(nextViewport);
-      return;
-    }
-
     const nextViewport = zoomViewportAroundPoint(
       vp,
       Math.min(
@@ -429,7 +420,7 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
       return;
     }
 
-    if (activeTool !== 'select') {
+    if (activeTool !== 'select' && activeTool !== 'pan') {
       const worldPos = screenToWorld(e.clientX, e.clientY);
       const size = ITEM_DEFAULT_SIZE[activeTool] ?? { width: 200, height: 100 };
       const rawX = worldPos.x - size.width / 2;
@@ -445,7 +436,9 @@ export function useCanvasMouseHandlers(params: UseCanvasMouseHandlersParams) {
       return;
     }
 
-    startMarqueeSelection(e);
+    if (activeTool === 'select') {
+      startMarqueeSelection(e);
+    }
   }
 
   function handleItemMouseDown(e: React.MouseEvent, itemId: string) {

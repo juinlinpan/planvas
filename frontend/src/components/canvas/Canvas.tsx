@@ -1367,6 +1367,9 @@ export function Canvas({
       if (key === 'a') {
         handleToolChange('arrow');
       }
+      if (key === 'h') {
+        handleToolChange('pan');
+      }
     }
 
     window.addEventListener('keydown', onKeyDown);
@@ -1695,10 +1698,10 @@ export function Canvas({
 
   const cursorClass = isPasting
     ? 'cursor-wait'
-    : activeTool !== 'select'
-      ? 'cursor-crosshair'
-      : isSpaceDown
-        ? 'cursor-grab'
+    : activeTool === 'pan' || isSpaceDown
+      ? 'cursor-grab'
+      : activeTool !== 'select'
+        ? 'cursor-crosshair'
         : '';
 
   const worldTransform = `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`;
@@ -1786,6 +1789,17 @@ export function Canvas({
                   e.stopPropagation();
                 }}
                 onWheel={(e) => e.stopPropagation()}
+              />
+            )}
+            {activeTool === 'pan' && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  zIndex: 9998,
+                  background: 'transparent',
+                }}
+                onMouseDown={handleCanvasMouseDown}
               />
             )}
             <div

@@ -3,12 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
   adjustResetZoomByStep,
   adjustZoomByStep,
-  getViewportWheelPanDelta,
   getWheelZoomMultiplier,
   getDisplayZoom,
   getResetZoom,
+  isTrackpadWheelEvent,
   normalizeResetZoom,
-  shouldPanViewportFromWheel,
   zoomViewportAroundPoint,
 } from './viewport';
 
@@ -58,65 +57,26 @@ describe('viewport helpers', () => {
     expect(adjustResetZoomByStep(1, -1)).toBe(0.9);
   });
 
-  it('treats precision touchpad wheel input as viewport pan', () => {
-    expect(
-      shouldPanViewportFromWheel({
-        deltaX: 12,
-        deltaY: 18,
-        deltaMode: 0,
-      }),
-    ).toBe(true);
-    expect(
-      getViewportWheelPanDelta({
-        deltaX: 12,
-        deltaY: 18,
-        deltaMode: 0,
-      }),
-    ).toEqual({ x: 12, y: 18 });
+  it('detects precision touchpad scroll as trackpad event', () => {
+    // has deltaX → trackpad
+    expect(isTrackpadWheelEvent({ deltaX: 12, deltaY: 18, deltaMode: 0 })).toBe(true);
+    // small deltaY, no deltaX → trackpad
+    expect(isTrackpadWheelEvent({ deltaX: 0, deltaY: 10, deltaMode: 0 })).toBe(true);
   });
 
-  it('uses unmodified wheel input as viewport pan', () => {
-    expect(
-      shouldPanViewportFromWheel({
-        deltaX: 0,
-        deltaY: 100,
-        deltaMode: 0,
-      }),
-    ).toBe(true);
+  it('detects large pure-vertical pixel delta as mouse wheel (not trackpad)', () => {
+    expect(isTrackpadWheelEvent({ deltaX: 0, deltaY: 100, deltaMode: 0 })).toBe(false);
   });
 
-  it('computes the modified wheel zoom multiplier', () => {
-    expect(getWheelZoomMultiplier({ deltaX: 0, deltaY: 100, deltaMode: 0 }))
-      .toBe(0.9);
+  it('detects DOM_DELTA_LINE input as mouse wheel (not trackpad)', () => {
+    expect(isTrackpadWheelEvent({ deltaX: 0, deltaY: 3, deltaMode: 1 })).toBe(false);
   });
 
-  it('keeps pinch-style modified wheel input on zoom', () => {
-    expect(
-      shouldPanViewportFromWheel({
-        deltaX: 0,
-        deltaY: 10,
-        deltaMode: 0,
-        ctrlKey: true,
-      }),
-    ).toBe(false);
+  it('detects pinch gesture (ctrlKey) as mouse wheel zoom, not trackpad', () => {
+    expect(isTrackpadWheelEvent({ deltaX: 0, deltaY: 10, deltaMode: 0, ctrlKey: true })).toBe(false);
   });
 
-  it('uses shift wheel as horizontal viewport pan', () => {
-    expect(
-      shouldPanViewportFromWheel({
-        deltaX: 0,
-        deltaY: 120,
-        deltaMode: 0,
-        shiftKey: true,
-      }),
-    ).toBe(true);
-    expect(
-      getViewportWheelPanDelta({
-        deltaX: 0,
-        deltaY: 120,
-        deltaMode: 0,
-        shiftKey: true,
-      }),
-    ).toEqual({ x: 120, y: 0 });
+  it('computes the wheel zoom multiplier', () => {
+    expect(getWheelZoomMultiplier({ deltaX: 0, deltaY: 100, deltaMode: 0 })).toBe(0.9);
   });
 });
