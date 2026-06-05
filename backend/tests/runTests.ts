@@ -18,7 +18,9 @@ import type {
   PageBoardData,
   PageRegulateResult,
   Project,
+  ProjectPublishResult,
   ProjectNote,
+  UserProfile,
 } from '../src/types.js';
 
 type TestCase = {
@@ -100,6 +102,116 @@ const tests: TestCase[] = [
       const text = await response.text();
       assert.match(text, /Frontend bundle not found\./);
       assert.match(text, /npm run build/);
+    },
+  },
+  {
+    name: 'stores and reads the local user profile',
+    run: async () => {
+      const { baseUrl, settings } = await createTestServer();
+
+      const initial = await requestJson<UserProfile>(baseUrl, '/user-profile');
+      assert.equal(initial.status, 200);
+      assert.equal(initial.data.name, '');
+
+      const updated = await requestJson<UserProfile>(baseUrl, '/user-profile', {
+        method: 'PUT',
+        ...jsonBody({ name: 'Alice' }),
+      });
+      assert.equal(updated.status, 200);
+      assert.equal(updated.data.name, 'Alice');
+      assert.equal(
+        fs.existsSync(path.join(settings.planvasRoot, 'user.json')),
+        true,
+      );
+
+      const reloaded = await requestJson<UserProfile>(baseUrl, '/user-profile');
+      assert.equal(reloaded.data.name, 'Alice');
+    },
+  },
+  {
+    name: 'publishes a project snapshot under a user cloud folder with serial collision names',
+    run: async () => {
+      const { baseUrl, settings } = await createTestServer();
+
+      const created = await requestJson<Project>(baseUrl, '/projects', {
+        method: 'POST',
+        ...jsonBody({ name: 'Roadmap' }),
+      });
+      await requestJson<Page>(baseUrl, `/projects/${created.data.id}/pages`, {
+        method: 'POST',
+        ...jsonBody({ name: 'Plan' }),
+      });
+
+      const target = await requestJson<{ url: string }>(
+        baseUrl,
+        '/cloud/publish-target',
+      );
+      assert.equal(target.data.url, `${baseUrl}/cloud/publish`);
+
+      const first = await requestJson<ProjectPublishResult>(
+        baseUrl,
+        `/projects/${created.data.id}/publish`,
+        {
+          method: 'POST',
+          ...jsonBody({
+            publish_url: target.data.url,
+            user_name: 'Alice Chen',
+          }),
+        },
+      );
+      assert.equal(first.status, 200);
+      assert.equal(first.data.owner, 'Alice-Chen');
+      assert.equal(first.data.uploaded_name, 'Roadmap');
+      assert.equal(
+        fs.existsSync(
+          path.join(
+            settings.planvasRoot,
+            'project_store',
+            'Alice-Chen',
+            'Roadmap',
+            '.pv_project',
+            'metadata.json',
+          ),
+        ),
+        true,
+      );
+
+      const second = await requestJson<ProjectPublishResult>(
+        baseUrl,
+        `/projects/${created.data.id}/publish`,
+        {
+          method: 'POST',
+          ...jsonBody({
+            publish_url: target.data.url,
+            user_name: 'Alice Chen',
+          }),
+        },
+      );
+      assert.equal(second.data.uploaded_name, 'Roadmap_2');
+      assert.equal(
+        fs.existsSync(
+          path.join(
+            settings.planvasRoot,
+            'project_store',
+            'Alice-Chen',
+            'Roadmap_2',
+            '.pv_project',
+            'metadata.json',
+          ),
+        ),
+        true,
+      );
+
+      const projects = await requestJson<Project[]>(baseUrl, '/projects');
+      assert.equal(
+        projects.data.some(
+          (project) =>
+            project.path?.endsWith(
+              path.join('project_store', 'Alice-Chen', 'Roadmap_2'),
+            ) && project.name === 'Roadmap',
+        ),
+        true,
+      );
     },
   },
   {

@@ -7,6 +7,7 @@ import type { ProjectIndexEntry, StoredProject } from '../types.js';
 
 export const metadataFilename = 'metadata.json';
 export const projectIndexFilename = 'project.json';
+export const userProfileFilename = 'user.json';
 export const projectStoreDirname = 'project_store';
 export const projectMarkerDirname = '.pv_project';
 export const noteFileExtension = '.md';
@@ -59,6 +60,10 @@ export function projectStoreDir(planvasRoot: string): string {
 
 export function projectIndexPath(planvasRoot: string): string {
   return path.join(planvasRoot, projectIndexFilename);
+}
+
+export function userProfilePath(planvasRoot: string): string {
+  return path.join(planvasRoot, userProfileFilename);
 }
 
 export function projectDataDir(projectDir: string): string {
@@ -122,6 +127,20 @@ export async function uniquePath(
   let index = 2;
   while (await exists(candidate)) {
     candidate = path.join(parent, `${stem}-${index}${suffix}`);
+    index += 1;
+  }
+  return candidate;
+}
+
+export async function uniqueSerialPath(
+  parent: string,
+  stem: string,
+  suffix = '',
+): Promise<string> {
+  let candidate = path.join(parent, `${stem}${suffix}`);
+  let index = 2;
+  while (await exists(candidate)) {
+    candidate = path.join(parent, `${stem}_${index}${suffix}`);
     index += 1;
   }
   return candidate;

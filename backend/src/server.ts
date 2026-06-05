@@ -22,11 +22,25 @@ import {
   validateOrderedIds,
   validatePageCreate,
   validatePageUpdate,
+  validateCloudPublishPayload,
+  validateProjectPublishPayload,
   validateProjectCreate,
   validateProjectOpenPath,
   validateProjectUpdate,
+  validateUserProfileUpdate,
   validateViewport,
 } from './validation.js';
+import {
+  readJson,
+  userProfilePath,
+  writeJsonAtomic,
+} from './storage/paths.js';
+import type {
+  CloudPublishPayload,
+  ProjectPublishPayload,
+  ProjectPublishResult,
+  UserProfile,
+} from './types.js';
 
 const devOrigins = new Set(['http://127.0.0.1:5173', 'http://localhost:5173']);
 const slowRequestThresholdMs = 250;
@@ -186,6 +200,31 @@ function buildRoutes(): Route[] {
     },
     {
       method: 'GET',
+      pattern: /^\/user-profile$/,
+      handler: ({ settings }) => readUserProfile(settings),
+    },
+    {
+      method: 'PUT',
+      pattern: /^\/user-profile$/,
+      handler: ({ settings, body }) =>
+        writeUserProfile(settings, validateUserProfileUpdate(body).name),
+    },
+    {
+      method: 'GET',
+      pattern: /^\/cloud\/publish-target$/,
+      handler: ({ request, url }) => ({
+        url: buildCloudPublishUrl(request, url),
+      }),
+    },
+    {
+      method: 'POST',
+      pattern: /^\/cloud\/publish$/,
+      statusCode: 201,
+      handler: ({ repository, body }) =>
+        repository.receiveCloudPublish(validateCloudPublishPayload(body)),
+    },
+    {
+      method: 'GET',
       pattern: /^\/fs\/dirs$/,
       handler: ({ settings, url }) => listDirectoryContents(settings, url),
     },
@@ -236,6 +275,16 @@ function buildRoutes(): Route[] {
       pattern: /^\/projects\/(?<projectId>[^/]+)\/ai-agent\/install$/,
       handler: ({ repository, body }, { params }) =>
         installProjectAiAgent(repository, params.projectId, body),
+    },
+    {
+      method: 'POST',
+      pattern: /^\/projects\/(?<projectId>[^/]+)\/publish$/,
+      handler: ({ repository, body }, { params }) =>
+        publishProjectToCloud(
+          repository,
+          params.projectId,
+          validateProjectPublishPayload(body),
+        ),
     },
     {
       method: 'PATCH',
@@ -458,6 +507,68 @@ function buildRoutes(): Route[] {
 }
 
 type AiAgentInstallPayload = { target: string };
+
+async function readUserProfile(settings: AppSettings): Promise<UserProfile> {
+  const profilePath = userProfilePath(settings.planvasRoot);
+  if (!(await fileExists(profilePath))) {
+    return { name: '', updated_at: '' };
+  }
+  const payload = await readJson(profilePath);
+  return {
+    name: typeof payload.name === 'string' ? payload.name : '',
+    updated_at:
+      typeof payload.updated_at === 'string' ? payload.updated_at : '',
+  };
+}
+
+async function writeUserProfile(
+  settings: AppSettings,
+  name: string,
+): Promise<UserProfile> {
+  const profile: UserProfile = {
+    name,
+    updated_at: new Date().toISOString(),
+  };
+  await writeJsonAtomic(userProfilePath(settings.planvasRoot), profile);
+  return profile;
+}
+
+function buildCloudPublishUrl(request: IncomingMessage, url: URL): string {
+  const forwardedProto = request.headers['x-forwarded-proto'];
+  const proto =
+    typeof forwardedProto === 'string' && forwardedProto.trim().length > 0
+      ? forwardedProto.split(',')[0].trim()
+      : 'http';
+  const host = request.headers.host ?? '127.0.0.1:18000';
+  return `${proto}://${host}${url.searchParams.get('path') ?? '/cloud/publish'}`;
+}
+
+async function publishProjectToCloud(
+  repository: WhiteboardRepository,
+  projectId: string,
+  payload: ProjectPublishPayload,
+): Promise<ProjectPublishResult> {
+  const snapshot = await repository.buildProjectPublishSnapshot(projectId);
+  const response = await fetch(payload.publish_url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_name: payload.user_name,
+      snapshot,
+    } satisfies CloudPublishPayload),
+  });
+  if (!response.ok) {
+    throw new HttpError(
+      400,
+      `Cloud publish failed with status ${response.status}: ${await response.text()}`,
+    );
+  }
+  const result = (await response.json()) as { data?: ProjectPublishResult };
+  if (!result.data) {
+    throw new HttpError(400, 'Cloud publish response was not valid.');
+  }
+  return result.data;
+}
 
 function validateAiAgentInstallPayload(body: unknown): AiAgentInstallPayload {
   if (

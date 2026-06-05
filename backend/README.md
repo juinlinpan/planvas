@@ -15,8 +15,10 @@ Project data is file based. By default the service stores projects under:
 
 - Planvas root: `<user_home>/.planvas/`
 - Project index: `<user_home>/.planvas/project.json`
+- User profile: `<user_home>/.planvas/user.json`
 - Default project store: `<user_home>/.planvas/project_store/`
 - New project directory: `<user_home>/.planvas/project_store/<project_name>/`
+- Cloud published project directory: `<cloud_planvas_root>/project_store/<user_name>/<published_project_name>/`
 - External project directory: any user-selected writable folder registered in `project.json`
 - Project data directory: `<project_directory>/.pv_project/`
 - Project metadata: `<project_directory>/.pv_project/metadata.json` for project-level settings only
@@ -64,6 +66,22 @@ different folders with the same name remain separate. If a copied folder carries
 a duplicated metadata id, the opened copy receives new Project, Page, board
 item, and connector ids so the original registration is not replaced and later
 Page or note writes stay inside the copied folder.
+
+`GET /user-profile` and `PUT /user-profile` read and save the local display name
+in `<user_home>/.planvas/user.json`. The frontend uses this name for the Home
+greeting and as the owner name when publishing to a company cloud server.
+
+`GET /cloud/publish-target` returns this backend's publish endpoint URL.
+`POST /projects/{project_id}/publish` packages the selected local Project as a
+JSON snapshot and sends it to the pasted publish URL. `POST /cloud/publish`
+receives that snapshot, validates the Page XML and note files, writes it under
+`project_store/<user_name>/<published_project_name>/`, reassigns ids for the
+cloud copy, and registers it in `project.json`. Name collisions inside the same
+user folder receive serial suffixes such as `Roadmap_2`. This is upload-only;
+there is no pull-down, two-way sync, local overwrite, or collaboration behavior.
+
+`GET /projects` also discovers cloud-published Projects one level below
+`project_store/<user_name>/`.
 
 `note_paper` board items are markdown-file-backed. The HTTP API continues to
 send and accept the `content` field, while persistence writes that body to

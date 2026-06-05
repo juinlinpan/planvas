@@ -130,6 +130,49 @@ export type ProjectOpenPathPayload = {
   path: string;
 };
 
+export type UserProfile = {
+  name: string;
+  updated_at: string;
+};
+
+export type UserProfileUpdatePayload = {
+  name: string;
+};
+
+export type PublishTarget = {
+  url: string;
+};
+
+export type ProjectPublishPayload = {
+  publish_url: string;
+  user_name: string;
+};
+
+export type ProjectPublishResult = {
+  project: Project;
+  uploaded_name: string;
+  owner: string;
+};
+
+export type ProjectPublishSnapshot = {
+  project: ProjectMetadata['project'];
+  pages: Array<{
+    semantic_file: string;
+    semantic_xml: string;
+    presentation_file: string;
+    presentation_xml: string;
+  }>;
+  notes: Array<{
+    file: string;
+    content: string;
+  }>;
+};
+
+export type CloudPublishPayload = {
+  user_name: string;
+  snapshot: ProjectPublishSnapshot;
+};
+
 export type BoardItemCreatePayload = BoardItemBase;
 export type BoardItemUpdatePayload = BoardItemBase;
 export type ConnectorLinkCreatePayload = ConnectorLinkBase;

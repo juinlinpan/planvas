@@ -20,7 +20,9 @@
 - The backend must store project data as files under a Planvas root.
 - The default Planvas root is `<user_home>/.planvas/`.
 - The Planvas root must contain `project.json`, an index of common project paths.
+- The Planvas root must contain `user.json`, a local user profile file with the display name used for greeting and cloud publish ownership.
 - The Planvas root must contain `project_store/`; newly created projects are stored as `<user_home>/.planvas/project_store/<project_name>/`.
+- In a company-hosted cloud deployment, uploaded Projects must be stored under `<cloud_planvas_root>/project_store/<user_name>/<published_project_name>/`, not directly under `project_store/`.
 - A `Project` is a working directory that may live either under `project_store/` or at an external user-selected path.
 - Each Project directory must contain `.pv_project/` as a Planvas data directory.
 - Project metadata must live at `.pv_project/metadata.json`.
@@ -56,6 +58,7 @@
 - The existing HTTP API may stay stable while the repository implementation reads and writes `.pv_project/metadata.json` and Page XML files.
 - Opening an external Project path must initialize missing `.pv_project/` / `.pv_project/metadata.json` files when the path is new, and must only add the path to `project.json` when the path is already a Planvas project.
 - Project listing must refresh path existence and sort `project_store/` projects before other registered paths.
+- A cloud deployment must list published Projects from every user subdirectory under `project_store/` so users can choose published Projects from the cloud frontend.
 - AI tool integration is distributed as an optional plugin/extension package under `plugins/planvas-ai/`; it is not bundled into the main MSI/exe app installer.
 - The optional AI package must include the `planvas-skill` skill, Page XML reading/writing references, and MCP configuration snippets for external AI coding tools.
 - Supported AI tool install targets for the optional package include Codex, Gemini CLI, Antigravity CLI, Claude Code, GitHub Copilot, and OpenCode.
@@ -63,11 +66,30 @@
 - AI agent installation from Project settings must install into the selected Project path, not a user-global directory.
 - The backend may run only the bundled Planvas AI installer script with a whitelisted AI agent target; the frontend must not submit arbitrary shell commands.
 
+## Company Cloud Publish Notes
+
+- Company cloud publish is a one-way upload flow from a local Planvas instance to a company-hosted Planvas server.
+- Cloud publish is not sync: the first version must not support pulling a cloud Project back down, two-way merge, cloud-to-local overwrite, or multi-user collaborative editing.
+- The company cloud frontend is a shared web UI backed by the cloud Planvas server and can show all published Projects available in that server's `project_store` user subdirectories.
+- The cloud home screen must expose a left-side action that copies a publish URL for the current cloud server.
+- The copied publish URL should identify only the target cloud publish endpoint and any required publish token; it must not allow the local client to choose arbitrary cloud filesystem paths.
+- A local user publishes from Project Settings by pasting the copied cloud publish URL into the `Publish` control.
+- Publishing uploads the selected local Project directory as a snapshot, including `.pv_project/metadata.json`, Page semantic XML, Page presentation XML, and referenced project note markdown files.
+- The local user display name from `<user_home>/.planvas/user.json` determines the cloud owner directory name after filesystem-safe sanitization.
+- On the cloud server, published Projects must be written under `<cloud_planvas_root>/project_store/<user_name>/`.
+- Published Project folder names start from the Project name and add a serial suffix only when needed to avoid name collisions inside the same user's cloud folder, for example `Roadmap`, `Roadmap_2`, `Roadmap_3`.
+- Publishing the same local Project again creates another uploaded snapshot unless a later requirement explicitly adds update-in-place semantics.
+- When a local Project is uploaded, the cloud copy should receive fresh Project, Page, board item, connector link, and internal reference ids when needed so cloud operations cannot accidentally point back to a local or previously uploaded Project.
+- Cloud publish must validate payload size, required files, XML readability, and markdown note references before making the published Project visible in the cloud project list.
+- Cloud publish failures must leave any previous visible published Projects untouched; partially uploaded folders should be cleaned up or kept hidden until validation succeeds.
+
 ## Navigation Update Notes
 
 - The workspace left page sidebar and right inspector must both support collapse / expand toggles while keeping a visible restore handle.
+- The home screen greeting should read `你好~{user_name}` when a local user profile name exists, and should provide a way to enter, save, and later change that name.
 - Opening a `Project` from the dedicated home screen must create a browser history entry, enter the workspace, and load the Project's Pages list without opening any Page by default.
-- The home screen left action area must show `Create Project` and `Open Project`; the previous project JSON import action is removed from the home screen.
+- The home screen left action area must show `Create Project`, `Open Project`, and a cloud publish target action; the previous project JSON import action is removed from the home screen.
+- In a company-hosted cloud deployment, the cloud publish target action must copy a publish URL that local desktop/browser instances can paste into Project Settings.
 - `Create Project` should open an app modal for project naming instead of using a browser prompt.
 - `Open Project` should use the Windows native folder picker when available and fall back to manual path entry only if the picker is unavailable; manual paths may be absolute, `~`-based, or relative to `<user_home>`.
 - `Open Project` must identify already-opened projects by canonical filesystem path, not by Project name. Opening the same path again must reuse the same Project registration.
@@ -82,6 +104,7 @@
 - The workspace sidebar header should show a top row with `Planvas` and `Home`, then a divided project summary row with `Project`, the current project name, and a settings icon button.
 - Project settings should open from that sidebar header settings button in a modal that uses about 70% of the viewport width on desktop.
 - All project-level controls should live in that settings modal: project rename, theme color, export, and delete.
+- Project settings must include a `Publish` control where a user pastes a company cloud publish URL and uploads the current local Project to that cloud endpoint.
 - Basic page name editing should happen inline from a pencil icon beside each page in the left page list.
 - Page delete action should stay beside each page in the left page list, using a refreshed icon treatment instead of the previous trash shape.
 - Project delete action should be shown under the project name controls and must open a confirmation dialog that requires typing `delete {project_name}` before deletion; after deletion the app returns to the home screen.

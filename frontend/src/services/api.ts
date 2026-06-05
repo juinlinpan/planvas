@@ -56,6 +56,21 @@ export type ProjectNote = {
   updated_at: string;
 };
 
+export type UserProfile = {
+  name: string;
+  updated_at: string;
+};
+
+export type PublishTarget = {
+  url: string;
+};
+
+export type ProjectPublishResult = {
+  project: Project;
+  uploaded_name: string;
+  owner: string;
+};
+
 type SuccessResponse<T> = {
   data: T;
 };
@@ -128,6 +143,23 @@ export async function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
   return requestJson<HealthResponse>('/healthz', { signal });
 }
 
+export async function getUserProfile(
+  signal?: AbortSignal,
+): Promise<UserProfile> {
+  return requestJson<UserProfile>('/user-profile', { signal });
+}
+
+export async function updateUserProfile(name: string): Promise<UserProfile> {
+  return requestJson<UserProfile>('/user-profile', {
+    method: 'PUT',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function getCloudPublishTarget(): Promise<PublishTarget> {
+  return requestJson<PublishTarget>('/cloud/publish-target');
+}
+
 export async function listProjects(signal?: AbortSignal): Promise<Project[]> {
   return requestJson<Project[]>('/projects', { signal });
 }
@@ -193,6 +225,17 @@ export async function installProjectAiAgent(
       body: JSON.stringify({ target }),
     },
   );
+}
+
+export async function publishProject(
+  projectId: string,
+  publishUrl: string,
+  userName: string,
+): Promise<ProjectPublishResult> {
+  return requestJson<ProjectPublishResult>(`/projects/${projectId}/publish`, {
+    method: 'POST',
+    body: JSON.stringify({ publish_url: publishUrl, user_name: userName }),
+  });
 }
 
 export async function reorderProjects(

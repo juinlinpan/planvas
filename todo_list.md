@@ -14,7 +14,25 @@
 - [x] Bundle a dedicated Node runtime with the desktop shell so packaged desktop builds no longer depend on a preinstalled `node.exe`.
 - [ ] Make the desktop executable load the packaged frontend while using the sidecar Node local backend.
 - [ ] Consider a `TauriPlanvasApi` adapter backed by Rust commands only after the shared Node backend launcher path is stable.
-- [ ] Keep future team/server project creation, permissions, and collaboration as a separate server edition scope.
+- [ ] Keep future team/server permissions, pull/sync, and collaboration as a separate server edition scope.
+
+## Company Cloud Publish Notes
+
+- [x] Add `<user_home>/.planvas/user.json` with a local user display name used for Home greeting and publish ownership.
+- [x] Add backend user profile APIs to read and save the display name, validating it and storing only stable user profile fields.
+- [x] Update Home to show `你好~{user_name}` when a name exists, and let the user enter, save, and later change the name.
+- [x] Add a cloud-mode Home action that copies the current cloud server publish URL for use from a local Planvas instance.
+- [x] Add a Project Settings `Publish` panel where the user pastes a company cloud publish URL and uploads the selected local Project.
+- [x] Define the publish URL format so it identifies the cloud publish endpoint and optional token, without accepting arbitrary target filesystem paths.
+- [x] Implement a local publish client that packages the selected Project snapshot, including `.pv_project/metadata.json`, Page XML files, and referenced markdown notes.
+- [x] Implement the cloud publish receiver endpoint that validates the uploaded Project payload before making it visible.
+- [x] Store uploaded cloud Projects under `<cloud_planvas_root>/project_store/<user_name>/<published_project_name>/`, not directly under `project_store/`.
+- [x] Add filename-safe user and Project folder slugging for cloud publish storage.
+- [x] Add per-user collision handling so published Project names receive serial suffixes such as `Roadmap_2`, `Roadmap_3` when needed.
+- [x] Make cloud Project listing discover Projects across `project_store/<user_name>/` subdirectories.
+- [x] Ensure publish is upload-only: no pull-down, two-way sync, cloud-to-local overwrite, or collaboration behavior in this feature.
+- [x] Add backend tests for `user.json`, publish URL validation, upload validation, user-subdirectory storage, collision suffixes, and cloud listing.
+- [ ] Add frontend tests for the Home user name flow, copy publish URL action, and Project Settings publish states.
 
 ## Persistence Redesign Notes
 

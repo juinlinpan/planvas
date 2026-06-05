@@ -48,6 +48,8 @@ export interface ProjectSettingsDialogProps {
   onChangeProjectDefaultStyle: (
     style: Partial<ProjectDefaultStyle>,
   ) => Promise<void>;
+  userName: string;
+  onPublishProject: (publishUrl: string) => Promise<string>;
   onOpenProjectDeleteDialog: () => void;
 }
 
@@ -61,6 +63,8 @@ export function ProjectSettingsDialog({
   onChangeProjectTheme,
   onRevealProject,
   onChangeProjectDefaultStyle,
+  userName,
+  onPublishProject,
   onOpenProjectDeleteDialog,
 }: ProjectSettingsDialogProps) {
   const [projectNameDraft, setProjectNameDraft] = useState('');
@@ -70,6 +74,9 @@ export function ProjectSettingsDialog({
     useState<AiAgentInstallTarget>('codex');
   const [aiInstallStatus, setAiInstallStatus] = useState<string | null>(null);
   const [isInstallingAiAgent, setIsInstallingAiAgent] = useState(false);
+  const [publishUrlDraft, setPublishUrlDraft] = useState('');
+  const [publishStatus, setPublishStatus] = useState<string | null>(null);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   // Synchronize state with props during render pass
   if (
@@ -91,6 +98,7 @@ export function ProjectSettingsDialog({
     selectedAiAgent,
     selectedProject.path,
   );
+  const normalizedPublishUrlDraft = publishUrlDraft.trim();
 
   const handleLocalSaveProjectName = () => {
     if (
@@ -130,6 +138,22 @@ export function ProjectSettingsDialog({
       );
     } finally {
       setIsInstallingAiAgent(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (normalizedPublishUrlDraft.length === 0) return;
+    setIsPublishing(true);
+    setPublishStatus('Publishing...');
+    try {
+      const message = await onPublishProject(normalizedPublishUrlDraft);
+      setPublishStatus(message);
+    } catch (error) {
+      setPublishStatus(
+        error instanceof Error ? error.message : 'Publish failed.',
+      );
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -244,6 +268,46 @@ export function ProjectSettingsDialog({
                 <span>Open Folder</span>
               </button>
             </div>
+          </section>
+          <section className="project-settings-panel">
+            <div className="project-settings-panel-heading">Publish</div>
+            <label className="sidebar-name-group" htmlFor="project-publish-url-input">
+              <span className="sidebar-name-label">Cloud publish URL</span>
+              <input
+                id="project-publish-url-input"
+                className="sidebar-name-input project-settings-name-input"
+                disabled={isMutating || isPublishing}
+                value={publishUrlDraft}
+                onChange={(event) => {
+                  setPublishUrlDraft(event.target.value);
+                  setPublishStatus(null);
+                }}
+                placeholder="https://planvas.example.com/cloud/publish"
+              />
+            </label>
+            <div className="project-settings-ai-actions">
+              <button
+                type="button"
+                className="ghost-button project-settings-reveal-button"
+                disabled={
+                  isMutating ||
+                  isPublishing ||
+                  normalizedPublishUrlDraft.length === 0 ||
+                  userName.trim().length === 0
+                }
+                onClick={() => void handlePublish()}
+              >
+                {isPublishing ? 'Publishing...' : 'Publish'}
+              </button>
+            </div>
+            {userName.trim().length === 0 ? (
+              <p className="project-settings-ai-status">
+                Save your user name on Home before publishing.
+              </p>
+            ) : null}
+            {publishStatus ? (
+              <p className="project-settings-ai-status">{publishStatus}</p>
+            ) : null}
           </section>
           <section className="project-settings-panel">
             <div className="project-settings-panel-heading">

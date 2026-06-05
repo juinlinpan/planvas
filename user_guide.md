@@ -377,3 +377,23 @@ See `plugins/planvas-ai/INSTALL.md` for tool-specific details.
 - Select multiple table cells, then use **平均分配寬** from the right Inspector or right-click context menu to make the selected columns the same width.
 - For AI-readable planning tables such as Gantt charts, Planvas treats the first row as the column axis and the first column as the row axis in Page XML. Merged cells record every covered row / column axis, so AI tools can read spans from semantic data instead of visual grid-line alignment.
 - Cell borders in saved planning tables must align to those first-row / first-column pivot axes. Freeform local divider offsets are normalized away when the Page is saved or migrated.
+
+## Company Cloud Publish
+
+Home lets the user save a local display name in
+`<user_home>/.planvas/user.json`. After saving, Home shows a personalized
+greeting. On a company-hosted Planvas server, `Copy Publish URL` copies the
+server publish URL. Paste that URL into a local Project's Settings > Publish
+panel to upload the selected Project.
+
+Publish is one-way upload only. It sends the selected local Project snapshot to
+the copied cloud publish URL. The cloud server stores uploaded Projects under:
+
+```
+<cloud_planvas_root>/project_store/<user_name>/<project_name>/
+```
+
+If the same user's cloud folder already has that Project name, Planvas adds a
+serial suffix such as `_2` or `_3`. Publish does not pull cloud Projects back to
+the local computer, merge changes, overwrite local Projects, or enable
+collaborative editing.

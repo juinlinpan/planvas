@@ -7,13 +7,16 @@ import {
   type ConnectorLinkBase,
   type ImportFromPayload,
   type OrderedIdsPayload,
+  type CloudPublishPayload,
   type PageCreatePayload,
+  type ProjectPublishPayload,
   type PageUpdatePayload,
   type PageViewportPayload,
   type ProjectCreatePayload,
   type ProjectOpenPathPayload,
   type ProjectThemeColor,
   type ProjectUpdatePayload,
+  type UserProfileUpdatePayload,
 } from './types.js';
 
 type UnknownRecord = Record<string, unknown>;
@@ -102,6 +105,123 @@ export function validateProjectOpenPath(
     ]);
   }
   return { path: pathValue };
+}
+
+export function validateUserProfileUpdate(
+  value: unknown,
+): UserProfileUpdatePayload {
+  const body = asRecord(value);
+  return { name: validateDisplayName(body.name, ['body', 'name']) };
+}
+
+export function validateProjectPublishPayload(
+  value: unknown,
+): ProjectPublishPayload {
+  const body = asRecord(value);
+  return {
+    publish_url: validatePublishUrl(body.publish_url, [
+      'body',
+      'publish_url',
+    ]),
+    user_name: validateDisplayName(body.user_name, ['body', 'user_name']),
+  };
+}
+
+export function validateCloudPublishPayload(
+  value: unknown,
+): CloudPublishPayload {
+  const body = asRecord(value);
+  const snapshot = asNestedRecord(body.snapshot, ['body', 'snapshot']);
+  const project = asNestedRecord(snapshot.project, [
+    'body',
+    'snapshot',
+    'project',
+  ]);
+  if (
+    typeof project.id !== 'string' ||
+    typeof project.name !== 'string' ||
+    typeof project.theme_color !== 'string' ||
+    typeof project.sort_order !== 'number' ||
+    typeof project.created_at !== 'string'
+  ) {
+    throw new HttpError(400, 'snapshot.project is not valid project metadata.');
+  }
+  if (!Array.isArray(snapshot.pages)) {
+    throw new HttpError(400, 'snapshot.pages must be an array.');
+  }
+  if (!Array.isArray(snapshot.notes)) {
+    throw new HttpError(400, 'snapshot.notes must be an array.');
+  }
+  const pages = snapshot.pages.map((page, index) => {
+    const pageRecord = asNestedRecord(page, [
+      'body',
+      'snapshot',
+      'pages',
+      index,
+    ]);
+    return {
+      semantic_file: validateSnapshotFilename(pageRecord.semantic_file, [
+        'body',
+        'snapshot',
+        'pages',
+        index,
+        'semantic_file',
+      ]),
+      semantic_xml: requireString(pageRecord.semantic_xml, [
+        'body',
+        'snapshot',
+        'pages',
+        index,
+        'semantic_xml',
+      ]),
+      presentation_file: validateSnapshotFilename(pageRecord.presentation_file, [
+        'body',
+        'snapshot',
+        'pages',
+        index,
+        'presentation_file',
+      ]),
+      presentation_xml: requireString(pageRecord.presentation_xml, [
+        'body',
+        'snapshot',
+        'pages',
+        index,
+        'presentation_xml',
+      ]),
+    };
+  });
+  const notes = snapshot.notes.map((note, index) => {
+    const noteRecord = asNestedRecord(note, [
+      'body',
+      'snapshot',
+      'notes',
+      index,
+    ]);
+    return {
+      file: validateSnapshotFilename(noteRecord.file, [
+        'body',
+        'snapshot',
+        'notes',
+        index,
+        'file',
+      ]),
+      content: requireString(noteRecord.content, [
+        'body',
+        'snapshot',
+        'notes',
+        index,
+        'content',
+      ]),
+    };
+  });
+  return {
+    user_name: validateDisplayName(body.user_name, ['body', 'user_name']),
+    snapshot: {
+      project: project as CloudPublishPayload['snapshot']['project'],
+      pages,
+      notes,
+    },
+  };
 }
 
 export function validatePageCreate(value: unknown): PageCreatePayload {
@@ -229,6 +349,81 @@ function categoryForType(type: string): string {
   if (type === 'sticky_note') return 'sticky_item';
   if (type === 'arrow') return 'connector';
   return 'small_item';
+}
+
+function asNestedRecord(value: unknown, loc: Array<string | number>): UnknownRecord {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw validationError([
+      {
+        loc,
+        msg: 'Value must be an object.',
+        type: 'type_error',
+      },
+    ]);
+  }
+  return value as UnknownRecord;
+}
+
+function validateDisplayName(
+  value: unknown,
+  loc: Array<string | number>,
+): string {
+  const name = requireString(value, loc).trim();
+  if (name.length === 0 || name.length > 80) {
+    throw validationError([
+      {
+        loc,
+        msg: 'Name must be between 1 and 80 characters.',
+        type: 'value_error',
+      },
+    ]);
+  }
+  return name;
+}
+
+function validatePublishUrl(
+  value: unknown,
+  loc: Array<string | number>,
+): string {
+  const url = requireString(value, loc).trim();
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.toString();
+    }
+  } catch {
+    // handled below
+  }
+  throw validationError([
+    {
+      loc,
+      msg: 'Publish URL must be an http or https URL.',
+      type: 'value_error',
+    },
+  ]);
+}
+
+function validateSnapshotFilename(
+  value: unknown,
+  loc: Array<string | number>,
+): string {
+  const filename = requireString(value, loc).trim();
+  if (
+    filename.length === 0 ||
+    filename.includes('/') ||
+    filename.includes('\\') ||
+    filename === '.' ||
+    filename === '..'
+  ) {
+    throw validationError([
+      {
+        loc,
+        msg: 'Filename must be a basename.',
+        type: 'value_error',
+      },
+    ]);
+  }
+  return filename;
 }
 
 export function validateBoardItemPayload(value: unknown): BoardItemBase {

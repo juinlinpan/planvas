@@ -318,12 +318,26 @@ export abstract class RepositoryStorageContext {
       for (const childName of childNames) {
         if (childName === projectStoreDirname) continue;
         const child = path.join(baseDir, childName);
+        if (!(await fs.promises.stat(child)).isDirectory()) continue;
         if (
-          (await fs.promises.stat(child)).isDirectory() &&
-          ((await exists(this.metadataPath(child))) ||
-            (await exists(this.legacyMetadataPath(child))))
+          (await exists(this.metadataPath(child))) ||
+          (await exists(this.legacyMetadataPath(child)))
         ) {
           candidates.push(child);
+          continue;
+        }
+        if (baseDir === this.projectStoreDir()) {
+          const grandchildNames = await fs.promises.readdir(child);
+          for (const grandchildName of grandchildNames) {
+            const grandchild = path.join(child, grandchildName);
+            if (
+              (await fs.promises.stat(grandchild)).isDirectory() &&
+              ((await exists(this.metadataPath(grandchild))) ||
+                (await exists(this.legacyMetadataPath(grandchild))))
+            ) {
+              candidates.push(grandchild);
+            }
+          }
         }
       }
     }
@@ -479,7 +493,7 @@ export abstract class RepositoryStorageContext {
     }
   }
 
-  private async reassignStoredPageData(
+  protected async reassignStoredPageData(
     projectDir: string,
     pageEntry: PageEntry,
     nextProjectId: string,
@@ -532,7 +546,7 @@ export abstract class RepositoryStorageContext {
     return nextPageId;
   }
 
-  private remapBoardItemDataJson(
+  protected remapBoardItemDataJson(
     dataJson: string | null,
     itemIdMap: Map<string, string>,
   ): string | null {

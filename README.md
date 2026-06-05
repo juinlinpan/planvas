@@ -239,6 +239,8 @@ The app now opens on a dedicated home page. From there you can:
 - open an existing `Project` folder with the Windows native folder picker
 - refresh common projects to re-check whether registered paths still exist
 - remove missing registered projects from the common project list
+- save or update the local user name shown in the `你好~{name}` greeting
+- copy this server's cloud publish URL for use from another Planvas instance
 
 New projects are created under `<user_home>/.planvas/project_store/`. Opened
 external folders are initialized as Planvas projects when needed, then registered
@@ -251,6 +253,27 @@ assigned new Project, Page, board item, and connector ids instead of replacing
 the original registration or resolving edits back to the source folder.
 If the native folder picker is unavailable, the manual fallback accepts absolute
 paths, `~` paths, and paths relative to `<user_home>`.
+
+The local user profile is stored in `<user_home>/.planvas/user.json`. The user
+name is used for the Home greeting and for the owner folder when publishing a
+Project to a company-hosted Planvas server.
+
+## Company Cloud Publish
+
+Project Settings includes a `Publish` panel. Paste a publish URL copied from a
+company-hosted Planvas Home screen, then click `Publish` to upload the selected
+local Project as a one-way snapshot. The upload includes
+`.pv_project/metadata.json`, Page semantic XML, Page presentation XML, and
+project markdown notes.
+
+On the cloud server, uploaded Projects are stored under
+`<cloud_planvas_root>/project_store/<user_name>/<project_name>/`. The user and
+Project folder names are filesystem-safe slugs. If a Project name already exists
+inside the same user folder, the uploaded folder receives a serial suffix such
+as `Roadmap_2` or `Roadmap_3`.
+
+Cloud publish does not pull Projects back down, overwrite local Projects, merge
+later changes, or provide collaborative editing.
 
 ## Page JSON Export / Import
 
@@ -295,7 +318,9 @@ port.
 Project content is stored as regular files. By default the backend creates:
 
 - `<user_home>/.planvas/project.json`
+- `<user_home>/.planvas/user.json`
 - `<user_home>/.planvas/project_store/<project_name>/.pv_project/`
+- `<user_home>/.planvas/project_store/<user_name>/<published_project_name>/.pv_project/` for Projects uploaded to a company cloud server
 - `<user_home>/.planvas/project_store/<project_name>/.pv_project/metadata.json` containing only project-level settings
 - `<user_home>/.planvas/project_store/<project_name>/.pv_project/<page_name>.semantic.xml`
 - `<user_home>/.planvas/project_store/<project_name>/.pv_project/<page_name>.presentation.xml`

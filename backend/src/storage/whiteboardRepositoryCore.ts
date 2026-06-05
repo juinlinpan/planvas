@@ -21,11 +21,14 @@ import {
   type PageUpdatePayload,
   type PageViewportPayload,
   type Project,
+  type CloudPublishPayload,
   type ProjectCreatePayload,
   type ProjectIndex,
   type ProjectIndexEntry,
   type ProjectMetadata,
   type ProjectNote,
+  type ProjectPublishResult,
+  type ProjectPublishSnapshot,
   type ProjectUpdatePayload,
 } from '../types.js';
 import {
@@ -51,12 +54,15 @@ import {
   slugify,
   storageKindForPath as storageKindForPathForRoot,
   uniquePath,
+  uniqueSerialPath,
   writeJsonAtomic,
   writeProjectMarker as writeProjectMarkerDir,
 } from './paths.js';
 import {
   deletePageXmlFiles,
   pagePathForName,
+  pagePresentationPath,
+  pageSemanticPath,
   readPageRecordFromSemanticXml,
   readPageXmlFile,
   stemPathFromVariantPath,
@@ -186,6 +192,181 @@ export class WhiteboardRepository extends RepositoryStorageContext {
       'project_store',
       true,
     );
+  }
+
+  async buildProjectPublishSnapshot(
+    projectId: string,
+  ): Promise<ProjectPublishSnapshot> {
+    const { projectDir, metadata } = await this.findProjectMetadata(projectId);
+    const projectDataDir = this.projectDataDir(projectDir);
+    const pages = [];
+    for (const entry of await this.pageEntriesFromProject(projectDir)) {
+      const semanticPath = pageSemanticPath(entry.pagePath);
+      const presentationPath = pagePresentationPath(entry.pagePath);
+      if (!(await exists(semanticPath)) || !(await exists(presentationPath))) {
+        throw new HttpError(
+          400,
+          `Page '${entry.page.name}' is missing Page XML files.`,
+        );
+      }
+      pages.push({
+        semantic_file: path.basename(semanticPath),
+        semantic_xml: await fs.promises.readFile(semanticPath, 'utf8'),
+        presentation_file: path.basename(presentationPath),
+        presentation_xml: await fs.promises.readFile(presentationPath, 'utf8'),
+      });
+    }
+
+    const notes = [];
+    if (await exists(projectDataDir)) {
+      for (const filename of await fs.promises.readdir(projectDataDir)) {
+        if (path.extname(filename).toLowerCase() !== noteFileExtension) {
+          continue;
+        }
+        notes.push({
+          file: filename,
+          content: await fs.promises.readFile(
+            path.join(projectDataDir, filename),
+            'utf8',
+          ),
+        });
+      }
+    }
+
+    return {
+      project: metadata.project,
+      pages,
+      notes,
+    };
+  }
+
+  async receiveCloudPublish(
+    payload: CloudPublishPayload,
+  ): Promise<ProjectPublishResult> {
+    if (payload.snapshot.pages.length === 0) {
+      throw new HttpError(400, 'Published project must contain at least one Page.');
+    }
+
+    const timestamp = utcTimestamp();
+    const ownerStem = slugify(payload.user_name, 'user');
+    const projectStem = slugify(payload.snapshot.project.name, 'project');
+    const ownerDir = path.join(this.projectStoreDir(), ownerStem);
+    await fs.promises.mkdir(ownerDir, { recursive: true });
+
+    const finalProjectDir = await uniqueSerialPath(ownerDir, projectStem);
+    const stagingProjectDir = path.join(
+      ownerDir,
+      `.upload-${projectStem}-${randomUUID()}`,
+    );
+    const stagingDataDir = this.projectDataDir(stagingProjectDir);
+
+    try {
+      await fs.promises.mkdir(stagingDataDir, { recursive: true });
+      const metadata: ProjectMetadata = {
+        project: {
+          ...payload.snapshot.project,
+          id: randomUUID(),
+          sort_order: (await this.listProjects()).length,
+          created_at: timestamp,
+        },
+      };
+      if ('updated_at' in metadata.project) {
+        delete metadata.project.updated_at;
+      }
+      await writeJsonAtomic(this.metadataPath(stagingProjectDir), metadata);
+
+      const seenFilenames = new Set<string>();
+      for (const page of payload.snapshot.pages) {
+        if (
+          seenFilenames.has(page.semantic_file) ||
+          seenFilenames.has(page.presentation_file)
+        ) {
+          throw new HttpError(400, 'Published project contains duplicate files.');
+        }
+        seenFilenames.add(page.semantic_file);
+        seenFilenames.add(page.presentation_file);
+        await fs.promises.writeFile(
+          path.join(stagingDataDir, page.semantic_file),
+          page.semantic_xml,
+          'utf8',
+        );
+        await fs.promises.writeFile(
+          path.join(stagingDataDir, page.presentation_file),
+          page.presentation_xml,
+          'utf8',
+        );
+      }
+
+      for (const note of payload.snapshot.notes) {
+        if (seenFilenames.has(note.file)) {
+          throw new HttpError(400, 'Published project contains duplicate files.');
+        }
+        seenFilenames.add(note.file);
+        await fs.promises.writeFile(
+          path.join(stagingDataDir, note.file),
+          note.content,
+          'utf8',
+        );
+      }
+
+      const pageEntries = await this.pageEntriesFromProject(stagingProjectDir);
+      if (pageEntries.length !== payload.snapshot.pages.length) {
+        throw new HttpError(400, 'Published project Page XML could not be read.');
+      }
+      for (const entry of pageEntries) {
+        await this.readPageXmlFile(
+          entry.pagePath,
+          entry.page,
+          stagingDataDir,
+        );
+      }
+
+      const finalMetadata = await this.ensureProjectMetadata(
+        stagingProjectDir,
+        timestamp,
+      );
+      await this.reassignCopiedProjectPageDataForPublish(
+        stagingProjectDir,
+        finalMetadata.project.id,
+        timestamp,
+      );
+      await fs.promises.rename(stagingProjectDir, finalProjectDir);
+      await this.registerProjectPath(
+        finalProjectDir,
+        finalMetadata.project.id,
+        'project_store',
+        timestamp,
+      );
+      const project = this.projectFromMetadata(
+        finalMetadata,
+        finalProjectDir,
+        'project_store',
+        true,
+      );
+      return {
+        project,
+        uploaded_name: path.basename(finalProjectDir),
+        owner: ownerStem,
+      };
+    } catch (error) {
+      await fs.promises.rm(stagingProjectDir, { recursive: true, force: true });
+      throw error;
+    }
+  }
+
+  private async reassignCopiedProjectPageDataForPublish(
+    projectDir: string,
+    nextProjectId: string,
+    timestamp: string,
+  ): Promise<void> {
+    for (const pageEntry of await this.pageEntriesFromProject(projectDir)) {
+      await this.reassignStoredPageData(
+        projectDir,
+        pageEntry,
+        nextProjectId,
+        timestamp,
+      );
+    }
   }
 
   async openProjectPath(projectPath: string): Promise<Project> {

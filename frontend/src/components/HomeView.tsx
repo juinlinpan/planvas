@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { type Project } from '../services/api';
 
 const HERO_IMAGE_SRC = '/assets/home-whiteboard-hero.png';
@@ -121,9 +122,12 @@ type Props = {
   isBusy: boolean;
   isLoading: boolean;
   projects: Project[];
+  userName: string;
   selectedProjectId: string | null;
   onCreateProject: () => void;
   onOpenProject: () => void;
+  onSaveUserName: (name: string) => Promise<void>;
+  onCopyCloudPublishUrl: () => Promise<void>;
   onSelectProject: (projectId: string) => void;
   onRemoveProject: (projectId: string) => void;
   onRefreshProjects: () => void;
@@ -153,13 +157,20 @@ export function HomeView({
   isBusy,
   isLoading,
   projects,
+  userName,
   selectedProjectId,
   onCreateProject,
   onOpenProject,
+  onSaveUserName,
+  onCopyCloudPublishUrl,
   onSelectProject,
   onRemoveProject,
   onRefreshProjects,
 }: Props) {
+  const [userNameDraft, setUserNameDraft] = useState(userName);
+  const [previousUserName, setPreviousUserName] = useState(userName);
+  const [userStatus, setUserStatus] = useState<string | null>(null);
+  const [publishUrlStatus, setPublishUrlStatus] = useState<string | null>(null);
   const recentProject = latestProject(projects);
   const projectStoreProjects = projects.filter(
     (project) => (project.storage_kind ?? 'project_store') === 'project_store',
@@ -167,6 +178,39 @@ export function HomeView({
   const externalProjects = projects.filter(
     (project) => (project.storage_kind ?? 'project_store') !== 'project_store',
   );
+
+  if (userName !== previousUserName) {
+    setPreviousUserName(userName);
+    setUserNameDraft(userName);
+  }
+
+  const normalizedUserNameDraft = userNameDraft.trim();
+
+  const handleSaveUserName = async () => {
+    if (
+      normalizedUserNameDraft.length === 0 ||
+      normalizedUserNameDraft === userName
+    ) {
+      return;
+    }
+    setUserStatus('Saving...');
+    try {
+      await onSaveUserName(normalizedUserNameDraft);
+      setUserStatus('Saved.');
+    } catch (error) {
+      setUserStatus(error instanceof Error ? error.message : 'Save failed.');
+    }
+  };
+
+  const handleCopyCloudPublishUrl = async () => {
+    setPublishUrlStatus('Copying...');
+    try {
+      await onCopyCloudPublishUrl();
+      setPublishUrlStatus('Copied.');
+    } catch (error) {
+      setPublishUrlStatus(error instanceof Error ? error.message : 'Copy failed.');
+    }
+  };
 
   function renderProjectCard(project: Project) {
     const canRemoveMissingProject = project.path_exists === false;
@@ -231,7 +275,46 @@ export function HomeView({
 
           <div className="home-heading-group">
             <p className="home-eyebrow">Projects</p>
-            <h1 className="home-title">Plan your local workspaces</h1>
+            <h1 className="home-title">
+              {userName.trim() ? `你好~${userName.trim()}` : 'Plan your local workspaces'}
+            </h1>
+          </div>
+
+          <div className="home-user-panel">
+            <label className="home-user-label" htmlFor="home-user-name-input">
+              Name
+            </label>
+            <div className="home-user-row">
+              <input
+                id="home-user-name-input"
+                className="home-user-input"
+                disabled={isBusy}
+                value={userNameDraft}
+                onChange={(event) => {
+                  setUserNameDraft(event.target.value);
+                  setUserStatus(null);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    void handleSaveUserName();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="home-secondary-action"
+                disabled={
+                  isBusy ||
+                  normalizedUserNameDraft.length === 0 ||
+                  normalizedUserNameDraft === userName
+                }
+                onClick={() => void handleSaveUserName()}
+              >
+                Save
+              </button>
+            </div>
+            {userStatus ? <p className="home-action-status">{userStatus}</p> : null}
           </div>
 
           <div className="home-actions">
@@ -251,7 +334,18 @@ export function HomeView({
               <IconFolder />
               Open Project
             </button>
+            <button
+              className="home-import-button"
+              disabled={isBusy}
+              onClick={() => void handleCopyCloudPublishUrl()}
+            >
+              <IconArrow />
+              Copy Publish URL
+            </button>
           </div>
+          {publishUrlStatus ? (
+            <p className="home-action-status">{publishUrlStatus}</p>
+          ) : null}
         </div>
 
         <div className="home-visual" aria-hidden="true">
