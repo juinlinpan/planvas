@@ -1,6 +1,6 @@
 {
   "name": "planvas-ai",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "description": "Planvas AI extension for Gemini CLI.",
   "contextFileName": "GEMINI.md",
   "mcpServers": {

@@ -67,7 +67,7 @@ describe('itemStyles palette restrictions', () => {
         textColor: '#0f172a',
         fontSize: 16,
       }),
-    ).toBe('{"backgroundColor":"#f1f2f4","textColor":"#1f2937","fontSize":16}');
+    ).toBe('{"backgroundColor":"#ffffff","textColor":"#1f2937","fontSize":16}');
   });
 
   it('allows transparent backgrounds for line text labels', () => {

@@ -636,6 +636,25 @@
   min-width: 0;
 }
 
+.project-default-style-grid .inspector-palette-grid.is-bg-grid {
+  grid-template-columns: repeat(7, 32px);
+}
+
+.project-default-style-grid
+  .inspector-palette-grid.is-bg-grid
+  .inspector-swatch-button {
+  width: 32px;
+  height: 32px;
+  aspect-ratio: auto;
+}
+
+.project-default-style-grid
+  .inspector-palette-grid.is-bg-grid
+  .inspector-swatch-chip {
+  width: 22px;
+  height: 22px;
+}
+
 .project-style-control {
   gap: 7px;
 }
