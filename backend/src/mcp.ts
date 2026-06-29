@@ -275,7 +275,7 @@ const TOOLS = [
 
 function createMcpServer(settings: AppSettings): Server {
   const server = new Server(
-    { name: 'planvas-mcp', version: '0.1.15' },
+    { name: 'planvas-mcp', version: '0.1.16' },
     { capabilities: { tools: {} } },
   );
 

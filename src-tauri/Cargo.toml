@@ -1,6 +1,6 @@
 [package]
 name = "planvas-desktop"
-version = "0.1.15"
+version = "0.1.16"
 description = "Planvas local-first desktop shell"
 authors = ["Planvas"]
 edition = "2021"

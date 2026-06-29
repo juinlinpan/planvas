@@ -196,7 +196,8 @@ installed separately. Packaged backend startup logs are written under
 
 ## Release
 
-GitHub Actions builds the Windows desktop installer when a `v*` tag is pushed.
+GitHub Actions builds the Windows desktop installer and Linux container image
+when a `v*` tag is pushed.
 The release version is manually maintained in one place:
 `app.version.json`.
 
@@ -228,8 +229,26 @@ git tag v0.1.8
 git push origin v0.1.8
 ```
 
-The release workflow creates a GitHub Release for the tag and uploads the NSIS
-installer from `src-tauri/target/release/bundle/nsis/`.
+The release workflow creates a GitHub Release for the tag, uploads the NSIS
+installer from `src-tauri/target/release/bundle/nsis/`, and publishes Docker
+images to GitHub Container Registry:
+
+- `ghcr.io/juinlinpan/planvas:v0.1.16`
+- `ghcr.io/juinlinpan/planvas:latest`
+
+Deploy or update a Linux server with Docker installed:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/juinlinpan/planvas/main/deploy/planvas-linux.sh | sudo env PLANVAS_IMAGE=ghcr.io/juinlinpan/planvas:v0.1.16 bash
+```
+
+The deploy script writes `/opt/planvas/docker-compose.yml`, keeps project data
+in `/var/lib/planvas`, keeps runtime logs in `/var/log/planvas`, pulls the image,
+and starts the container on port `18000`. Override defaults inline when needed:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/juinlinpan/planvas/main/deploy/planvas-linux.sh | sudo env PLANVAS_IMAGE=ghcr.io/juinlinpan/planvas:latest PLANVAS_PORT=8080 PLANVAS_BIND=127.0.0.1 bash
+```
 
 ## Project Home
 
