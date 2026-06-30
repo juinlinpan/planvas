@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 IMAGE="${PLANVAS_IMAGE:-ghcr.io/juinlinpan/planvas:latest}"
 BIND="${PLANVAS_BIND:-0.0.0.0}"
-PORT="${PLANVAS_PORT:-18000}"
+PORT="${PLANVAS_PORT:-38888}"
 DATA_DIR="${PLANVAS_DATA_DIR:-/var/lib/planvas}"
 RUNTIME_DIR="${PLANVAS_RUNTIME_DIR:-/var/log/planvas}"
 INSTALL_DIR="${PLANVAS_INSTALL_DIR:-/opt/planvas}"

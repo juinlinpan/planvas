@@ -244,7 +244,7 @@ curl -fsSL https://raw.githubusercontent.com/juinlinpan/planvas/main/deploy/plan
 
 The deploy script writes `/opt/planvas/docker-compose.yml`, keeps project data
 in `/var/lib/planvas`, keeps runtime logs in `/var/log/planvas`, pulls the image,
-and starts the container on port `18000`. Override defaults inline when needed:
+and starts the container on port `38888`. Override defaults inline when needed:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/juinlinpan/planvas/main/deploy/planvas-linux.sh | sudo env PLANVAS_IMAGE=ghcr.io/juinlinpan/planvas:latest PLANVAS_PORT=8080 PLANVAS_BIND=127.0.0.1 bash
