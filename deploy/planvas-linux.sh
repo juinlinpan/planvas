@@ -8,6 +8,8 @@ DATA_DIR="${PLANVAS_DATA_DIR:-/var/lib/planvas}"
 RUNTIME_DIR="${PLANVAS_RUNTIME_DIR:-/var/log/planvas}"
 INSTALL_DIR="${PLANVAS_INSTALL_DIR:-/opt/planvas}"
 CONTAINER_NAME="${PLANVAS_CONTAINER_NAME:-planvas}"
+CONTAINER_UID="${PLANVAS_CONTAINER_UID:-1000}"
+CONTAINER_GID="${PLANVAS_CONTAINER_GID:-1000}"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Run this script as root, for example: curl -fsSL <url> | sudo bash" >&2
@@ -33,6 +35,7 @@ if [[ -n "${GHCR_USERNAME:-}" && -n "${GHCR_TOKEN:-}" ]]; then
 fi
 
 mkdir -p "${INSTALL_DIR}" "${DATA_DIR}" "${RUNTIME_DIR}"
+chown -R "${CONTAINER_UID}:${CONTAINER_GID}" "${DATA_DIR}" "${RUNTIME_DIR}"
 
 cat >"${INSTALL_DIR}/.env" <<EOF
 PLANVAS_IMAGE=${IMAGE}
@@ -41,6 +44,8 @@ PLANVAS_PORT=${PORT}
 PLANVAS_DATA_DIR=${DATA_DIR}
 PLANVAS_RUNTIME_DIR=${RUNTIME_DIR}
 PLANVAS_CONTAINER_NAME=${CONTAINER_NAME}
+PLANVAS_CONTAINER_UID=${CONTAINER_UID}
+PLANVAS_CONTAINER_GID=${CONTAINER_GID}
 EOF
 
 cat >"${INSTALL_DIR}/docker-compose.yml" <<'EOF'
