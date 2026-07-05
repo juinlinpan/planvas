@@ -176,6 +176,13 @@ XML/JSON 都已用 tmp+rename(`paths.ts:144-159`、`pageXml.ts:306-345`),唯獨 
 - **順修一個 S2 後遺症**:外部同步把 note 內容套進 item 後,現在會同步更新 `lastSavedItemsRef` baseline(套進來的內容本來就是磁碟狀態)——否則該 item 會被永久誤判為 dirty,之後所有外部更新都被跳過。
 - 驗證:frontend typecheck 過、vitest 197 全過。
 
+### 第四輪:focus 輪詢降本(2026-07-05)
+
+- **note 檔內容快取**(`markdownNotes.ts` 的 `readNoteFileCached`):以絕對路徑為 key,每次讀取先 stat 比對 mtime+size,沒變就用記憶體內容、不重讀檔案。`listProjectNotes` 與 `readMarkdownBackedNote`(board 載入)都改用,任何寫入(UI/MCP/AI 直接改檔)都會改變 mtime 而自動失效。
+- **GET 回應 ETag + 304**(`server.ts`):所有 GET JSON 回應帶 `ETag`(body 的 sha1)與 `Cache-Control: no-cache`;`If-None-Match` 相符時回 304 不帶 body。前端 fetch 用預設 cache 模式,瀏覽器自動快取與重驗證,**前端零改動**。focus 輪詢的 notes 清單與 F1 的 board-data 重抓都受益。
+- 效果:視窗切回時,無變更的情況從「後端全文讀所有 `.md` + 全量傳輸 + 前端解析比對」降為「stat 所有檔 + 一次 sha1 + 304 空回應」。
+- 驗證:backend 測試 18 全過;實測 隔離 server:GET 200+ETag → If-None-Match 304 → 外部改檔後同一 ETag 變 200 且內容為新版 → PATCH 後列表即時反映、無殘留暫存檔。
+
 **可砍掉/降級:** S3 降級為後端防呆(revision 不符 → 拒絕 + 前端重抓,不做衝突 UI)或先不做;M1 推播、M2 三方合併、M3 內容分流、L2 CRDT 全部延後。驗收情境第 3 條(409 衝突)對應調整,其餘照舊。
 
 ---

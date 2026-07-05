@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
@@ -148,6 +149,34 @@ export function createRequestHandler(
         response.writeHead(204);
         response.end();
         logRequestDuration(settings, requestLabel, startedAt, 204);
+        return;
+      }
+      if (request.method === 'GET' && (route.statusCode ?? 200) === 200) {
+        // ETag revalidation: the browser caches GET responses and resends
+        // them with If-None-Match on every focus poll; answering 304 skips
+        // re-transferring and re-parsing unchanged payloads.
+        const body = JSON.stringify({ data: result });
+        const etag = `"${createHash('sha1').update(body).digest('hex')}"`;
+        const ifNoneMatch = request.headers['if-none-match'];
+        if (
+          typeof ifNoneMatch === 'string' &&
+          ifNoneMatch.split(',').some((tag) => tag.trim() === etag)
+        ) {
+          response.writeHead(304, {
+            ETag: etag,
+            'Cache-Control': 'no-cache',
+          });
+          response.end();
+          logRequestDuration(settings, requestLabel, startedAt, 304);
+          return;
+        }
+        response.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+          ETag: etag,
+          'Cache-Control': 'no-cache',
+        });
+        response.end(body);
+        logRequestDuration(settings, requestLabel, startedAt, 200);
         return;
       }
       sendJson(response, route.statusCode ?? 200, { data: result });

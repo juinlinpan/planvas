@@ -73,6 +73,7 @@ import {
   noteFileFromDataJson,
   notePath,
   readMarkdownBackedNote,
+  readNoteFileCached,
   writeMarkdownBackedNote,
 } from './markdownNotes.js';
 import {
@@ -506,8 +507,7 @@ export class WhiteboardRepository extends RepositoryStorageContext {
       if (entry.name.startsWith('.')) continue;
       if (entry.isFile() && path.extname(entry.name).toLowerCase() === noteFileExtension) {
         const notePath = path.join(projectDataDir, entry.name);
-        const content = await fs.promises.readFile(notePath, 'utf8');
-        const stats = await fs.promises.stat(notePath);
+        const { content, mtime } = await readNoteFileCached(notePath);
         notes.push({
           note_file: entry.name,
           title:
@@ -515,7 +515,7 @@ export class WhiteboardRepository extends RepositoryStorageContext {
             path.basename(entry.name, noteFileExtension),
           content,
           content_format: 'markdown',
-          updated_at: stats.mtime.toISOString(),
+          updated_at: mtime.toISOString(),
         });
       }
     }

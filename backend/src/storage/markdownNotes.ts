@@ -28,6 +28,34 @@ export function notePath(projectDataDir: string, noteFile: string): string | nul
   return targetPath;
 }
 
+type CachedNoteFile = { mtimeMs: number; size: number; content: string };
+
+// Keyed by absolute path and validated against mtime+size on every read, so
+// unchanged files are never re-read. Focus polling lists every project note
+// on each window focus; without this, that re-reads every .md in full.
+const noteFileCache = new Map<string, CachedNoteFile>();
+
+export async function readNoteFileCached(
+  targetPath: string,
+): Promise<{ content: string; mtime: Date }> {
+  const stats = await fs.promises.stat(targetPath);
+  const cached = noteFileCache.get(targetPath);
+  if (
+    cached !== undefined &&
+    cached.mtimeMs === stats.mtimeMs &&
+    cached.size === stats.size
+  ) {
+    return { content: cached.content, mtime: stats.mtime };
+  }
+  const content = await fs.promises.readFile(targetPath, 'utf8');
+  noteFileCache.set(targetPath, {
+    mtimeMs: stats.mtimeMs,
+    size: stats.size,
+    content,
+  });
+  return { content, mtime: stats.mtime };
+}
+
 export async function readMarkdownBackedNote(
   projectDataDir: string,
   item: BoardItem,
@@ -40,7 +68,7 @@ export async function readMarkdownBackedNote(
   try {
     return {
       ...item,
-      content: await fs.promises.readFile(targetPath, 'utf8'),
+      content: (await readNoteFileCached(targetPath)).content,
       content_format: 'markdown',
     };
   } catch {
