@@ -4,7 +4,12 @@
       "Bash(npx tsc *)",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\juinlin.pan\\\\Desktop\\\\llm\\\\side_pj\\\\whiteboard\\\\white_board\" -Recurse -Filter *.tsx)",
       "Bash(Select-Object -ExpandProperty FullName)",
-      "PowerShell(head -20)"
+      "PowerShell(head -20)",
+      "Bash(git config *)",
+      "Bash(npx eslint *)",
+      "Bash(node dist/tests/runTests.js)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

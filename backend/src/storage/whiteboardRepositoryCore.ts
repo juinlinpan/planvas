@@ -56,6 +56,7 @@ import {
   uniqueSerialPath,
   writeJsonAtomic,
   writeProjectMarker as writeProjectMarkerDir,
+  writeTextAtomic,
 } from './paths.js';
 import {
   deletePageXmlFiles,
@@ -500,6 +501,9 @@ export class WhiteboardRepository extends RepositoryStorageContext {
     const entries = await fs.promises.readdir(projectDataDir, { withFileTypes: true });
     const notes: ProjectNote[] = [];
     for (const entry of entries) {
+      // Skip dotfiles so in-flight atomic-write temp files (and other hidden
+      // files) never show up as project notes.
+      if (entry.name.startsWith('.')) continue;
       if (entry.isFile() && path.extname(entry.name).toLowerCase() === noteFileExtension) {
         const notePath = path.join(projectDataDir, entry.name);
         const content = await fs.promises.readFile(notePath, 'utf8');
@@ -518,25 +522,24 @@ export class WhiteboardRepository extends RepositoryStorageContext {
     return notes.sort((left, right) => left.title.localeCompare(right.title));
   }
 
-  async updateProjectNote(
-    projectId: string,
-    noteFile: string,
-    content: string,
-  ): Promise<ProjectNote> {
+  private validateNoteFileName(noteFile: string): string {
     const safeFile = path.basename(noteFile);
     if (
       safeFile !== noteFile ||
+      safeFile.startsWith('.') ||
       path.extname(safeFile).toLowerCase() !== noteFileExtension
     ) {
       throw new HttpError(400, 'Invalid note file name.');
     }
-    const { projectDir } = await this.findProjectMetadata(projectId);
-    const projectDataDir = this.projectDataDir(projectDir);
-    const notePath = path.join(projectDataDir, safeFile);
-    if (!(await exists(notePath))) {
-      throw new HttpError(404, 'Note not found.');
-    }
-    await fs.promises.writeFile(notePath, content, 'utf8');
+    return safeFile;
+  }
+
+  private async persistProjectNote(
+    notePath: string,
+    safeFile: string,
+    content: string,
+  ): Promise<ProjectNote> {
+    await writeTextAtomic(notePath, content);
     const stats = await fs.promises.stat(notePath);
     return {
       note_file: safeFile,
@@ -546,6 +549,36 @@ export class WhiteboardRepository extends RepositoryStorageContext {
       content_format: 'markdown',
       updated_at: stats.mtime.toISOString(),
     };
+  }
+
+  async updateProjectNote(
+    projectId: string,
+    noteFile: string,
+    content: string,
+  ): Promise<ProjectNote> {
+    const safeFile = this.validateNoteFileName(noteFile);
+    const { projectDir } = await this.findProjectMetadata(projectId);
+    const projectDataDir = this.projectDataDir(projectDir);
+    const notePath = path.join(projectDataDir, safeFile);
+    if (!(await exists(notePath))) {
+      throw new HttpError(404, 'Note not found.');
+    }
+    return this.persistProjectNote(notePath, safeFile, content);
+  }
+
+  async writeProjectNote(
+    projectId: string,
+    noteFile: string,
+    content: string,
+  ): Promise<ProjectNote> {
+    const safeFile = this.validateNoteFileName(noteFile);
+    const { projectDir } = await this.findProjectMetadata(projectId);
+    const projectDataDir = this.projectDataDir(projectDir);
+    return this.persistProjectNote(
+      path.join(projectDataDir, safeFile),
+      safeFile,
+      content,
+    );
   }
 
   async renameProjectNote(

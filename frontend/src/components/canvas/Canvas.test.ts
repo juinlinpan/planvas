@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import type { BoardItem, ConnectorLink, ProjectNote } from '../../services/api';
-import { prepareBoardItemsForSave } from './Canvas';
+import {
+  boardRecordsEquivalent,
+  mergeServerNoteMetadataAfterSave,
+  prepareBoardItemsForSave,
+} from './Canvas';
 import { resolveSidebarNoteDragFile } from '../../hooks/useCanvasNoteDrop';
 import {
   buildClipboardPayload,
@@ -228,6 +232,137 @@ describe('syncMarkdownBackedItems', () => {
     );
 
     expect(synced).toBe(items);
+  });
+
+  it('leaves every placement in the skipped-id set untouched', () => {
+    const items = [
+      createBoardItem({
+        id: 'note-1',
+        type: ITEM_TYPE.note_paper,
+        content: '# Unsaved local edit',
+        content_format: 'markdown',
+        data_json: JSON.stringify({ noteFile: 'sprint-plan.md' }),
+      }),
+      createBoardItem({
+        id: 'note-2',
+        type: ITEM_TYPE.note_paper,
+        content: '# Old',
+        content_format: 'markdown',
+        data_json: JSON.stringify({ noteFile: 'roadmap.md' }),
+      }),
+    ];
+
+    const synced = syncMarkdownBackedItems(
+      items,
+      [
+        createProjectNote({
+          note_file: 'sprint-plan.md',
+          content: '# External edit',
+        }),
+        createProjectNote({
+          note_file: 'roadmap.md',
+          title: 'Roadmap',
+          content: '# Roadmap v2',
+        }),
+      ],
+      new Set(['note-1']),
+    );
+
+    expect(synced[0]).toBe(items[0]);
+    expect(synced[1]).toMatchObject({ content: '# Roadmap v2' });
+  });
+});
+
+describe('mergeServerNoteMetadataAfterSave', () => {
+  const noteData = JSON.stringify({ noteFile: 'sprint-plan.md' });
+
+  it('applies server-generated note metadata when the text did not change during the save', () => {
+    const current = createBoardItem({
+      id: 'note-1',
+      type: ITEM_TYPE.note_paper,
+      title: null,
+      content: '# Draft',
+      data_json: null,
+    });
+    const server = createBoardItem({
+      id: 'note-1',
+      type: ITEM_TYPE.note_paper,
+      title: 'Draft',
+      content: '# Draft',
+      data_json: noteData,
+    });
+
+    const merge = mergeServerNoteMetadataAfterSave(
+      [current],
+      new Map([['note-1', current]]),
+      new Map([['note-1', server]]),
+    );
+
+    expect(merge.changed).toBe(true);
+    expect(merge.editedDuringSave).toBe(false);
+    expect(merge.nextItems[0]).toMatchObject({
+      title: 'Draft',
+      content: '# Draft',
+      data_json: noteData,
+    });
+  });
+
+  it('keeps text typed while the save was in flight and only adopts the note-file pointer', () => {
+    const sent = createBoardItem({
+      id: 'note-1',
+      type: ITEM_TYPE.note_paper,
+      content: '# Draft',
+      data_json: null,
+    });
+    const current = { ...sent, content: '# Draft plus new text' };
+    const server = createBoardItem({
+      id: 'note-1',
+      type: ITEM_TYPE.note_paper,
+      title: 'Draft',
+      content: '# Draft',
+      data_json: noteData,
+    });
+
+    const merge = mergeServerNoteMetadataAfterSave(
+      [current],
+      new Map([['note-1', sent]]),
+      new Map([['note-1', server]]),
+    );
+
+    expect(merge.editedDuringSave).toBe(true);
+    expect(merge.nextItems[0]).toMatchObject({
+      content: '# Draft plus new text',
+      data_json: noteData,
+    });
+    // The saved baseline records what actually reached the disk, so the
+    // follow-up save still detects the newer text as unsaved.
+    expect(merge.savedBaselineById.get('note-1')).toMatchObject({
+      content: '# Draft',
+      data_json: noteData,
+    });
+  });
+});
+
+describe('boardRecordsEquivalent', () => {
+  it('ignores updated_at and ordering differences', () => {
+    const a = createBoardItem({ id: 'a', updated_at: '2026-01-01T00:00:00Z' });
+    const b = createBoardItem({ id: 'b', x: 40 });
+
+    expect(
+      boardRecordsEquivalent(
+        [a, b],
+        [{ ...b }, { ...a, updated_at: '2026-02-02T00:00:00Z' }],
+      ),
+    ).toBe(true);
+  });
+
+  it('detects added items and content changes', () => {
+    const a = createBoardItem({ id: 'a', content: 'old' });
+
+    expect(boardRecordsEquivalent([a], [a, createBoardItem({ id: 'b' })])).toBe(
+      false,
+    );
+    expect(boardRecordsEquivalent([a], [{ ...a, content: 'new' }])).toBe(false);
   });
 });
 

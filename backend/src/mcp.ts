@@ -1,6 +1,4 @@
-import fs from 'node:fs';
 import http from 'node:http';
-import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
@@ -10,6 +8,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import type { AppSettings } from './settings.js';
+import { withWriteLock } from './storage/writeLock.js';
 import { WhiteboardRepository } from './repository.js';
 import type {
   BoardItemCreatePayload,
@@ -301,7 +300,29 @@ function createMcpServer(settings: AppSettings): Server {
 
 // ── Tool dispatch ─────────────────────────────────────────────────────────────
 
+const READ_ONLY_TOOLS = new Set([
+  'planvas_list_projects',
+  'planvas_list_pages',
+  'planvas_read_page',
+  'planvas_list_notes',
+  'planvas_read_note',
+]);
+
 async function handleTool(
+  name: string,
+  args: unknown,
+  repo: WhiteboardRepository,
+  settings: AppSettings,
+): Promise<unknown> {
+  if (READ_ONLY_TOOLS.has(name)) {
+    return dispatchTool(name, args, repo, settings);
+  }
+  // Mutating tools share the process-wide write lock with the HTTP API so an
+  // AI edit can never interleave with a UI save on the same project files.
+  return withWriteLock(() => dispatchTool(name, args, repo, settings));
+}
+
+async function dispatchTool(
   name: string,
   args: unknown,
   repo: WhiteboardRepository,
@@ -336,15 +357,8 @@ async function handleTool(
 
     case 'planvas_write_note': {
       const { project_id, note_file, content } = WriteNoteInput.parse(args);
-      const project = await repo.getProject(project_id);
-      if (!project.path) throw new Error('Project path unavailable');
-      const dataDir = path.join(project.path, '.pv_project');
-      await fs.promises.mkdir(dataDir, { recursive: true });
-      const notePath = path.join(dataDir, note_file);
-      const tmp = path.join(dataDir, `.tmp-${randomUUID()}.md`);
-      await fs.promises.writeFile(tmp, content, 'utf8');
-      await fs.promises.rename(tmp, notePath);
-      return `Note '${note_file}' written.`;
+      const note = await repo.writeProjectNote(project_id, note_file, content);
+      return `Note '${note.note_file}' written.`;
     }
 
     case 'planvas_add_item': {

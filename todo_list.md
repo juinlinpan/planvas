@@ -68,6 +68,22 @@
 - [x] Change Markdown editor saving to 5-second autosave plus immediate flush on window/tab leave and editor view switch, without remounting the current Page on note refresh.
 - [x] Add a Page XML regulate maintenance endpoint and canvas refresh action near `magnet` to rewrite current-schema Page XML, normalize `sticky_note` into standalone `sticky_item` / `sticky_object`, and remove stale table child references.
 
+## Note Editing Concurrency Notes
+
+See `note_edit_save.md` for the full analysis (problems P1-P6) and the turn-based collaboration assumption.
+
+- [x] Keep note text typed during an in-flight board save instead of reverting it on the server merge-back, and serialize overlapping full-board saves. (S1)
+- [x] Flush the pending board autosave when inline note editing ends, and skip external note sync for any note item whose text is not persisted yet. (S2)
+- [x] Reload the board from disk on window focus when nothing local is unsaved, so external AI edits appear without a page switch. (F1)
+- [x] Write note `.md` files atomically (temp + rename with a non-`.md` temp extension) across all backend write paths, and hide dotfiles from note listing. (S4)
+- [x] Route MCP `planvas_write_note` through the repository layer and serialize backend mutations with a process-wide write lock.
+- [x] Re-run the markdown note sync after the board loader lands data, and move the saved baseline along when external note content is applied, so a note saved in the page-editor tab appears on the canvas immediately after switching back.
+- [ ] Extract a shared "note draft store" module so the page Markdown editor (`draftCache`) and the canvas note dirty tracking (`lastSavedItemsRef` comparison) use one mechanism, and move Canvas save/sync/dirty logic out of `Canvas.tsx` into hooks/services.
+- [ ] Revalidate the per-Page board cache on Canvas mount (stale-while-revalidate) so switching back to a Page tab picks up external board changes made while the tab was inactive.
+- [ ] Add a lightweight note revision guard: `PATCH /notes/:file` carries a base revision (mtime or content hash) and the backend rejects with 409 on mismatch instead of silently overwriting. (S3, downgraded)
+- [ ] Short-circuit `listProjectNotes` with mtime caching or ETag so focus polling stops reading every `.md` in full on each window focus.
+- [ ] Add Playwright end-to-end coverage for the acceptance scenarios in `note_edit_save.md` section 4 (typing during autosave, blur + window switch, external MCP item creation surviving a board save).
+
 ## Page XML Semantic Storage Notes
 
 - [x] Define the Page XML schema with separate `<page_name>.semantic.xml` and `<page_name>.presentation.xml` files.

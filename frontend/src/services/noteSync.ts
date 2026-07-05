@@ -26,18 +26,22 @@ function getNoteFileName(item: BoardItem): string | null {
 export function syncMarkdownBackedItems(
   items: BoardItem[],
   projectNotes: ProjectNote[],
-  skippedItemId: string | null = null,
+  skippedItemIds: string | ReadonlySet<string> | null = null,
 ): BoardItem[] {
   if (projectNotes.length === 0) {
     return items;
   }
 
+  const skipIds =
+    typeof skippedItemIds === 'string'
+      ? new Set([skippedItemIds])
+      : (skippedItemIds ?? new Set<string>());
   const noteByFile = new Map(
     projectNotes.map((note) => [note.note_file, note] as const),
   );
   let changed = false;
   const nextItems = items.map((item) => {
-    if (item.id === skippedItemId) {
+    if (skipIds.has(item.id)) {
       return item;
     }
 

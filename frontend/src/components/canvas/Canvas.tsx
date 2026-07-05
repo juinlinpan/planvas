@@ -10,6 +10,7 @@ import { readStoredBoolean } from '../../utils/index';
 import {
   type BoardItem,
   type ConnectorLink,
+  getPageBoardData,
   replacePageBoardState,
   type Page,
   type PageBoardData,
@@ -111,7 +112,10 @@ import {
 import { parseProjectDefaultStyle } from '../../items/itemStyles';
 import { getMinimapLayout } from '../../utils/minimap';
 import { syncMarkdownBackedItems } from '../../services/noteSync';
-import { useCanvasBoardLoader } from '../../hooks/useCanvasBoardLoader';
+import {
+  normalizeLoadedBoardItems,
+  useCanvasBoardLoader,
+} from '../../hooks/useCanvasBoardLoader';
 import { useCanvasViewportPersistence } from '../../hooks/useCanvasViewportPersistence';
 import { CanvasRibbon } from './CanvasRibbon';
 import { CanvasMinimap, MINIMAP_WIDTH, MINIMAP_HEIGHT } from './CanvasMinimap';
@@ -205,6 +209,94 @@ export function prepareBoardItemsForSave(
   });
 }
 
+export function mergeServerNoteMetadataAfterSave(
+  currentItems: BoardItem[],
+  sentItemById: ReadonlyMap<string, BoardItem>,
+  serverItemById: ReadonlyMap<string, BoardItem>,
+): {
+  nextItems: BoardItem[];
+  changed: boolean;
+  editedDuringSave: boolean;
+  savedBaselineById: Map<string, BoardItem>;
+} {
+  let changed = false;
+  let editedDuringSave = false;
+  const savedBaselineById = new Map<string, BoardItem>();
+
+  const nextItems = currentItems.map((item) => {
+    if (item.type !== ITEM_TYPE.note_paper) {
+      return item;
+    }
+    const serverItem = serverItemById.get(item.id);
+    if (serverItem === undefined) {
+      return item;
+    }
+
+    const sent = sentItemById.get(item.id);
+    if (sent === undefined || item.content !== sent.content) {
+      // The note text changed while the save round-trip was in flight, so the
+      // server copy is already stale. Keep the local text, adopt only the
+      // server-owned note-file pointer, and record the server state as the
+      // saved baseline so the follow-up save flushes the newer text.
+      editedDuringSave = true;
+      savedBaselineById.set(item.id, {
+        ...item,
+        title: serverItem.title,
+        content: serverItem.content,
+        data_json: serverItem.data_json,
+      });
+      if (item.data_json === serverItem.data_json) {
+        return item;
+      }
+      changed = true;
+      return { ...item, data_json: serverItem.data_json };
+    }
+
+    if (
+      item.title === serverItem.title &&
+      item.content === serverItem.content &&
+      item.data_json === serverItem.data_json
+    ) {
+      return item;
+    }
+    changed = true;
+    return {
+      ...item,
+      title: serverItem.title,
+      content: serverItem.content,
+      data_json: serverItem.data_json,
+    };
+  });
+
+  return { nextItems, changed, editedDuringSave, savedBaselineById };
+}
+
+function canonicalBoardRecord(record: Record<string, unknown>): string {
+  // updated_at changes on every persist even when nothing meaningful did.
+  const keys = Object.keys(record)
+    .filter((key) => key !== 'updated_at')
+    .sort();
+  return JSON.stringify(keys.map((key) => [key, record[key]]));
+}
+
+export function boardRecordsEquivalent<T extends { id: string }>(
+  left: readonly T[],
+  right: readonly T[],
+): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  const rightById = new Map(right.map((record) => [record.id, record]));
+  return left.every((record) => {
+    const other = rightById.get(record.id);
+    return (
+      other !== undefined &&
+      canonicalBoardRecord(record as Record<string, unknown>) ===
+        canonicalBoardRecord(other as Record<string, unknown>)
+    );
+  });
+}
+
 import { useCanvasEditSession } from '../../hooks/useCanvasEditSession';
 import { useCanvasNoteDrop } from '../../hooks/useCanvasNoteDrop';
 
@@ -237,6 +329,10 @@ export function Canvas({
     zoom: page.zoom,
   });
   const [items, setItems] = useState<BoardItem[]>([]);
+  // Bumped when the board loader lands data so the note sync effect re-runs
+  // against the already-fresh projectNotes (e.g. a note edited and saved in
+  // the page-editor tab before switching back to this page).
+  const [boardLoadTick, setBoardLoadTick] = useState(0);
   const lastSavedItemsRef = useRef<BoardItem[]>([]);
   useEffect(() => {
     if (items.length > 0 && lastSavedItemsRef.current.length === 0) {
@@ -343,6 +439,8 @@ export function Canvas({
   const isSpaceRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const itemSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveInFlightRef = useRef(false);
+  const saveQueuedRef = useRef(false);
   const toolbarTableInsertOriginRef = useRef<{
     clientX: number;
     clientY: number;
@@ -371,94 +469,108 @@ export function Canvas({
 
   const saveCurrentBoardState = useCallback(
     async (silent = false) => {
-      if (itemSaveTimer.current !== null) {
-        clearTimeout(itemSaveTimer.current);
-        itemSaveTimer.current = null;
+      if (saveInFlightRef.current) {
+        // A save round-trip is already running; ask it to run once more with
+        // the latest state instead of racing two full-board PUTs.
+        saveQueuedRef.current = true;
+        return;
       }
-      if (!silent) {
-        setSaveStatus('saving');
-      }
+      saveInFlightRef.current = true;
       try {
-        const itemsToPersist = prepareBoardItemsForSave(
-          itemsRef.current,
-          lastSavedItemsRef.current,
-        );
-        const persisted = await replacePageBoardState(page.id, {
-          board_items: itemsToPersist,
-          connector_links: connectorsRef.current,
-        });
-        onBoardDataCacheChange?.(persisted);
-        setSaveStatus('saved');
-
-        // Merge server-side updates (like noteFile and generated titles) back into local state.
-        // We only update fields that the backend is responsible for generating or normalizing.
-        const serverItemsById = new Map(
-          persisted.board_items.map((it) => [it.id, it]),
-        );
-        let serverNoteMetadataChanged = false;
-        const nextItems = itemsRef.current.map((item) => {
-          const serverItem = serverItemsById.get(item.id);
-          if (serverItem && item.type === ITEM_TYPE.note_paper) {
-            if (
-              item.title === serverItem.title &&
-              item.content === serverItem.content &&
-              item.data_json === serverItem.data_json
-            ) {
-              return item;
-            }
-            serverNoteMetadataChanged = true;
-            return {
-              ...item,
-              title: serverItem.title,
-              content: serverItem.content,
-              data_json: serverItem.data_json,
-            };
+        let passSilent = silent;
+        do {
+          saveQueuedRef.current = false;
+          if (itemSaveTimer.current !== null) {
+            clearTimeout(itemSaveTimer.current);
+            itemSaveTimer.current = null;
           }
-          return item;
-        });
-
-        // Check if any note paper content changed compared to what we last saved
-        const hasNotePaperChanges = itemsRef.current.some((item) => {
-          if (item.type !== ITEM_TYPE.note_paper) return false;
-          const lastSaved = lastSavedItemsRef.current.find((it) => it.id === item.id);
-          return (
-            lastSaved === undefined ||
-            lastSaved.content !== item.content ||
-            noteFileNameFromItem(lastSaved) !== noteFileNameFromItem(item)
-          );
-        });
-
-        if (serverNoteMetadataChanged) {
-          itemsRef.current = nextItems;
-          setItems(nextItems);
-        }
-
-        lastSavedItemsRef.current = serverNoteMetadataChanged
-          ? nextItems
-          : itemsRef.current;
-
-        const updatedNotes: ProjectNote[] = [];
-        for (const item of persisted.board_items) {
-          if (item.type === ITEM_TYPE.note_paper) {
-            const noteFile = noteFileNameFromItem(item);
-            if (noteFile) {
-              updatedNotes.push({
-                note_file: noteFile,
-                title: item.title ?? '',
-                content: item.content ?? '',
-                content_format: 'markdown',
-                updated_at: item.updated_at,
-              });
-            }
+          if (!passSilent) {
+            setSaveStatus('saving');
           }
-        }
+          passSilent = true;
+          try {
+            const sentItems = itemsRef.current;
+            const sentItemById = new Map(sentItems.map((it) => [it.id, it]));
+            const itemsToPersist = prepareBoardItemsForSave(
+              sentItems,
+              lastSavedItemsRef.current,
+            );
+            const persisted = await replacePageBoardState(page.id, {
+              board_items: itemsToPersist,
+              connector_links: connectorsRef.current,
+            });
+            onBoardDataCacheChange?.(persisted);
+            setSaveStatus('saved');
 
-        if (serverNoteMetadataChanged || hasNotePaperChanges) {
-          onProjectNotesChanged?.(updatedNotes);
-        }
-      } catch (err) {
-        console.error('[Canvas] Failed to save board state', err);
-        setSaveStatus('unsaved');
+            // Merge server-side updates (like noteFile and generated titles) back into local state.
+            // We only update fields that the backend is responsible for generating or normalizing,
+            // and never overwrite note text that changed while the request was in flight.
+            const serverItemsById = new Map(
+              persisted.board_items.map((it) => [it.id, it]),
+            );
+            const merge = mergeServerNoteMetadataAfterSave(
+              itemsRef.current,
+              sentItemById,
+              serverItemsById,
+            );
+
+            // Check if any note paper content changed compared to what we last saved
+            const hasNotePaperChanges = itemsRef.current.some((item) => {
+              if (item.type !== ITEM_TYPE.note_paper) return false;
+              const lastSaved = lastSavedItemsRef.current.find((it) => it.id === item.id);
+              return (
+                lastSaved === undefined ||
+                lastSaved.content !== item.content ||
+                noteFileNameFromItem(lastSaved) !== noteFileNameFromItem(item)
+              );
+            });
+
+            if (merge.changed) {
+              itemsRef.current = merge.nextItems;
+              setItems(merge.nextItems);
+            }
+
+            // The saved baseline must reflect what is on disk, not the local
+            // text that kept changing during the round-trip.
+            const baseItems = merge.changed ? merge.nextItems : itemsRef.current;
+            lastSavedItemsRef.current = merge.editedDuringSave
+              ? baseItems.map(
+                  (item) => merge.savedBaselineById.get(item.id) ?? item,
+                )
+              : baseItems;
+
+            const updatedNotes: ProjectNote[] = [];
+            for (const item of persisted.board_items) {
+              if (item.type === ITEM_TYPE.note_paper) {
+                const noteFile = noteFileNameFromItem(item);
+                if (noteFile) {
+                  updatedNotes.push({
+                    note_file: noteFile,
+                    title: item.title ?? '',
+                    content: item.content ?? '',
+                    content_format: 'markdown',
+                    updated_at: item.updated_at,
+                  });
+                }
+              }
+            }
+
+            if (merge.changed || hasNotePaperChanges) {
+              onProjectNotesChanged?.(updatedNotes);
+            }
+
+            if (merge.editedDuringSave && itemSaveTimer.current === null) {
+              // Flush the text typed during the round-trip right away.
+              saveQueuedRef.current = true;
+            }
+          } catch (err) {
+            console.error('[Canvas] Failed to save board state', err);
+            setSaveStatus('unsaved');
+            saveQueuedRef.current = false;
+          }
+        } while (saveQueuedRef.current);
+      } finally {
+        saveInFlightRef.current = false;
       }
     },
     [page.id, onBoardDataCacheChange, onProjectNotesChanged, lastSavedItemsRef],
@@ -494,10 +606,22 @@ export function Canvas({
     }
   }, [saveCurrentBoardState]);
 
+  const handleInlineEditEnd = useCallback(() => {
+    handleCancelEdit();
+    // Close the post-blur autosave window right away so a focus refresh
+    // cannot revert text that is still waiting for the debounced save.
+    flushPendingItemSave();
+  }, [handleCancelEdit, flushPendingItemSave]);
+
   const saveStatusRef = useRef(saveStatus);
   useLayoutEffect(() => {
     saveStatusRef.current = saveStatus;
   }, [saveStatus]);
+
+  const editingIdRef = useRef(editingId);
+  useLayoutEffect(() => {
+    editingIdRef.current = editingId;
+  }, [editingId]);
 
   const handleToggleAutosave = useCallback(() => {
     setAutosaveEnabled((current) => {
@@ -629,17 +753,53 @@ export function Canvas({
       return;
     }
 
+    // Skip note items whose text is not persisted yet (mid-edit or waiting on
+    // the debounced autosave) — otherwise a focus refresh would revert the
+    // unsaved local edit back to the on-disk content.
+    const lastSavedById = new Map(
+      lastSavedItemsRef.current.map((item) => [item.id, item]),
+    );
+    const skipIds = new Set<string>();
+    if (editingId !== null) {
+      skipIds.add(editingId);
+    }
+    for (const item of currentItems) {
+      if (item.type !== ITEM_TYPE.note_paper) continue;
+      const lastSaved = lastSavedById.get(item.id);
+      if (lastSaved === undefined || item.content !== lastSaved.content) {
+        skipIds.add(item.id);
+      }
+    }
+
     const syncedItems = syncMarkdownBackedItems(
       currentItems,
       projectNotes,
-      editingId,
+      skipIds,
     );
     if (syncedItems !== currentItems) {
+      // Content copied in from a project note is by definition persisted, so
+      // move the saved baseline along with it — otherwise the item would be
+      // treated as dirty forever and later external updates would be skipped.
+      const syncedById = new Map(
+        syncedItems
+          .filter((item, index) => item !== currentItems[index])
+          .map((item) => [item.id, item]),
+      );
+      lastSavedItemsRef.current = lastSavedItemsRef.current.map((saved) => {
+        const synced = syncedById.get(saved.id);
+        if (synced === undefined) return saved;
+        return {
+          ...saved,
+          title: synced.title,
+          content: synced.content,
+          content_format: synced.content_format,
+        };
+      });
       // Use silent=true to avoid triggering another save — this sync is
       // reacting to external note changes, not user edits on the board.
       setItemsAndSync(syncedItems, true);
     }
-  }, [editingId, projectNotes, setItemsAndSync]);
+  }, [boardLoadTick, editingId, projectNotes, setItemsAndSync]);
 
   const setViewportAndSync = useCallback(
     (nextViewport: Viewport) => {
@@ -826,11 +986,19 @@ export function Canvas({
   const flushPendingItemSaveRef = useRef(flushPendingItemSave);
   flushPendingItemSaveRef.current = flushPendingItemSave;
 
+  const setLoadedItemsAndSync = useCallback(
+    (updater: ItemsUpdater) => {
+      setItemsAndSync(updater);
+      setBoardLoadTick((tick) => tick + 1);
+    },
+    [setItemsAndSync],
+  );
+
   const { isRegulatingPage, handleRegulatePage } = useCanvasBoardLoader({
     pageId: page.id,
     cachedBoardData,
     onBoardDataCacheChange,
-    setItemsAndSync,
+    setItemsAndSync: setLoadedItemsAndSync,
     setConnectorsAndSync,
     setViewportAndSync,
     clearSelection,
@@ -983,6 +1151,74 @@ export function Canvas({
     },
     [],
   );
+
+  // Reload the board from disk when the window regains focus so external
+  // changes (e.g. an AI agent editing .pv_project files) become visible
+  // without switching pages. Skipped whenever anything local is unsaved.
+  useEffect(() => {
+    let cancelled = false;
+
+    const isBoardClean = () =>
+      !saveInFlightRef.current &&
+      itemSaveTimer.current === null &&
+      saveStatusRef.current === 'saved' &&
+      editingIdRef.current === null &&
+      dragRef.current === null &&
+      resizeRef.current === null;
+
+    async function reloadBoardFromDisk(): Promise<void> {
+      if (!isBoardClean()) {
+        return;
+      }
+      try {
+        const data = await getPageBoardData(page.id);
+        if (cancelled || !isBoardClean()) {
+          return;
+        }
+        const normalized = normalizeLoadedBoardItems(
+          data.board_items,
+          data.connector_links,
+        );
+        if (
+          boardRecordsEquivalent(itemsRef.current, normalized.items) &&
+          boardRecordsEquivalent(connectorsRef.current, data.connector_links)
+        ) {
+          return;
+        }
+        setItemsAndSync(normalized.items, true);
+        setConnectorsAndSync(data.connector_links, true);
+        lastSavedItemsRef.current = normalized.items;
+        cacheBoardData(normalized.items, data.connector_links);
+        // Undo snapshots taken before the external change would resurrect the
+        // old board and clobber the external edit on the next save.
+        resetHistory();
+      } catch (err) {
+        console.error('[Canvas] Failed to refresh board on focus', err);
+      }
+    }
+
+    const handleWindowFocus = () => {
+      void reloadBoardFromDisk();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void reloadBoardFromDisk();
+      }
+    };
+    window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [
+    page.id,
+    setItemsAndSync,
+    setConnectorsAndSync,
+    cacheBoardData,
+    resetHistory,
+  ]);
 
   const handleDeleteTableCells = useCallback(
     async (tableId: string, cellIds: string[]): Promise<boolean> => {
@@ -1932,7 +2168,7 @@ export function Canvas({
                 handleResizeMouseDown={handleResizeMouseDown}
                 handleToggleFrameCollapse={handleToggleFrameCollapse}
                 handleItemUpdate={handleItemUpdate}
-                handleEditEnd={handleCancelEdit}
+                handleEditEnd={handleInlineEditEnd}
                 setTableInspectorSelection={setTableInspectorSelection}
                 handleDeleteTableCells={handleDeleteTableCells}
               />

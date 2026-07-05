@@ -12,6 +12,7 @@ import {
   WhiteboardRepository,
 } from './repository.js';
 import { startMcpServer } from './mcp.js';
+import { withWriteLock } from './storage/writeLock.js';
 import {
   validateBoardItemPayload,
   validateBoardStatePayload,
@@ -76,6 +77,10 @@ type Route = {
     match: RouteMatch,
   ) => unknown | Promise<unknown>;
   statusCode?: number;
+  // Overrides the default "non-GET requests take the write lock" rule for
+  // handlers that perform no local writes (e.g. publish, which only uploads
+  // a snapshot and would deadlock a same-process cloud endpoint).
+  mutates?: boolean;
 };
 
 export function createRequestHandler(
@@ -130,10 +135,15 @@ export function createRequestHandler(
       if (!match) throw new HttpError(404, 'Request path was not found.');
       const body = await readRequestBody(request);
       const repository = new WhiteboardRepository(settings);
-      const result = await route.handler(
-        { settings, repository, request, response, url, body },
-        { params: match.groups ?? {} },
-      );
+      const context = { settings, repository, request, response, url, body };
+      const routeMatch = { params: match.groups ?? {} };
+      // Mutating requests share a process-wide write lock (also held by MCP
+      // tools) so two writers can never interleave read-modify-write cycles
+      // on the same project files.
+      const mutates = route.mutates ?? request.method !== 'GET';
+      const result = mutates
+        ? await withWriteLock(async () => route.handler(context, routeMatch))
+        : await route.handler(context, routeMatch);
       if (route.statusCode === 204) {
         response.writeHead(204);
         response.end();
@@ -282,6 +292,10 @@ function buildRoutes(): Route[] {
     {
       method: 'POST',
       pattern: /^\/projects\/(?<projectId>[^/]+)\/publish$/,
+      // Reads the local project and uploads it; the receiving /cloud/publish
+      // endpoint is the writer. Taking the lock here would deadlock when the
+      // cloud endpoint lives in the same process.
+      mutates: false,
       handler: ({ repository, body }, { params }) =>
         publishProjectToCloud(
           repository,

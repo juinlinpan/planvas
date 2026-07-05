@@ -8,6 +8,7 @@ import {
   parseJsonObject,
   slugify,
   uniquePath,
+  writeTextAtomic,
 } from './paths.js';
 
 export function noteFileFromDataJson(dataJson: string | null): string | null {
@@ -66,8 +67,7 @@ export async function writeMarkdownBackedNote(
     );
   const targetPath = notePath(projectDataDir, noteFile);
   if (targetPath && (item.content !== null || !(await exists(targetPath)))) {
-    await fs.promises.mkdir(projectDataDir, { recursive: true });
-    await fs.promises.writeFile(targetPath, item.content ?? '', 'utf8');
+    await writeTextAtomic(targetPath, item.content ?? '');
   }
   const noteData = {
     ...existingNoteData,

@@ -158,6 +158,21 @@ export async function writeJsonAtomic(
   await fs.promises.rename(tempPath, targetPath);
 }
 
+export async function writeTextAtomic(
+  targetPath: string,
+  content: string,
+): Promise<void> {
+  await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+  // Use a `.tmp` extension so a concurrent reader (or a leftover file after a
+  // crash) is never picked up as a real note/page file.
+  const tempPath = path.join(
+    path.dirname(targetPath),
+    `.tmp-${randomUUID()}.tmp`,
+  );
+  await fs.promises.writeFile(tempPath, content, 'utf8');
+  await fs.promises.rename(tempPath, targetPath);
+}
+
 export async function readJson(
   targetPath: string,
 ): Promise<Record<string, unknown>> {

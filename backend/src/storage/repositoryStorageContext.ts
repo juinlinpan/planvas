@@ -53,6 +53,7 @@ import {
   uniquePath,
   writeJsonAtomic,
   writeProjectMarker as writeProjectMarkerDir,
+  writeTextAtomic,
 } from './paths.js';
 import {
   deletePageXmlFiles,
@@ -848,8 +849,7 @@ export abstract class RepositoryStorageContext {
       : (await exists(previousPath))
         ? await fs.promises.readFile(previousPath, 'utf8')
         : '';
-    await fs.promises.mkdir(projectDataDir, { recursive: true });
-    await fs.promises.writeFile(nextPath, content, 'utf8');
+    await writeTextAtomic(nextPath, content);
 
     const pages = await this.pagesFromProject(projectDir);
     const timestamp = utcTimestamp();

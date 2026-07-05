@@ -410,19 +410,22 @@ export function useWorkspaceData({
       const nextNotes = await listProjectNotes(projectId);
 
       let hasUpdatesForUnsavedDrafts = false;
-      const updatedNotesToApply: ProjectNote[] = [];
 
       setProjectNotes((current) => {
+        let mutated = false;
         const next = [...current];
         for (const diskNote of nextNotes) {
-          const currentNote = next.find((n) => n.note_file === diskNote.note_file);
-          if (!currentNote) {
+          const currentIndex = next.findIndex(
+            (n) => n.note_file === diskNote.note_file,
+          );
+          if (currentIndex === -1) {
             // New note created externally, apply automatically
             next.push(diskNote);
-            updatedNotesToApply.push(diskNote);
+            mutated = true;
             continue;
           }
 
+          const currentNote = next[currentIndex];
           if (
             currentNote.title !== diskNote.title ||
             currentNote.content !== diskNote.content
@@ -434,11 +437,8 @@ export function useWorkspaceData({
               hasUpdatesForUnsavedDrafts = true;
             } else {
               // No unsaved draft, update in-memory state automatically!
-              const idx = next.findIndex((n) => n.note_file === diskNote.note_file);
-              if (idx !== -1) {
-                next[idx] = diskNote;
-              }
-              updatedNotesToApply.push(diskNote);
+              next[currentIndex] = diskNote;
+              mutated = true;
             }
           }
         }
@@ -452,6 +452,15 @@ export function useWorkspaceData({
           }
           return existsOnDisk;
         });
+        if (nextFiltered.length !== next.length) {
+          mutated = true;
+        }
+
+        // Keep the same array reference when nothing changed so downstream
+        // effects (e.g. the Canvas note sync) do not re-run on every focus.
+        if (!mutated) {
+          return current;
+        }
 
         projectNotesRef.current = nextFiltered;
         return nextFiltered;
