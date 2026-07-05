@@ -1,7 +1,7 @@
 {
   "name": "planvas",
   "private": true,
-  "version": "0.1.16",
+  "version": "0.1.17",
   "bin": {
     "planvas": "./scripts/planvas.cmd"
   },
@@ -13,7 +13,8 @@
     "dev": "concurrently --kill-others -n frontend,backend -c blue,green \"npm run dev:frontend\" \"npm run dev:backend\"",
     "dev:stop": "powershell -ExecutionPolicy Bypass -File ./scripts/stop-dev.ps1",
     "dev:frontend": "npm run dev --workspace frontend",
-    "dev:backend": "powershell -ExecutionPolicy Bypass -File ./scripts/start-backend-dev.ps1",
+    "dev:backend": "npm run dev --workspace backend",
+    "dev:backend:win": "powershell -ExecutionPolicy Bypass -File ./scripts/start-backend-dev.ps1",
     "web:start": "powershell -ExecutionPolicy Bypass -File ./scripts/start-web.ps1",
     "desktop:setup": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-tauri-windows.ps1",
     "desktop:dev": "powershell -ExecutionPolicy Bypass -File ./scripts/start-desktop-dev.ps1",

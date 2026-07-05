@@ -21,7 +21,6 @@ import {
   type PageUpdatePayload,
   type PageViewportPayload,
   type Project,
-  type CloudPublishPayload,
   type ProjectCreatePayload,
   type ProjectIndex,
   type ProjectIndexEntry,
@@ -241,15 +240,16 @@ export class WhiteboardRepository extends RepositoryStorageContext {
   }
 
   async receiveCloudPublish(
-    payload: CloudPublishPayload,
+    snapshot: ProjectPublishSnapshot,
+    ownerName: string,
   ): Promise<ProjectPublishResult> {
-    if (payload.snapshot.pages.length === 0) {
+    if (snapshot.pages.length === 0) {
       throw new HttpError(400, 'Published project must contain at least one Page.');
     }
 
     const timestamp = utcTimestamp();
-    const ownerStem = slugify(payload.user_name, 'user');
-    const projectStem = slugify(payload.snapshot.project.name, 'project');
+    const ownerStem = slugify(ownerName, 'user');
+    const projectStem = slugify(snapshot.project.name, 'project');
     const ownerDir = path.join(this.projectStoreDir(), ownerStem);
     await fs.promises.mkdir(ownerDir, { recursive: true });
 
@@ -264,7 +264,7 @@ export class WhiteboardRepository extends RepositoryStorageContext {
       await fs.promises.mkdir(stagingDataDir, { recursive: true });
       const metadata: ProjectMetadata = {
         project: {
-          ...payload.snapshot.project,
+          ...snapshot.project,
           id: randomUUID(),
           sort_order: (await this.listProjects()).length,
           created_at: timestamp,
@@ -276,7 +276,7 @@ export class WhiteboardRepository extends RepositoryStorageContext {
       await writeJsonAtomic(this.metadataPath(stagingProjectDir), metadata);
 
       const seenFilenames = new Set<string>();
-      for (const page of payload.snapshot.pages) {
+      for (const page of snapshot.pages) {
         if (
           seenFilenames.has(page.semantic_file) ||
           seenFilenames.has(page.presentation_file)
@@ -297,7 +297,7 @@ export class WhiteboardRepository extends RepositoryStorageContext {
         );
       }
 
-      for (const note of payload.snapshot.notes) {
+      for (const note of snapshot.notes) {
         if (seenFilenames.has(note.file)) {
           throw new HttpError(400, 'Published project contains duplicate files.');
         }
@@ -310,7 +310,7 @@ export class WhiteboardRepository extends RepositoryStorageContext {
       }
 
       const pageEntries = await this.pageEntriesFromProject(stagingProjectDir);
-      if (pageEntries.length !== payload.snapshot.pages.length) {
+      if (pageEntries.length !== snapshot.pages.length) {
         throw new HttpError(400, 'Published project Page XML could not be read.');
       }
       for (const entry of pageEntries) {

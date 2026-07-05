@@ -1,8 +1,12 @@
-import { useState } from 'react';
-import { type Project } from '../services/api';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  listIpAliases,
+  type IpAlias,
+  type Project,
+} from '../services/api';
+import { HomeSettingsDialog } from './dialogs/HomeSettingsDialog';
 
 const HERO_IMAGE_SRC = '/assets/home-whiteboard-hero.png';
-const DEFAULT_USER_NAME = '\u7528\u6236';
 
 function IconPlus() {
   return (
@@ -99,6 +103,25 @@ function IconRefresh() {
   );
 }
 
+function IconGear() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+    </svg>
+  );
+}
+
 function IconSpark() {
   return (
     <svg
@@ -123,11 +146,9 @@ type Props = {
   isBusy: boolean;
   isLoading: boolean;
   projects: Project[];
-  userName: string;
   selectedProjectId: string | null;
   onCreateProject: () => void;
   onOpenProject: () => void;
-  onSaveUserName: (name: string) => Promise<void>;
   onCopyCloudPublishUrl: () => Promise<void>;
   onSelectProject: (projectId: string) => void;
   onRemoveProject: (projectId: string) => void;
@@ -158,52 +179,75 @@ export function HomeView({
   isBusy,
   isLoading,
   projects,
-  userName,
   selectedProjectId,
   onCreateProject,
   onOpenProject,
-  onSaveUserName,
   onCopyCloudPublishUrl,
   onSelectProject,
   onRemoveProject,
   onRefreshProjects,
 }: Props) {
-  const [userNameDraft, setUserNameDraft] = useState(
-    userName.trim() || DEFAULT_USER_NAME,
-  );
-  const [previousUserName, setPreviousUserName] = useState(userName);
-  const [userStatus, setUserStatus] = useState<string | null>(null);
   const [publishUrlStatus, setPublishUrlStatus] = useState<string | null>(null);
+  const [ipAliases, setIpAliases] = useState<IpAlias[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [aliasRefreshToken, setAliasRefreshToken] = useState(0);
+
+  useEffect(() => {
+    let isCancelled = false;
+    const controller = new AbortController();
+    listIpAliases(controller.signal)
+      .then((entries) => {
+        if (!isCancelled) setIpAliases(entries);
+      })
+      .catch(() => {
+        // Alias display is best-effort; owner folders still show as-is.
+      });
+    return () => {
+      isCancelled = true;
+      controller.abort();
+    };
+  }, [aliasRefreshToken]);
+
+  const aliasByIp = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const entry of ipAliases) {
+      if (entry.alias.length > 0) map.set(entry.ip, entry.alias);
+    }
+    return map;
+  }, [ipAliases]);
   const recentProject = latestProject(projects);
   const projectStoreProjects = projects.filter(
-    (project) => (project.storage_kind ?? 'project_store') === 'project_store',
+    (project) =>
+      (project.storage_kind ?? 'project_store') === 'project_store' &&
+      !project.owner,
   );
   const externalProjects = projects.filter(
     (project) => (project.storage_kind ?? 'project_store') !== 'project_store',
   );
-
-  if (userName !== previousUserName) {
-    setPreviousUserName(userName);
-    setUserNameDraft(userName.trim() || DEFAULT_USER_NAME);
-  }
-
-  const normalizedUserNameDraft = userNameDraft.trim();
-
-  const handleSaveUserName = async () => {
-    if (
-      normalizedUserNameDraft.length === 0 ||
-      normalizedUserNameDraft === userName
-    ) {
-      return;
+  const ownerGroups = useMemo(() => {
+    const groups = new Map<string, Project[]>();
+    for (const project of projects) {
+      if (
+        (project.storage_kind ?? 'project_store') !== 'project_store' ||
+        !project.owner
+      ) {
+        continue;
+      }
+      const existing = groups.get(project.owner);
+      if (existing) {
+        existing.push(project);
+      } else {
+        groups.set(project.owner, [project]);
+      }
     }
-    setUserStatus('Saving...');
-    try {
-      await onSaveUserName(normalizedUserNameDraft);
-      setUserStatus('Saved.');
-    } catch (error) {
-      setUserStatus(error instanceof Error ? error.message : 'Save failed.');
-    }
-  };
+    return [...groups.entries()]
+      .map(([owner, ownedProjects]) => ({
+        owner,
+        label: aliasByIp.get(owner) ?? owner,
+        projects: ownedProjects,
+      }))
+      .sort((left, right) => left.label.localeCompare(right.label));
+  }, [projects, aliasByIp]);
 
   const handleCopyCloudPublishUrl = async () => {
     setPublishUrlStatus('Copying...');
@@ -277,42 +321,6 @@ export function HomeView({
           </div>
 
           <div className="home-action-cluster">
-            <div className="home-user-panel">
-              <div className="home-user-row home-greeting-row">
-                <span className="home-greeting-label">host name:</span>
-                <input
-                  id="home-user-name-input"
-                  className="home-user-input"
-                  aria-label="User name"
-                  disabled={isBusy}
-                  value={userNameDraft}
-                  onChange={(event) => {
-                    setUserNameDraft(event.target.value);
-                    setUserStatus(null);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault();
-                      void handleSaveUserName();
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="home-secondary-action"
-                  disabled={
-                    isBusy ||
-                    normalizedUserNameDraft.length === 0 ||
-                    normalizedUserNameDraft === userName
-                  }
-                  onClick={() => void handleSaveUserName()}
-                >
-                  Save
-                </button>
-              </div>
-              {userStatus ? <p className="home-action-status">{userStatus}</p> : null}
-            </div>
-
             <div className="home-actions">
               <button
                 className="home-create-button"
@@ -340,6 +348,14 @@ export function HomeView({
                 <IconArrow />
                 Copy Publish URL
               </button>
+              <button
+                className="home-import-button"
+                disabled={isBusy}
+                onClick={() => setSettingsOpen(true)}
+              >
+                <IconGear />
+                Settings
+              </button>
             </div>
             {publishUrlStatus ? (
               <p className="home-action-status">{publishUrlStatus}</p>
@@ -355,8 +371,7 @@ export function HomeView({
       <section className="home-project-panel" aria-label="Project list">
         <div className="home-header">
           <div>
-            <p className="home-eyebrow">Workspace</p>
-            <h2 className="home-list-title">Common Projects</h2>
+            <h2 className="home-list-title">Projects</h2>
           </div>
           <button
             type="button"
@@ -395,10 +410,19 @@ export function HomeView({
                 {projectStoreProjects.map(renderProjectCard)}
               </section>
             ) : null}
+            {ownerGroups.map((group) => (
+              <section key={group.owner} className="home-project-group">
+                <div className="home-project-group-title">
+                  <span>{group.label}</span>
+                  <strong>{group.projects.length}</strong>
+                </div>
+                {group.projects.map(renderProjectCard)}
+              </section>
+            ))}
             {externalProjects.length > 0 ? (
               <section className="home-project-group">
                 <div className="home-project-group-title">
-                  <span>Other paths</span>
+                  <span>others dir</span>
                   <strong>{externalProjects.length}</strong>
                 </div>
                 {externalProjects.map(renderProjectCard)}
@@ -412,6 +436,14 @@ export function HomeView({
           <strong>{recentProject?.name ?? 'None'}</strong>
         </div>
       </section>
+
+      {settingsOpen ? (
+        <HomeSettingsDialog
+          entries={ipAliases}
+          onClose={() => setSettingsOpen(false)}
+          onChanged={() => setAliasRefreshToken((current) => current + 1)}
+        />
+      ) : null}
     </main>
   );
 }

@@ -20,7 +20,7 @@ import type {
   Project,
   ProjectPublishResult,
   ProjectNote,
-  UserProfile,
+  IpAlias,
 } from '../src/types.js';
 
 type TestCase = {
@@ -105,27 +105,36 @@ const tests: TestCase[] = [
     },
   },
   {
-    name: 'stores and reads the local user profile',
+    name: 'manages visitor ip aliases',
     run: async () => {
       const { baseUrl, settings } = await createTestServer();
 
-      const initial = await requestJson<UserProfile>(baseUrl, '/user-profile');
+      const initial = await requestJson<IpAlias[]>(baseUrl, '/ip-aliases');
       assert.equal(initial.status, 200);
-      assert.equal(initial.data.name, '');
+      assert.deepEqual(initial.data, []);
 
-      const updated = await requestJson<UserProfile>(baseUrl, '/user-profile', {
+      const updated = await requestJson<IpAlias>(baseUrl, '/ip-aliases', {
         method: 'PUT',
-        ...jsonBody({ name: 'Alice' }),
+        ...jsonBody({ ip: '10.0.0.7', alias: 'Alice' }),
       });
       assert.equal(updated.status, 200);
-      assert.equal(updated.data.name, 'Alice');
+      assert.equal(updated.data.ip, '10.0.0.7');
+      assert.equal(updated.data.alias, 'Alice');
       assert.equal(
-        fs.existsSync(path.join(settings.planvasRoot, 'user.json')),
+        fs.existsSync(path.join(settings.planvasRoot, 'ip_aliases.json')),
         true,
       );
 
-      const reloaded = await requestJson<UserProfile>(baseUrl, '/user-profile');
-      assert.equal(reloaded.data.name, 'Alice');
+      const listed = await requestJson<IpAlias[]>(baseUrl, '/ip-aliases');
+      assert.equal(listed.data.length, 1);
+      assert.equal(listed.data[0].alias, 'Alice');
+
+      await requestJson<IpAlias>(baseUrl, '/ip-aliases', {
+        method: 'PUT',
+        ...jsonBody({ ip: '10.0.0.7', alias: '' }),
+      });
+      const cleared = await requestJson<IpAlias[]>(baseUrl, '/ip-aliases');
+      assert.deepEqual(cleared.data, []);
     },
   },
   {
@@ -153,21 +162,18 @@ const tests: TestCase[] = [
         `/projects/${created.data.id}/publish`,
         {
           method: 'POST',
-          ...jsonBody({
-            publish_url: target.data.url,
-            user_name: 'Alice Chen',
-          }),
+          ...jsonBody({ publish_url: target.data.url }),
         },
       );
       assert.equal(first.status, 200);
-      assert.equal(first.data.owner, 'Alice-Chen');
+      assert.equal(first.data.owner, '127.0.0.1');
       assert.equal(first.data.uploaded_name, 'Roadmap');
       assert.equal(
         fs.existsSync(
           path.join(
             settings.planvasRoot,
             'project_store',
-            'Alice-Chen',
+            '127.0.0.1',
             'Roadmap',
             '.pv_project',
             'metadata.json',
@@ -181,10 +187,7 @@ const tests: TestCase[] = [
         `/projects/${created.data.id}/publish`,
         {
           method: 'POST',
-          ...jsonBody({
-            publish_url: target.data.url,
-            user_name: 'Alice Chen',
-          }),
+          ...jsonBody({ publish_url: target.data.url }),
         },
       );
       assert.equal(second.data.uploaded_name, 'Roadmap_2');
@@ -193,7 +196,7 @@ const tests: TestCase[] = [
           path.join(
             settings.planvasRoot,
             'project_store',
-            'Alice-Chen',
+            '127.0.0.1',
             'Roadmap_2',
             '.pv_project',
             'metadata.json',
@@ -207,8 +210,24 @@ const tests: TestCase[] = [
         projects.data.some(
           (project) =>
             project.path?.endsWith(
-              path.join('project_store', 'Alice-Chen', 'Roadmap_2'),
-            ) && project.name === 'Roadmap',
+              path.join('project_store', '127.0.0.1', 'Roadmap_2'),
+            ) &&
+            project.name === 'Roadmap' &&
+            project.owner === '127.0.0.1',
+        ),
+        true,
+      );
+      assert.equal(
+        projects.data.some(
+          (project) => project.name === 'Roadmap' && project.owner == null,
+        ),
+        true,
+      );
+
+      const visitorIps = await requestJson<IpAlias[]>(baseUrl, '/ip-aliases');
+      assert.equal(
+        visitorIps.data.some(
+          (entry) => entry.ip === '127.0.0.1' && entry.alias === '',
         ),
         true,
       );

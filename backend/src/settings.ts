@@ -10,12 +10,14 @@ export type AppSettings = {
   backendLogPath: string;
   frontendDistDir: string;
   frontendIndexPath: string;
+  trustProxy: boolean;
 };
 
 export type BuildSettingsOptions = {
   backendRoot?: string;
   frontendDistDir?: string;
   planvasRoot?: string;
+  trustProxy?: boolean;
 };
 
 const currentFile = fileURLToPath(import.meta.url);
@@ -43,6 +45,10 @@ export function buildSettings(options: BuildSettingsOptions = {}): AppSettings {
       path.join(projectRootFromSource, 'frontend', 'dist'),
   );
   const logsDir = path.join(backendRoot, 'logs');
+  const envTrustProxy = process.env.WHITEBOARD_TRUST_PROXY;
+  const trustProxy =
+    options.trustProxy ??
+    (envTrustProxy === '1' || envTrustProxy?.toLowerCase() === 'true');
 
   return {
     projectRoot: projectRootFromSource,
@@ -53,6 +59,7 @@ export function buildSettings(options: BuildSettingsOptions = {}): AppSettings {
     backendLogPath: path.join(logsDir, 'backend.log'),
     frontendDistDir,
     frontendIndexPath: path.join(frontendDistDir, 'index.html'),
+    trustProxy,
   };
 }
 

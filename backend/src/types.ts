@@ -18,6 +18,7 @@ export type Project = {
   path?: string | null;
   storage_kind?: 'project_store' | 'external';
   path_exists?: boolean;
+  owner?: string | null;
 };
 
 export type StoredProject = Omit<Project, 'updated_at'> & {
@@ -130,13 +131,20 @@ export type ProjectOpenPathPayload = {
   path: string;
 };
 
-export type UserProfile = {
-  name: string;
+export type IpAlias = {
+  ip: string;
+  alias: string;
   updated_at: string;
 };
 
-export type UserProfileUpdatePayload = {
-  name: string;
+export type IpAliasUpdatePayload = {
+  ip: string;
+  alias: string;
+};
+
+export type IpAliasRegistry = {
+  version: 1;
+  aliases: IpAlias[];
 };
 
 export type PublishTarget = {
@@ -145,7 +153,6 @@ export type PublishTarget = {
 
 export type ProjectPublishPayload = {
   publish_url: string;
-  user_name: string;
 };
 
 export type ProjectPublishResult = {
@@ -169,7 +176,6 @@ export type ProjectPublishSnapshot = {
 };
 
 export type CloudPublishPayload = {
-  user_name: string;
   snapshot: ProjectPublishSnapshot;
 };
 

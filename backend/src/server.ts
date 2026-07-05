@@ -27,19 +27,17 @@ import {
   validateProjectCreate,
   validateProjectOpenPath,
   validateProjectUpdate,
-  validateUserProfileUpdate,
+  validateIpAliasUpdate,
   validateViewport,
 } from './validation.js';
 import {
-  readJson,
-  userProfilePath,
-  writeJsonAtomic,
-} from './storage/paths.js';
+  listVisitorIps,
+  resolveClientIp,
+  writeIpAlias,
+} from './ipAliases.js';
 import type {
   CloudPublishPayload,
-  ProjectPublishPayload,
   ProjectPublishResult,
-  UserProfile,
 } from './types.js';
 
 const devOrigins = new Set(['http://127.0.0.1:5173', 'http://localhost:5173']);
@@ -200,14 +198,16 @@ function buildRoutes(): Route[] {
     },
     {
       method: 'GET',
-      pattern: /^\/user-profile$/,
-      handler: ({ settings }) => readUserProfile(settings),
+      pattern: /^\/ip-aliases$/,
+      handler: ({ settings }) => listVisitorIps(settings),
     },
     {
       method: 'PUT',
-      pattern: /^\/user-profile$/,
-      handler: ({ settings, body }) =>
-        writeUserProfile(settings, validateUserProfileUpdate(body).name),
+      pattern: /^\/ip-aliases$/,
+      handler: ({ settings, body }) => {
+        const payload = validateIpAliasUpdate(body);
+        return writeIpAlias(settings, payload.ip, payload.alias);
+      },
     },
     {
       method: 'GET',
@@ -220,8 +220,11 @@ function buildRoutes(): Route[] {
       method: 'POST',
       pattern: /^\/cloud\/publish$/,
       statusCode: 201,
-      handler: ({ repository, body }) =>
-        repository.receiveCloudPublish(validateCloudPublishPayload(body)),
+      handler: ({ settings, repository, request, body }) =>
+        repository.receiveCloudPublish(
+          validateCloudPublishPayload(body).snapshot,
+          resolveClientIp(settings, request),
+        ),
     },
     {
       method: 'GET',
@@ -283,7 +286,7 @@ function buildRoutes(): Route[] {
         publishProjectToCloud(
           repository,
           params.projectId,
-          validateProjectPublishPayload(body),
+          validateProjectPublishPayload(body).publish_url,
         ),
     },
     {
@@ -508,31 +511,6 @@ function buildRoutes(): Route[] {
 
 type AiAgentInstallPayload = { target: string };
 
-async function readUserProfile(settings: AppSettings): Promise<UserProfile> {
-  const profilePath = userProfilePath(settings.planvasRoot);
-  if (!(await fileExists(profilePath))) {
-    return { name: '', updated_at: '' };
-  }
-  const payload = await readJson(profilePath);
-  return {
-    name: typeof payload.name === 'string' ? payload.name : '',
-    updated_at:
-      typeof payload.updated_at === 'string' ? payload.updated_at : '',
-  };
-}
-
-async function writeUserProfile(
-  settings: AppSettings,
-  name: string,
-): Promise<UserProfile> {
-  const profile: UserProfile = {
-    name,
-    updated_at: new Date().toISOString(),
-  };
-  await writeJsonAtomic(userProfilePath(settings.planvasRoot), profile);
-  return profile;
-}
-
 function buildCloudPublishUrl(request: IncomingMessage, url: URL): string {
   const forwardedProto = request.headers['x-forwarded-proto'];
   const proto =
@@ -546,16 +524,13 @@ function buildCloudPublishUrl(request: IncomingMessage, url: URL): string {
 async function publishProjectToCloud(
   repository: WhiteboardRepository,
   projectId: string,
-  payload: ProjectPublishPayload,
+  publishUrl: string,
 ): Promise<ProjectPublishResult> {
   const snapshot = await repository.buildProjectPublishSnapshot(projectId);
-  const response = await fetch(payload.publish_url, {
+  const response = await fetch(publishUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      user_name: payload.user_name,
-      snapshot,
-    } satisfies CloudPublishPayload),
+    body: JSON.stringify({ snapshot } satisfies CloudPublishPayload),
   });
   if (!response.ok) {
     throw new HttpError(

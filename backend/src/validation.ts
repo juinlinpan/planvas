@@ -16,7 +16,7 @@ import {
   type ProjectOpenPathPayload,
   type ProjectThemeColor,
   type ProjectUpdatePayload,
-  type UserProfileUpdatePayload,
+  type IpAliasUpdatePayload,
 } from './types.js';
 
 type UnknownRecord = Record<string, unknown>;
@@ -107,11 +107,31 @@ export function validateProjectOpenPath(
   return { path: pathValue };
 }
 
-export function validateUserProfileUpdate(
+export function validateIpAliasUpdate(
   value: unknown,
-): UserProfileUpdatePayload {
+): IpAliasUpdatePayload {
   const body = asRecord(value);
-  return { name: validateDisplayName(body.name, ['body', 'name']) };
+  const ip = requireString(body.ip, ['body', 'ip']).trim();
+  if (ip.length === 0 || ip.length > 80) {
+    throw validationError([
+      {
+        loc: ['body', 'ip'],
+        msg: 'IP must be between 1 and 80 characters.',
+        type: 'value_error',
+      },
+    ]);
+  }
+  const alias = requireString(body.alias, ['body', 'alias']).trim();
+  if (alias.length > 80) {
+    throw validationError([
+      {
+        loc: ['body', 'alias'],
+        msg: 'Alias must be at most 80 characters.',
+        type: 'value_error',
+      },
+    ]);
+  }
+  return { ip, alias };
 }
 
 export function validateProjectPublishPayload(
@@ -123,7 +143,6 @@ export function validateProjectPublishPayload(
       'body',
       'publish_url',
     ]),
-    user_name: validateDisplayName(body.user_name, ['body', 'user_name']),
   };
 }
 
@@ -215,7 +234,6 @@ export function validateCloudPublishPayload(
     };
   });
   return {
-    user_name: validateDisplayName(body.user_name, ['body', 'user_name']),
     snapshot: {
       project: project as CloudPublishPayload['snapshot']['project'],
       pages,
@@ -362,23 +380,6 @@ function asNestedRecord(value: unknown, loc: Array<string | number>): UnknownRec
     ]);
   }
   return value as UnknownRecord;
-}
-
-function validateDisplayName(
-  value: unknown,
-  loc: Array<string | number>,
-): string {
-  const name = requireString(value, loc).trim();
-  if (name.length === 0 || name.length > 80) {
-    throw validationError([
-      {
-        loc,
-        msg: 'Name must be between 1 and 80 characters.',
-        type: 'value_error',
-      },
-    ]);
-  }
-  return name;
 }
 
 function validatePublishUrl(

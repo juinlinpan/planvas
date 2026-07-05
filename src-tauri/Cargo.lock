@@ -2168,7 +2168,7 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "planvas-desktop"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "tauri",
  "tauri-build",

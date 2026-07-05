@@ -1,0 +1,18 @@
+services:
+  planvas-test:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: planvas:test
+    container_name: planvas-test
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      WHITEBOARD_PLANVAS_ROOT: /data/planvas
+      WHITEBOARD_BACKEND_ROOT: /data/runtime
+      WHITEBOARD_FRONTEND_DIST: /app/frontend/dist
+    ports:
+      - "38889:18000"
+    volumes:
+      - "./data:/data/planvas"
+      - "./runtime:/data/runtime"

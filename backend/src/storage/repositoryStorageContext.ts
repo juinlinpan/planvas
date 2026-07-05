@@ -651,8 +651,25 @@ export abstract class RepositoryStorageContext {
       apiProject.path = projectDir;
       apiProject.storage_kind = storageKind ?? this.storageKindForPath(projectDir);
       apiProject.path_exists = pathExists;
+      apiProject.owner = this.ownerForProjectDir(
+        projectDir,
+        apiProject.storage_kind,
+      );
     }
     return apiProject;
+  }
+
+  protected ownerForProjectDir(
+    projectDir: string,
+    storageKind: 'project_store' | 'external',
+  ): string | null {
+    if (storageKind !== 'project_store') return null;
+    const relative = path.relative(
+      path.resolve(this.projectStoreDir()),
+      path.resolve(projectDir),
+    );
+    const segments = relative.split(path.sep);
+    return segments.length >= 2 ? segments[0] : null;
   }
 
   protected storedProjectFromProject(project: Project): ProjectMetadata['project'] {
@@ -661,6 +678,7 @@ export abstract class RepositoryStorageContext {
     delete storedProject.path;
     delete storedProject.storage_kind;
     delete storedProject.path_exists;
+    delete storedProject.owner;
     return storedProject as ProjectMetadata['project'];
   }
 

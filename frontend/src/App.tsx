@@ -14,17 +14,14 @@ import {
   deleteProject,
   deleteProjectNote,
   getCloudPublishTarget,
-  getUserProfile,
   getPageBoardData,
   listProjects,
   openProjectPath,
   publishProject,
   revealProject,
   reorderPages,
-  updateUserProfile,
   updatePage,
   updateProject,
-  type UserProfile,
   type Page,
   type ProjectNote,
   type ProjectThemeColor,
@@ -118,10 +115,6 @@ export function App() {
   const [dragState, setDragState] = useState<SidebarDragState | null>(null);
   const [dropState, setDropState] = useState<SidebarDropState | null>(null);
   const [projectDeleteDialogOpen, setProjectDeleteDialogOpen] = useState(false);
-  const [userProfile, setUserProfile] = useState<UserProfile>({
-    name: '',
-    updated_at: '',
-  });
 
   const [projectDeleteConfirmation, setProjectDeleteConfirmation] =
     useState('');
@@ -142,22 +135,6 @@ export function App() {
     selectedPageId,
     setSelectedPageId,
   });
-
-  useEffect(() => {
-    let isCancelled = false;
-    const controller = new AbortController();
-    getUserProfile(controller.signal)
-      .then((profile) => {
-        if (!isCancelled) setUserProfile(profile);
-      })
-      .catch((error) => {
-        if (!isCancelled) setErrorMessage(getErrorMessage(error));
-      });
-    return () => {
-      isCancelled = true;
-      controller.abort();
-    };
-  }, [setErrorMessage]);
 
   useEffect(() => {
     setActiveNoteFile(null);
@@ -270,13 +247,6 @@ export function App() {
     });
   }
 
-  async function handleSaveUserName(nextName: string): Promise<void> {
-    await runMutation(async () => {
-      const profile = await updateUserProfile(nextName);
-      setUserProfile(profile);
-    });
-  }
-
   async function handleCopyCloudPublishUrl(): Promise<void> {
     try {
       const target = await getCloudPublishTarget();
@@ -291,15 +261,7 @@ export function App() {
     if (selectedProject === null) {
       throw new Error('No project is selected.');
     }
-    const userName = userProfile.name.trim();
-    if (userName.length === 0) {
-      throw new Error('Save your user name on Home before publishing.');
-    }
-    const result = await publishProject(
-      selectedProject.id,
-      publishUrl,
-      userName,
-    );
+    const result = await publishProject(selectedProject.id, publishUrl);
     return `Published as ${result.owner}/${result.uploaded_name}.`;
   }
 
@@ -787,11 +749,9 @@ export function App() {
           isBusy={isMutating}
           isLoading={loadState === 'loading'}
           projects={projects}
-          userName={userProfile.name}
           selectedProjectId={selectedProjectId}
           onCreateProject={openCreateProjectDialog}
           onOpenProject={() => handleOpenProject()}
-          onSaveUserName={(name) => handleSaveUserName(name)}
           onCopyCloudPublishUrl={() => handleCopyCloudPublishUrl()}
           onSelectProject={(projectId) => openProject(projectId, null)}
           onRemoveProject={(projectId) =>
@@ -1056,7 +1016,6 @@ export function App() {
         onChangeProjectTheme={handleChangeProjectTheme}
         onRevealProject={handleRevealProject}
         onChangeProjectDefaultStyle={handleChangeProjectDefaultStyle}
-        userName={userProfile.name}
         onPublishProject={handlePublishProject}
         onOpenProjectDeleteDialog={openProjectDeleteDialog}
       />

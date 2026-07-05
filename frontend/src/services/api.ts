@@ -17,6 +17,7 @@ export type Project = {
   path?: string | null;
   storage_kind?: 'project_store' | 'external';
   path_exists?: boolean;
+  owner?: string | null;
 };
 
 export type ProjectThemeColor = 'default' | 'sage' | 'sunset' | 'ocean';
@@ -56,8 +57,9 @@ export type ProjectNote = {
   updated_at: string;
 };
 
-export type UserProfile = {
-  name: string;
+export type IpAlias = {
+  ip: string;
+  alias: string;
   updated_at: string;
 };
 
@@ -143,16 +145,19 @@ export async function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
   return requestJson<HealthResponse>('/healthz', { signal });
 }
 
-export async function getUserProfile(
+export async function listIpAliases(
   signal?: AbortSignal,
-): Promise<UserProfile> {
-  return requestJson<UserProfile>('/user-profile', { signal });
+): Promise<IpAlias[]> {
+  return requestJson<IpAlias[]>('/ip-aliases', { signal });
 }
 
-export async function updateUserProfile(name: string): Promise<UserProfile> {
-  return requestJson<UserProfile>('/user-profile', {
+export async function updateIpAlias(
+  ip: string,
+  alias: string,
+): Promise<IpAlias> {
+  return requestJson<IpAlias>('/ip-aliases', {
     method: 'PUT',
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ ip, alias }),
   });
 }
 
@@ -230,11 +235,10 @@ export async function installProjectAiAgent(
 export async function publishProject(
   projectId: string,
   publishUrl: string,
-  userName: string,
 ): Promise<ProjectPublishResult> {
   return requestJson<ProjectPublishResult>(`/projects/${projectId}/publish`, {
     method: 'POST',
-    body: JSON.stringify({ publish_url: publishUrl, user_name: userName }),
+    body: JSON.stringify({ publish_url: publishUrl }),
   });
 }
 

@@ -7,7 +7,6 @@ import type { ProjectIndexEntry, StoredProject } from '../types.js';
 
 export const metadataFilename = 'metadata.json';
 export const projectIndexFilename = 'project.json';
-export const userProfileFilename = 'user.json';
 export const projectStoreDirname = 'project_store';
 export const projectMarkerDirname = '.pv_project';
 export const noteFileExtension = '.md';
@@ -62,10 +61,6 @@ export function projectIndexPath(planvasRoot: string): string {
   return path.join(planvasRoot, projectIndexFilename);
 }
 
-export function userProfilePath(planvasRoot: string): string {
-  return path.join(planvasRoot, userProfileFilename);
-}
-
 export function projectDataDir(projectDir: string): string {
   return path.join(projectDir, projectMarkerDirname);
 }
@@ -104,7 +99,7 @@ export async function writeProjectMarker(projectDir: string): Promise<void> {
 export function slugify(value: string, fallback = 'untitled'): string {
   const normalized = value
     .trim()
-    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/[^\p{L}\p{N}._-]+/gu, '-')
     .replace(/^[._-]+|[._-]+$/g, '');
   return normalized.slice(0, 80) || fallback;
 }

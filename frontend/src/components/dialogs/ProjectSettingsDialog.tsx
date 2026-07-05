@@ -48,7 +48,6 @@ export interface ProjectSettingsDialogProps {
   onChangeProjectDefaultStyle: (
     style: Partial<ProjectDefaultStyle>,
   ) => Promise<void>;
-  userName: string;
   onPublishProject: (publishUrl: string) => Promise<string>;
   onOpenProjectDeleteDialog: () => void;
 }
@@ -63,7 +62,6 @@ export function ProjectSettingsDialog({
   onChangeProjectTheme,
   onRevealProject,
   onChangeProjectDefaultStyle,
-  userName,
   onPublishProject,
   onOpenProjectDeleteDialog,
 }: ProjectSettingsDialogProps) {
@@ -292,19 +290,13 @@ export function ProjectSettingsDialog({
                 disabled={
                   isMutating ||
                   isPublishing ||
-                  normalizedPublishUrlDraft.length === 0 ||
-                  userName.trim().length === 0
+                  normalizedPublishUrlDraft.length === 0
                 }
                 onClick={() => void handlePublish()}
               >
                 {isPublishing ? 'Publishing...' : 'Publish'}
               </button>
             </div>
-            {userName.trim().length === 0 ? (
-              <p className="project-settings-ai-status">
-                Save your user name on Home before publishing.
-              </p>
-            ) : null}
             {publishStatus ? (
               <p className="project-settings-ai-status">{publishStatus}</p>
             ) : null}
