@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { readStoredBoolean } from '../../utils/index';
 import {
+  ApiError,
   type BoardItem,
   type ConnectorLink,
   getPageBoardData,
@@ -567,6 +568,21 @@ export function Canvas({
             console.error('[Canvas] Failed to save board state', err);
             setSaveStatus('unsaved');
             saveQueuedRef.current = false;
+            // Re-arm the autosave after transient failures (network drop, a
+            // 5xx from a briefly locked file) so the edits are not stranded
+            // until the next keystroke. Client errors (4xx) would fail the
+            // same way every time, so leave those to the user.
+            const retriable = !(err instanceof ApiError) || err.status >= 500;
+            if (
+              retriable &&
+              autosaveEnabledRef.current &&
+              itemSaveTimer.current === null
+            ) {
+              itemSaveTimer.current = setTimeout(() => {
+                itemSaveTimer.current = null;
+                void saveCurrentBoardState(true);
+              }, ITEM_SAVE_DELAY);
+            }
           }
         } while (saveQueuedRef.current);
       } finally {
@@ -908,6 +924,10 @@ export function Canvas({
   const selectedItems = useMemo(
     () => items.filter((item) => selectedIds.includes(item.id)),
     [items, selectedIds],
+  );
+  const existingNoteFiles = useMemo(
+    () => new Set(projectNotes.map((note) => note.note_file)),
+    [projectNotes],
   );
 
   useEffect(() => {
@@ -2181,6 +2201,7 @@ export function Canvas({
           selectedItems={selectedItems}
           selectionCount={selectedIds.length}
           childCount={selectedChildCount}
+          existingNoteFiles={existingNoteFiles}
           projectDefaultStyle={projectDefaultStyle}
           selectedTableCellIds={
             selectedItem?.type === ITEM_TYPE.table &&

@@ -76,6 +76,29 @@ export async function readMarkdownBackedNote(
   }
 }
 
+// Several note_paper items can point at the same noteFile, and board persists
+// write them with Promise.all. Serialize the check+write per path so two tmp
+// files never rename onto the same target concurrently — on Windows that
+// throws EPERM and fails the whole board save.
+const noteWriteQueues = new Map<string, Promise<void>>();
+
+async function withNoteWriteQueue(
+  targetPath: string,
+  task: () => Promise<void>,
+): Promise<void> {
+  const previous = noteWriteQueues.get(targetPath) ?? Promise.resolve();
+  const current = previous.then(task, task);
+  const queued = current.catch(() => {});
+  noteWriteQueues.set(targetPath, queued);
+  try {
+    await current;
+  } finally {
+    if (noteWriteQueues.get(targetPath) === queued) {
+      noteWriteQueues.delete(targetPath);
+    }
+  }
+}
+
 export async function writeMarkdownBackedNote(
   projectDataDir: string,
   item: BoardItem,
@@ -94,8 +117,12 @@ export async function writeMarkdownBackedNote(
       ),
     );
   const targetPath = notePath(projectDataDir, noteFile);
-  if (targetPath && (item.content !== null || !(await exists(targetPath)))) {
-    await writeTextAtomic(targetPath, item.content ?? '');
+  if (targetPath) {
+    await withNoteWriteQueue(targetPath, async () => {
+      if (item.content !== null || !(await exists(targetPath))) {
+        await writeTextAtomic(targetPath, item.content ?? '');
+      }
+    });
   }
   const noteData = {
     ...existingNoteData,

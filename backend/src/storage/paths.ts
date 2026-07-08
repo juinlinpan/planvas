@@ -141,6 +141,33 @@ export async function uniqueSerialPath(
   return candidate;
 }
 
+function isTransientRenameError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | null)?.code;
+  return code === 'EPERM' || code === 'EACCES' || code === 'EBUSY';
+}
+
+// On Windows, renaming over a file that antivirus/search indexing (or a
+// concurrent reader) briefly holds open throws EPERM/EBUSY even though the
+// operation would succeed a moment later. Short retries absorb that.
+async function renameWithRetries(
+  fromPath: string,
+  toPath: string,
+): Promise<void> {
+  let delayMs = 20;
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await fs.promises.rename(fromPath, toPath);
+      return;
+    } catch (error) {
+      if (attempt >= 4 || !isTransientRenameError(error)) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      delayMs *= 2;
+    }
+  }
+}
+
 export async function writeJsonAtomic(
   targetPath: string,
   payload: unknown,
@@ -155,7 +182,7 @@ export async function writeJsonAtomic(
     `${JSON.stringify(payload, null, 2)}\n`,
     'utf8',
   );
-  await fs.promises.rename(tempPath, targetPath);
+  await renameWithRetries(tempPath, targetPath);
 }
 
 export async function writeTextAtomic(
@@ -170,7 +197,7 @@ export async function writeTextAtomic(
     `.tmp-${randomUUID()}.tmp`,
   );
   await fs.promises.writeFile(tempPath, content, 'utf8');
-  await fs.promises.rename(tempPath, targetPath);
+  await renameWithRetries(tempPath, targetPath);
 }
 
 export async function readJson(

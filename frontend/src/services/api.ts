@@ -110,6 +110,16 @@ async function parseError(response: Response): Promise<string> {
   return `Request failed with status ${response.status}`;
 }
 
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 async function requestJson<T>(
   path: string,
   options: RequestOptions = {},
@@ -123,7 +133,7 @@ async function requestJson<T>(
   });
 
   if (!response.ok) {
-    throw new Error(await parseError(response));
+    throw new ApiError(await parseError(response), response.status);
   }
 
   const payload = (await response.json()) as SuccessResponse<T>;
@@ -137,7 +147,7 @@ async function requestVoid(
   const response = await fetch(`${apiBaseUrl}${path}`, options);
 
   if (!response.ok) {
-    throw new Error(await parseError(response));
+    throw new ApiError(await parseError(response), response.status);
   }
 }
 

@@ -150,6 +150,11 @@
   font-size: 0.78rem;
 }
 
+.inspector-field-error {
+  color: var(--danger);
+  font-size: 0.74rem;
+}
+
 .inspector-meta {
   display: none;
   color: var(--muted);

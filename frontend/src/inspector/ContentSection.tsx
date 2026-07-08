@@ -40,6 +40,7 @@ function serializeNoteFileName(item: BoardItem, noteFile: string): string {
 type Props = {
   item: BoardItem;
   childCount: number;
+  existingNoteFiles?: ReadonlySet<string>;
   onUpdate: (item: BoardItem) => void;
   onToggleCollapse: () => void;
 };
@@ -49,11 +50,22 @@ type Props = {
  * note file rename (note_paper), and frame collapse toggle.
  * Extracted from Inspector.tsx.
  */
-export function ContentSection({ item, childCount, onUpdate, onToggleCollapse }: Props) {
+export function ContentSection({
+  item,
+  childCount,
+  existingNoteFiles,
+  onUpdate,
+  onToggleCollapse,
+}: Props) {
   const [localTitle, setLocalTitle] = useState(item.title ?? '');
   const [localContent, setLocalContent] = useState(item.content ?? '');
   const [isTitleFocused, setIsTitleFocused] = useState(false);
   const [isContentFocused, setIsContentFocused] = useState(false);
+  const [noteFileError, setNoteFileError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setNoteFileError(null);
+  }, [item.id]);
 
   useEffect(() => {
     if (!isTitleFocused) {
@@ -95,8 +107,16 @@ export function ContentSection({ item, childCount, onUpdate, onToggleCollapse }:
       nextNoteFile.length === 0 ||
       nextNoteFile === getNoteFileName(item)
     ) {
+      setNoteFileError(null);
       return;
     }
+    // The backend refuses renames onto an existing note (it would merge two
+    // notes and delete one); surface that here instead of failing the save.
+    if (existingNoteFiles?.has(nextNoteFile)) {
+      setNoteFileError(`「${nextNoteFile}」已存在，請換一個檔名。`);
+      return;
+    }
+    setNoteFileError(null);
     onUpdate({
       ...item,
       data_json: serializeNoteFileName(item, nextNoteFile),
@@ -155,6 +175,11 @@ export function ContentSection({ item, childCount, onUpdate, onToggleCollapse }:
               if (e.key === 'Enter') e.currentTarget.blur();
             }}
           />
+          {noteFileError !== null ? (
+            <span className="inspector-field-error" role="alert">
+              {noteFileError}
+            </span>
+          ) : null}
         </label>
       ) : null}
       {item.type === ITEM_TYPE.frame ? (

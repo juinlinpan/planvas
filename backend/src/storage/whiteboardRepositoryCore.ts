@@ -1209,7 +1209,17 @@ export class WhiteboardRepository extends RepositoryStorageContext {
       }
     }
 
+    const projectDataDir = this.projectDataDir(projectDir);
     for (const [previousNoteFile, nextNoteFile] of renamedFiles) {
+      // Renaming onto an existing note would silently merge two notes and
+      // delete one of them; refuse like the note rename endpoint does.
+      const nextPath = this.notePath(projectDataDir, nextNoteFile);
+      if (nextPath !== null && (await exists(nextPath))) {
+        throw new HttpError(
+          409,
+          `A note named '${nextNoteFile}' already exists.`,
+        );
+      }
       await this.renameProjectNoteFile(projectDir, previousNoteFile, nextNoteFile);
     }
   }

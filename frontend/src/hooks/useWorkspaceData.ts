@@ -170,6 +170,10 @@ export function useWorkspaceData({
 
   const pageBoardCacheRef = useRef<Map<string, PageBoardCacheEntry>>(new Map());
   const projectNotesRef = useRef<ProjectNote[]>(projectNotes);
+  // Bumped whenever a save/rename applies fresh note state locally. Disk
+  // refreshes capture it before their fetch and bail if it moved, so a slow
+  // list response cannot roll a just-saved note back to its pre-save content.
+  const projectNotesWriteVersionRef = useRef(0);
   const selectedPageIdRef = useRef<string | null>(selectedPageId);
   const projectDataLoadIdRef = useRef(0);
   const workspaceEntryRetryAttemptedRef = useRef<number | null>(null);
@@ -366,7 +370,14 @@ export function useWorkspaceData({
       // loading flag would briefly replace the list with "Loading notes…"
       // causing a visible flash.
       try {
+        const writeVersion = projectNotesWriteVersionRef.current;
         const nextNotes = await listProjectNotes(projectId);
+        if (projectNotesWriteVersionRef.current !== writeVersion) {
+          // A save landed while this response was in flight; it is already
+          // stale and would revert the fresher local state. The next refresh
+          // or focus poll reconciles with disk.
+          return;
+        }
         // Only update state if notes actually changed — avoids creating a new
         // array reference that would cause downstream re-renders (Canvas sync
         // useEffect, sidebar list, etc.).
@@ -385,6 +396,7 @@ export function useWorkspaceData({
   );
 
   const updateProjectNotesState = useCallback((updatedNotes: ProjectNote[], previousNoteFile?: string) => {
+    projectNotesWriteVersionRef.current += 1;
     setProjectNotes((current) => {
       let next = [...current];
       if (previousNoteFile) {
@@ -407,7 +419,12 @@ export function useWorkspaceData({
 
   const checkProjectNotesChanged = useCallback(
     async (projectId: string): Promise<void> => {
+      const writeVersion = projectNotesWriteVersionRef.current;
       const nextNotes = await listProjectNotes(projectId);
+      if (projectNotesWriteVersionRef.current !== writeVersion) {
+        // Stale response: a save applied fresher note state mid-fetch.
+        return;
+      }
 
       let hasUpdatesForUnsavedDrafts = false;
 

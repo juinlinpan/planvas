@@ -82,6 +82,9 @@ See `note_edit_save.md` for the full analysis (problems P1-P6) and the turn-base
 - [ ] Revalidate the per-Page board cache on Canvas mount (stale-while-revalidate) so switching back to a Page tab picks up external board changes made while the tab was inactive.
 - [ ] Add a lightweight note revision guard: `PATCH /notes/:file` carries a base revision (mtime or content hash) and the backend rejects with 409 on mismatch instead of silently overwriting. (S3, downgraded)
 - [x] Short-circuit `listProjectNotes` with an mtime+size-validated content cache, and answer GET requests with ETag / 304 so focus polling stops re-reading and re-transferring unchanged notes.
+- [x] Serialize per-file markdown writes and retry transient Windows rename errors so boards where several note papers share one `.md` stop failing to save with EPERM 500s; re-arm the canvas autosave after transient (network/5xx) save failures.
+- [x] Refuse board-state note renames onto an existing `.md` (backend 409 + inspector pre-check with inline error) instead of silently merging two notes and deleting one of them.
+- [x] Guard notes refreshes against stale list responses overwriting a just-saved note (write-version check in `useWorkspaceData`).
 - [ ] Add Playwright end-to-end coverage for the acceptance scenarios in `note_edit_save.md` section 4 (typing during autosave, blur + window switch, external MCP item creation surviving a board save).
 
 ## Page XML Semantic Storage Notes

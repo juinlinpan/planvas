@@ -26,6 +26,7 @@ type Props = {
   selectedItems?: BoardItem[];
   selectionCount: number;
   childCount: number;
+  existingNoteFiles?: ReadonlySet<string>;
   selectedTableCellIds: string[];
   isCollapsed: boolean;
   onUpdate: (item: BoardItem) => void;
@@ -152,6 +153,7 @@ export function Inspector({
   selectedItems = [],
   selectionCount,
   childCount,
+  existingNoteFiles,
   selectedTableCellIds,
   isCollapsed,
   onUpdate,
@@ -391,6 +393,7 @@ export function Inspector({
                     <ContentSection
                       item={selectedItem}
                       childCount={childCount}
+                      existingNoteFiles={existingNoteFiles}
                       onUpdate={onUpdate}
                       onToggleCollapse={onToggleCollapse}
                     />

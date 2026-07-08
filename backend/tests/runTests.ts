@@ -1819,6 +1819,174 @@ const tests: TestCase[] = [
       });
     },
   },
+  {
+    name: 'saves boards where several note papers share one markdown file',
+    run: async () => {
+      const { baseUrl, settings } = await createTestServer();
+      const project = (
+        await requestJson<Project>(baseUrl, '/projects', {
+          method: 'POST',
+          ...jsonBody({ name: 'SharedNotes' }),
+        })
+      ).data;
+      const page = (
+        await requestJson<Page>(baseUrl, `/projects/${project.id}/pages`, {
+          method: 'POST',
+          ...jsonBody({ name: 'Main' }),
+        })
+      ).data;
+      const projectDataDir = path.join(
+        settings.planvasRoot,
+        'project_store',
+        'SharedNotes',
+        '.pv_project',
+      );
+
+      const noteItem = (id: string, content: string): BoardItem => ({
+        id,
+        page_id: page.id,
+        parent_item_id: null,
+        category: 'small_item',
+        type: 'note_paper',
+        title: null,
+        content,
+        content_format: 'markdown',
+        x: 0,
+        y: 0,
+        width: 264,
+        height: 216,
+        rotation: 0,
+        z_index: 0,
+        is_collapsed: false,
+        style_json: null,
+        data_json: JSON.stringify({
+          noteFile: 'shared.md',
+          noteFileManaged: false,
+        }),
+        created_at: '2026-01-01T00:00:00.000Z',
+        updated_at: '2026-01-01T00:00:00.000Z',
+      });
+
+      // Both duplicates carry non-null content, exactly like the frontend
+      // sends after propagating an edit across items sharing a noteFile.
+      // Repeat the save: the concurrent same-target writes used to fail
+      // intermittently on Windows with EPERM.
+      for (let edit = 1; edit <= 10; edit += 1) {
+        const content = `# shared\n\nedit-${edit}`;
+        const saved = await requestJson<PageBoardData>(
+          baseUrl,
+          `/pages/${page.id}/board-state`,
+          {
+            method: 'PUT',
+            ...jsonBody({
+              board_items: [
+                noteItem('shared-a', content),
+                noteItem('shared-b', content),
+              ],
+              connector_links: [],
+            }),
+          },
+        );
+        assert.equal(saved.status, 200, `save #${edit} failed`);
+        assert.equal(
+          fs.readFileSync(path.join(projectDataDir, 'shared.md'), 'utf8'),
+          content,
+        );
+      }
+    },
+  },
+  {
+    name: 'rejects board-state note renames onto an existing markdown file',
+    run: async () => {
+      const { baseUrl, settings } = await createTestServer();
+      const project = (
+        await requestJson<Project>(baseUrl, '/projects', {
+          method: 'POST',
+          ...jsonBody({ name: 'RenameConflict' }),
+        })
+      ).data;
+      const page = (
+        await requestJson<Page>(baseUrl, `/projects/${project.id}/pages`, {
+          method: 'POST',
+          ...jsonBody({ name: 'Main' }),
+        })
+      ).data;
+      const projectDataDir = path.join(
+        settings.planvasRoot,
+        'project_store',
+        'RenameConflict',
+        '.pv_project',
+      );
+
+      const noteItem = (
+        id: string,
+        content: string | null,
+        noteFile: string,
+      ): BoardItem => ({
+        id,
+        page_id: page.id,
+        parent_item_id: null,
+        category: 'small_item',
+        type: 'note_paper',
+        title: null,
+        content,
+        content_format: 'markdown',
+        x: 0,
+        y: 0,
+        width: 264,
+        height: 216,
+        rotation: 0,
+        z_index: 0,
+        is_collapsed: false,
+        style_json: null,
+        data_json: JSON.stringify({ noteFile, noteFileManaged: false }),
+        created_at: '2026-01-01T00:00:00.000Z',
+        updated_at: '2026-01-01T00:00:00.000Z',
+      });
+
+      const seeded = await requestJson<PageBoardData>(
+        baseUrl,
+        `/pages/${page.id}/board-state`,
+        {
+          method: 'PUT',
+          ...jsonBody({
+            board_items: [
+              noteItem('first', '# first\n\nfirst body', 'first.md'),
+              noteItem('second', '# second\n\nsecond body', 'second.md'),
+            ],
+            connector_links: [],
+          }),
+        },
+      );
+      assert.equal(seeded.status, 200);
+
+      // Renaming second.md onto first.md would merge the notes and delete
+      // second.md; the save must fail with a conflict and leave both intact.
+      const conflicted = await requestJson<never>(
+        baseUrl,
+        `/pages/${page.id}/board-state`,
+        {
+          method: 'PUT',
+          ...jsonBody({
+            board_items: [
+              noteItem('first', null, 'first.md'),
+              noteItem('second', '# second\n\nsecond body', 'first.md'),
+            ],
+            connector_links: [],
+          }),
+        },
+      );
+      assert.equal(conflicted.status, 409);
+      assert.equal(
+        fs.readFileSync(path.join(projectDataDir, 'first.md'), 'utf8'),
+        '# first\n\nfirst body',
+      );
+      assert.equal(
+        fs.readFileSync(path.join(projectDataDir, 'second.md'), 'utf8'),
+        '# second\n\nsecond body',
+      );
+    },
+  },
 ];
 
 let failures = 0;

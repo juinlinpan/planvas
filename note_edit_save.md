@@ -183,6 +183,20 @@ XML/JSON 都已用 tmp+rename(`paths.ts:144-159`、`pageXml.ts:306-345`),唯獨 
 - 效果:視窗切回時,無變更的情況從「後端全文讀所有 `.md` + 全量傳輸 + 前端解析比對」降為「stat 所有檔 + 一次 sha1 + 304 空回應」。
 - 驗證:backend 測試 18 全過;實測 隔離 server:GET 200+ETag → If-None-Match 304 → 外部改檔後同一 ETag 變 200 且內容為新版 → PATCH 後列表即時反映、無殘留暫存檔。
 
+### 第五輪:同檔並發寫入 EPERM 500 + rename 撞名資料遺失(2026-07-07)
+
+- **症狀回報**:inspector 編輯 note 內容/檔名「存不進去」;note 分頁存檔後切回 page 內容不更新、要過一陣子才自動變。
+- **根因(實測重現)**:同一頁有兩個 note_paper 指向同一個 `.md`(例如複製貼上過 note)時,前端編輯會把內容 propagate 到所有同檔 items,`writePageXmlFile` 用 `Promise.all` 並發寫同一個檔;Windows 上兩個 tmp 檔同時 rename 到同一目標會丟 `EPERM`,整個 `PUT board-state` 500(隔離後端實測 **20 次存檔失敗 16 次**)。存檔失敗後前端不重試,且該 note 因「未落盤」被 dirty 標記永久擋掉外部同步,畫面看起來就是「存不進去、也不會更新」。
+- **附帶發現**:board-state 的 rename 路徑把 note 改名成「已存在的檔名」時,會採用目標檔內容、再用 client 送來的舊內容覆寫、最後刪掉原檔——兩份 note 內容都遺失;note 分頁的 rename endpoint 反而正確回 409。
+- **修法**:
+  - backend `markdownNotes.ts`:`writeMarkdownBackedNote` 的 check+write 以 per-path promise queue 序列化,同檔寫入不再並發 rename。
+  - backend `paths.ts`:`writeTextAtomic` / `writeJsonAtomic` 的 rename 對 EPERM/EACCES/EBUSY 做最多 4 次退避重試(吸收防毒/索引器短暫鎖檔)。
+  - backend `renameChangedBoardStateNoteFiles`:目標檔已存在 → 409(與 note rename endpoint 一致),不再無聲合併+刪檔。
+  - frontend `api.ts` 新增帶 status 的 `ApiError`;`Canvas.saveCurrentBoardState` 失敗時若為網路錯誤/5xx 自動 re-arm autosave 重試(4xx 不重試避免無限迴圈)。
+  - frontend inspector `ContentSection`:改檔名前先比對現有 note 清單,撞名顯示行內錯誤、不送出。
+  - frontend `useWorkspaceData`:新增 write-version guard——`refreshProjectNotes` / `checkProjectNotesChanged` 在 fetch 期間若有更新的本地存檔落地,丟棄過期回應,修掉「note 分頁剛存檔就被較舊的 notes 清單回應蓋回去、要等下次 focus 輪詢才變回來」的 race(對應症狀 2)。
+- **驗證**:backend 測試 20 全過(新增「同檔多 note 連續存檔」與「rename 撞名 409 且兩檔內容完好」);frontend vitest 200 全過(新增 ContentSection 檔名衝突 3 例)、typecheck 過;隔離後端實測同檔重複存檔 0/20 失敗(修正前 16/20)。
+
 **可砍掉/降級:** S3 降級為後端防呆(revision 不符 → 拒絕 + 前端重抓,不做衝突 UI)或先不做;M1 推播、M2 三方合併、M3 內容分流、L2 CRDT 全部延後。驗收情境第 3 條(409 衝突)對應調整,其餘照舊。
 
 ---
