@@ -8,6 +8,8 @@ import {
 import { ColorPaletteField, CommitNumberInput } from '../Inspector';
 import {
   BACKGROUND_COLOR_OPTIONS,
+  BOARD_ITEM_FONT_SIZE_MAX,
+  BOARD_ITEM_FONT_SIZE_MIN,
   STROKE_COLOR_OPTIONS,
   TEXT_COLOR_OPTIONS,
   type ProjectDefaultStyle,
@@ -492,8 +494,8 @@ export function ProjectSettingsDialog({
                     <span className="sidebar-name-label">Size</span>
                     <CommitNumberInput
                       inputKey={`project-default-font-size-${selectedProject?.id ?? 'none'}-${selectedProjectDefaultStyle.fontSize ?? 14}`}
-                      min={12}
-                      max={32}
+                      min={BOARD_ITEM_FONT_SIZE_MIN}
+                      max={BOARD_ITEM_FONT_SIZE_MAX}
                       disabled={isMutating}
                       value={selectedProjectDefaultStyle.fontSize ?? 14}
                       onCommit={(rawValue) => {

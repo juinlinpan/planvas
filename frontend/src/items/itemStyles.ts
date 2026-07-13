@@ -127,6 +127,8 @@ const DEFAULT_FRAME_BACKGROUND_COLOR = BACKGROUND_COLOR_OPTIONS[22].value;
 const DEFAULT_TEXT_COLOR = TEXT_COLOR_OPTIONS[0].value;
 const DEFAULT_STROKE_COLOR = STROKE_COLOR_OPTIONS[0].value;
 const DEFAULT_ARROW_HEAD_SIZE = 14;
+export const BOARD_ITEM_FONT_SIZE_MIN = 12;
+export const BOARD_ITEM_FONT_SIZE_MAX = 128;
 const STICKY_COLORS = BACKGROUND_COLOR_OPTIONS.slice(7).map(
   (option) => option.value,
 );
@@ -205,7 +207,10 @@ function sanitizeFontSize(value: unknown): number | undefined {
     return undefined;
   }
 
-  return Math.min(32, Math.max(12, Math.round(value)));
+  return Math.min(
+    BOARD_ITEM_FONT_SIZE_MAX,
+    Math.max(BOARD_ITEM_FONT_SIZE_MIN, Math.round(value)),
+  );
 }
 
 function sanitizeFontWeight(value: unknown): FontWeightValue | undefined {

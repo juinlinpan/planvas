@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import type { BoardItem } from '../services/api';
 import {
   BACKGROUND_COLOR_OPTIONS,
+  BOARD_ITEM_FONT_SIZE_MAX,
+  BOARD_ITEM_FONT_SIZE_MIN,
   TEXT_COLOR_OPTIONS,
   parseBoardItemStyle,
   resolveBoardItemStyle,
@@ -309,8 +311,8 @@ export function TablePanel({
             Font size
             <CommitNumberInput
               inputKey={`${item.id}-table-font-size-${resolvedStyle.fontSize}`}
-              min={12}
-              max={32}
+              min={BOARD_ITEM_FONT_SIZE_MIN}
+              max={BOARD_ITEM_FONT_SIZE_MAX}
               value={resolvedStyle.fontSize}
               onCommit={handleFontSizeChange}
             />

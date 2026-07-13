@@ -1,7 +1,8 @@
 import { type CSSProperties, type ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 
-import type { BoardItem, PageBoardData } from '../../services/api';
+import type { BoardItem, PageBoardData, ProjectNote } from '../../services/api';
+import { syncMarkdownBackedItems } from '../../services/noteSync';
 import {
   getFrameChildren,
   getMarkdownH1,
@@ -587,22 +588,33 @@ ${templates}
 
 export async function exportPageAsHtml(
   boardData: PageBoardData,
+  projectNotes: ProjectNote[] = [],
 ): Promise<Blob> {
+  const exportBoardData =
+    projectNotes.length === 0
+      ? boardData
+      : {
+          ...boardData,
+          board_items: syncMarkdownBackedItems(
+            boardData.board_items,
+            projectNotes,
+          ),
+        };
   const normalizedItems = normalizeConnectorArrowsToSegments(
-    boardData.board_items,
-    boardData.connector_links,
+    exportBoardData.board_items,
+    exportBoardData.connector_links,
   ).items;
   const bounds = getPagePngExportBounds(normalizedItems);
   if (bounds === null) {
     throw new Error('目前 Page 沒有可匯出的物件。');
   }
 
-  const visibleItems = getVisibleItems(boardData);
+  const visibleItems = getVisibleItems(exportBoardData);
   const noteItems = visibleItems.filter(isNoteType);
 
   const [surfaceMarkup, noteBodies] = await Promise.all([
     renderSurfaceToHtml(
-      buildSurfaceElement(boardData, visibleItems, bounds),
+      buildSurfaceElement(exportBoardData, visibleItems, bounds),
       visibleItems,
       bounds.width,
       bounds.height,

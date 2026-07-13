@@ -70,6 +70,13 @@ describe('itemStyles palette restrictions', () => {
     ).toBe('{"backgroundColor":"#ffffff","textColor":"#1f2937","fontSize":16}');
   });
 
+  it('allows larger board item font sizes', () => {
+    expect(serializeBoardItemStyle({ fontSize: 96 })).toBe('{"fontSize":96}');
+    expect(serializeBoardItemStyle({ fontSize: 200 })).toBe(
+      '{"fontSize":128}',
+    );
+  });
+
   it('allows transparent backgrounds for line text labels', () => {
     expect(
       serializeBoardItemStyle({

@@ -198,6 +198,7 @@ export function App() {
   } = usePageImportExport({
     selectedProjectId,
     selectedPage,
+    projectNotes,
     setPages,
     setSelectedPageId,
     isMutating,

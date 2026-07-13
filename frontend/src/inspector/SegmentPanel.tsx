@@ -1,6 +1,8 @@
 import type { BoardItem } from '../services/api';
 import {
   BACKGROUND_COLOR_OPTIONS,
+  BOARD_ITEM_FONT_SIZE_MAX,
+  BOARD_ITEM_FONT_SIZE_MIN,
   STROKE_COLOR_OPTIONS,
   TEXT_COLOR_OPTIONS,
   parseBoardItemStyle,
@@ -268,8 +270,8 @@ export function SegmentPanel({
           Font size
           <CommitNumberInput
             inputKey={`${item.id}-seg-font-size-${resolvedStyle.fontSize}`}
-            min={12}
-            max={32}
+            min={BOARD_ITEM_FONT_SIZE_MIN}
+            max={BOARD_ITEM_FONT_SIZE_MAX}
             value={resolvedStyle.fontSize}
             onCommit={(rawValue) => {
               const value = Number(rawValue);

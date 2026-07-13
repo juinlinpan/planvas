@@ -6,6 +6,7 @@ import {
   replacePageBoardState,
   type Page,
   type PageBoardData,
+  type ProjectNote,
 } from '../services/api';
 import {
   exportPageAsPng,
@@ -20,6 +21,7 @@ import type { ExportImageOptions } from '../components/dialogs/ExportImageModal'
 export interface UsePageImportExportParams {
   selectedProjectId: string | null;
   selectedPage: Page | null;
+  projectNotes: ProjectNote[];
   setPages: Dispatch<SetStateAction<Page[]>>;
   setSelectedPageId: (id: string | null) => void;
   isMutating: boolean;
@@ -150,6 +152,7 @@ function isUserCancelledFilePickerError(error: unknown): boolean {
 export function usePageImportExport({
   selectedProjectId,
   selectedPage,
+  projectNotes,
   setPages,
   setSelectedPageId,
   isMutating,
@@ -205,7 +208,7 @@ export function usePageImportExport({
         }
 
         if (format === 'html') {
-          const htmlBlob = await exportPageAsHtml(boardData);
+          const htmlBlob = await exportPageAsHtml(boardData, projectNotes);
           await saveFileWithPicker({
             data: htmlBlob,
             suggestedName: `${safePageName}.html`,

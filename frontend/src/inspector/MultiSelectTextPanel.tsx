@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import type { BoardItem } from '../services/api';
 import { ITEM_TYPE } from '../types/index';
 import {
+  BOARD_ITEM_FONT_SIZE_MAX,
+  BOARD_ITEM_FONT_SIZE_MIN,
   parseBoardItemStyle,
   resolveBoardItemStyle,
   serializeBoardItemStyle,
@@ -156,8 +158,8 @@ export function MultiSelectTextPanel({
           Font size
           <CommitNumberInput
             inputKey={`multi-font-size-${fontSizeValue}-${allSameFontSize}`}
-            min={12}
-            max={32}
+            min={BOARD_ITEM_FONT_SIZE_MIN}
+            max={BOARD_ITEM_FONT_SIZE_MAX}
             value={fontSizeValue}
             onCommit={handleFontSizeChange}
           />
